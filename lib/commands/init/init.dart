@@ -1,4 +1,5 @@
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/commands/init/project_command.dart';
 
 class InitCommand extends Command {
   @override
@@ -6,4 +7,8 @@ class InitCommand extends Command {
 
   @override
   String get name => 'init';
+
+  InitCommand() {
+    addSubcommand(ProjectCommand());
+  }
 }
