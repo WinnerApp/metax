@@ -1,6 +1,7 @@
 import 'dart:io';
-
+import 'package:meta_tool/define.dart';
 import 'package:process_runner/process_runner.dart';
+import 'package:color_logger/color_logger.dart';
 
 /// 判断是否是git仓库
 Future<bool> isGitRepository(String workingDirectory) async {
@@ -84,4 +85,24 @@ Future<void> createFileAndWrite(File file, String content) async {
     await file.delete();
     throw '写入文件失败: ${file.path}';
   });
+}
+
+void loggerSuccess(String message) {
+  logger.log(message, status: LogStatus.success);
+}
+
+void loggerError(String message) {
+  logger.log(message, status: LogStatus.error);
+}
+
+void loggerWarning(String message) {
+  logger.log(message, status: LogStatus.warning);
+}
+
+void loggerInfo(String message) {
+  logger.log(message, status: LogStatus.info);
+}
+
+void loggerDebug(String message) {
+  logger.log(message, status: LogStatus.debug);
 }

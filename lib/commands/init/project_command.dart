@@ -20,7 +20,7 @@ class ProjectCommand extends Command {
   @override
   FutureOr? run() async {
     final workspace = argResults?["path"] ?? Directory.current.path;
-    final branch = argResults?["branch"] ?? "main";
+    // final branch = argResults?["branch"] ?? "main";
     final url = argResults?["url"];
     if (url == null) {
       throw '仓库地址不能为空';
