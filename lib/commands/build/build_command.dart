@@ -1,0 +1,20 @@
+import 'package:args/command_runner.dart';
+import 'package:meta_tool/commands/build/aar/aar_command.dart';
+import 'package:meta_tool/commands/build/app/app_command.dart';
+import 'package:meta_tool/commands/build/framework/framework_command.dart';
+import 'package:meta_tool/commands/build/unity/unity_cache_command.dart';
+
+class BuildCommand extends Command {
+  @override
+  String get description => '编译Framework/aar/ipa/apk';
+
+  @override
+  String get name => 'build';
+
+  BuildCommand() {
+    addSubcommand(FrameworkCommand());
+    addSubcommand(AarCommand());
+    addSubcommand(AppCommand());
+    addSubcommand(UnityCacheCommand());
+  }
+}
