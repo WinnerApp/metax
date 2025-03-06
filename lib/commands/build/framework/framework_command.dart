@@ -1,5 +1,6 @@
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/build/framework/flutter_framework_command.dart';
+import 'package:meta_tool/commands/build/framework/unity_framework_command.dart';
 
 class FrameworkCommand extends Command {
   @override
@@ -10,5 +11,6 @@ class FrameworkCommand extends Command {
 
   FrameworkCommand() {
     addSubcommand(FlutterFrameworkCommand());
+    addSubcommand(UnityFrameworkCommand());
   }
 }
