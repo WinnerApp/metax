@@ -124,16 +124,11 @@ abstract class BaseUnityCacheCommand extends Command {
       printOutput: true,
     );
 
-    ///zip到缓存
-    await copyFile(
-      File(join(appWorkspace, '$commitHash.zip')),
-      File(cacheZipPath),
-    );
+    final zipFile = File(join(appWorkspace, '$commitHash.zip'));
 
-    /// 删除zip
-    await File(join(appWorkspace, '$commitHash.zip')).delete();
+    await unityCache.updateBranchLatestCommitHash(branch, commitHash, zipFile);
 
-    /// 更新最新缓存
-    await unityCache.updateBranchLatestCommitHash(branch, commitHash);
+    await zipFile.delete();
+
   }
 }

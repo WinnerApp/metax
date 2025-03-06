@@ -22,12 +22,11 @@ class FlutterFrameworkCommand extends Command {
       'configuration',
       abbr: 'c',
       help: 'flutter工程配置，debug/release',
-      mandatory: true,
       allowed: ['debug', 'release'],
+      mandatory: true,
     );
     argParser.addFlag(
       'clear',
-      abbr: 'c',
       help: '是否清除缓存',
       defaultsTo: false,
     );
@@ -90,5 +89,6 @@ class FlutterFrameworkCommand extends Command {
         workingDirectory: Directory(workspace),
       );
     }
+    
   }
 }

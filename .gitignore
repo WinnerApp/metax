@@ -3,3 +3,4 @@
 .dart_tool/
 .vscode/launch.json
 pubspec.lock
+.vscode/settings.json

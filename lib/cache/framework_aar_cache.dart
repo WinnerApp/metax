@@ -1,34 +1,58 @@
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/cache/cache.dart';
 import 'package:path/path.dart';
 
 class FrameworkAarCache extends Cache {
   final FrameworkAarPlatform platform;
-  FrameworkAarCache(this.platform);
+  final FrameworkAarType type;
+
+  FrameworkAarCache({required this.platform, required this.type});
+ 
 
   @override
-  String get cacheHome => join(super.cacheHome, platform.value);
-
-  /// 查询当前分支最新commit hash
-  Future<String?> getLatestCommitHashFromBranch(String branch) async {
-    final jsonText =
-        await File(cacheJsonPath).readAsString().catchError((e) => '{}');
-    final json = jsonDecode(jsonText);
-    final ids = json[branch];
-    if (ids == null) {
-      return null;
-    }
-    return ids.last;
+  String get cacheHome => join(super.cacheHome, type.value, platform.value);
+  
+  @override
+  Future<String?> getBranchLatestCommitHash(String branch) async {
+    final ids = await getIdsFromBranch(branch);
+    return ids.isEmpty ? null : ids.last;
   }
 
-  /// 更新最新的commit hash
-  Future<void> updateLatestCommitHash(String branch, String commitHash) async {
+  @override
+  Map<String, dynamic> updateCacheData(
+      Map<String, dynamic> cacheData, String branch, String commitHash) {
+    List<String> ids = [
+      ...JSON(cacheData)[branch].listValue.map((e) => e.toString())
+    ];
+    ids.add(commitHash);
+    cacheData[branch] = ids;
+    return cacheData;
+  }
+
+  @override
+  Future<void> updateBranchLatestCommitHash(
+      String branch, String commitHash, File zipFile) async {
+    final cacheZipPath = getCommitHashCachePath(commitHash);
+    if (!await File(cacheZipPath).exists()) {
+      await zipFile.copy(cacheZipPath);
+    }
+    List<String> ids = [...await getIdsFromBranch(branch)];
+    ids.add(commitHash);
     final jsonText =
         await File(cacheJsonPath).readAsString().catchError((e) => '{}');
-    final json = jsonDecode(jsonText);
-    json[branch] = [commitHash];
+    final json = JSON(jsonText);
+    json[branch] = ids;
+    if (!await File(cacheJsonPath).exists()) {
+      await File(cacheJsonPath).create(recursive: true);
+    }
+    await File(cacheJsonPath).writeAsString(json.stringValue);
+  }
+
+  Future<List<String>> getIdsFromBranch(String branch) async {
+    final json = JSON(await getCacheData(branch));
+    return json[branch].listValue.map((e) => e.toString()).toList();
   }
 }
 
@@ -38,4 +62,13 @@ enum FrameworkAarPlatform {
 
   final String value;
   const FrameworkAarPlatform(this.value);
+}
+
+enum FrameworkAarType {
+  framework('framework'),
+  aar('aar');
+
+  final String value;
+
+  const FrameworkAarType(this.value);
 }
