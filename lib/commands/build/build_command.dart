@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/build/aar/aar_command.dart';
 import 'package:meta_tool/commands/build/app/app_command.dart';

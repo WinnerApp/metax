@@ -1,12 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/cache/cache.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 
 class UnityCache extends Cache {
-  final UnityCachePlatform platform;
+  final BuildPlatform platform;
 
   UnityCache({required this.platform}) : super();
 
@@ -22,17 +20,11 @@ class UnityCache extends Cache {
 
   @override
   Map<String, dynamic> updateCacheData(
-      Map<String, dynamic> cacheData, String branch, String commitHash) {
+    Map<String, dynamic> cacheData,
+    String branch,
+    String commitHash,
+  ) {
     cacheData[branch] = commitHash;
     return cacheData;
   }
-}
-
-enum UnityCachePlatform {
-  ios('ios'),
-  android('android');
-
-  final String name;
-
-  const UnityCachePlatform(this.name);
 }

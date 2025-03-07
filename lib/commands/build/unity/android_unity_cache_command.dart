@@ -1,5 +1,5 @@
-import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/build/unity/base_unity_cache_command.dart';
+import 'package:meta_tool/define.dart';
 
 class AndroidUnityCacheCommand extends BaseUnityCacheCommand {
   @override
@@ -9,5 +9,5 @@ class AndroidUnityCacheCommand extends BaseUnityCacheCommand {
   String get name => 'android';
 
   @override
-  UnityCachePlatform get platform => UnityCachePlatform.android;
+  BuildPlatform get platform => BuildPlatform.android;
 }

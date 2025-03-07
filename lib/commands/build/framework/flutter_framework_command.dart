@@ -1,11 +1,12 @@
 import 'dart:io';
-
-import 'package:args/command_runner.dart';
+import 'package:meta_tool/cache/framework_aar_cache.dart';
+import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
-class FlutterFrameworkCommand extends Command {
+class FlutterFrameworkCommand extends BuildCacheCommand {
   @override
   String get description => '编译Flutter Framework';
 
@@ -32,11 +33,15 @@ class FlutterFrameworkCommand extends Command {
     );
   }
 
+  late String workspace;
+  late String configuration;
+  late bool clear;
+
   @override
   Future<void> run() async {
-    String workspace = argResults?['workspace'] ?? Directory.current.path;
-    String configuration = argResults?['configuration'];
-    bool clear = argResults?['clear'];
+    workspace = argResults?['workspace'] ?? Directory.current.path;
+    configuration = argResults?['configuration'];
+    clear = argResults?['clear'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('pubspec.yaml文件不存在: ${pubspecFile.path}');
@@ -44,12 +49,39 @@ class FlutterFrameworkCommand extends Command {
     if (!await isGitRepository(workspace)) {
       throw Exception('当前目录不是git仓库: $workspace');
     }
+
     final branch = await getCurrentBranch(workspace);
-    final commitId = await getCurrentCommitHash(workspace);
+    final commitHash = await getCurrentCommitHash(workspace);
+    final flutterCache = FrameworkAarCache(
+      platform: BuildPlatform.ios,
+      configuration: configuration == 'debug'
+          ? BuildConfiguration.debug
+          : BuildConfiguration.release,
+      type: BuildType.framework,
+      library: BuildLibrary.flutter,
+    );
+    late String buildCacheDir;
+    if (configuration == 'debug') {
+      buildCacheDir = join(workspace, 'build', 'ios', 'framework', 'Debug');
+    } else {
+      buildCacheDir = join(workspace, 'build', 'ios', 'framework', 'Release');
+    }
+    await updateCache(
+      cache: flutterCache,
+      branch: branch,
+      commitHash: commitHash,
+      buildCacheDir: buildCacheDir,
+    );
+    loggerSuccess('导出Flutter Framework完成!');
+  }
+
+  @override
+  Future<void> buildCache() async {
     if (clear) {
       await ProcessRunner().runProcess(
         ['flutter', 'clean'],
         workingDirectory: Directory(workspace),
+        printOutput: true,
       );
     }
 
@@ -57,6 +89,7 @@ class FlutterFrameworkCommand extends Command {
     await ProcessRunner().runProcess(
       ['flutter', 'pub', 'get'],
       workingDirectory: Directory(workspace),
+      printOutput: true,
     );
     if (configuration == 'debug') {
       /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
@@ -72,6 +105,7 @@ class FlutterFrameworkCommand extends Command {
           '--verbose'
         ],
         workingDirectory: Directory(workspace),
+        printOutput: true,
       );
     } else {
       /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
@@ -87,8 +121,8 @@ class FlutterFrameworkCommand extends Command {
           '--verbose'
         ],
         workingDirectory: Directory(workspace),
+        printOutput: true,
       );
     }
-    
   }
 }

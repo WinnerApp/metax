@@ -1,19 +1,30 @@
-import 'dart:io';
-
 import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/cache/cache.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 
 class FrameworkAarCache extends Cache {
-  final FrameworkAarPlatform platform;
-  final FrameworkAarType type;
+  final BuildPlatform platform;
+  final BuildConfiguration configuration;
+  final BuildType type;
+  final BuildLibrary library;
 
-  FrameworkAarCache({required this.platform, required this.type});
- 
+  FrameworkAarCache({
+    required this.platform,
+    required this.configuration,
+    required this.type,
+    required this.library,
+  });
 
   @override
-  String get cacheHome => join(super.cacheHome, type.value, platform.value);
-  
+  String get cacheHome => join(
+        super.cacheHome,
+        type.value,
+        platform.value,
+        library.value,
+        configuration.value,
+      );
+
   @override
   Future<String?> getBranchLatestCommitHash(String branch) async {
     final ids = await getIdsFromBranch(branch);
@@ -22,7 +33,10 @@ class FrameworkAarCache extends Cache {
 
   @override
   Map<String, dynamic> updateCacheData(
-      Map<String, dynamic> cacheData, String branch, String commitHash) {
+    Map<String, dynamic> cacheData,
+    String branch,
+    String commitHash,
+  ) {
     List<String> ids = [
       ...JSON(cacheData)[branch].listValue.map((e) => e.toString())
     ];
@@ -31,44 +45,8 @@ class FrameworkAarCache extends Cache {
     return cacheData;
   }
 
-  @override
-  Future<void> updateBranchLatestCommitHash(
-      String branch, String commitHash, File zipFile) async {
-    final cacheZipPath = getCommitHashCachePath(commitHash);
-    if (!await File(cacheZipPath).exists()) {
-      await zipFile.copy(cacheZipPath);
-    }
-    List<String> ids = [...await getIdsFromBranch(branch)];
-    ids.add(commitHash);
-    final jsonText =
-        await File(cacheJsonPath).readAsString().catchError((e) => '{}');
-    final json = JSON(jsonText);
-    json[branch] = ids;
-    if (!await File(cacheJsonPath).exists()) {
-      await File(cacheJsonPath).create(recursive: true);
-    }
-    await File(cacheJsonPath).writeAsString(json.stringValue);
-  }
-
   Future<List<String>> getIdsFromBranch(String branch) async {
     final json = JSON(await getCacheData(branch));
     return json[branch].listValue.map((e) => e.toString()).toList();
   }
-}
-
-enum FrameworkAarPlatform {
-  flutter('flutter'),
-  unity('unity');
-
-  final String value;
-  const FrameworkAarPlatform(this.value);
-}
-
-enum FrameworkAarType {
-  framework('framework'),
-  aar('aar');
-
-  final String value;
-
-  const FrameworkAarType(this.value);
 }
