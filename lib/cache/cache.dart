@@ -30,9 +30,7 @@ abstract class Cache {
   Future<void> updateBranchLatestCommitHash(
       String branch, String commitHash, File zipFile) async {
     final cacheZipPath = getCommitHashCachePath(commitHash);
-    if (!await File(cacheZipPath).exists()) {
-      await zipFile.copy(cacheZipPath);
-    }
+    await copyFile(zipFile, File(cacheZipPath));
     final jsonText =
         await File(cacheJsonPath).readAsString().catchError((e) => '{}');
     final data = updateCacheData(jsonDecode(jsonText), branch, commitHash);
