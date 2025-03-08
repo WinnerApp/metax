@@ -16,7 +16,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
     final androidUnityPath = readEnv('ANDROID_UNITY_PATH');
     checkEnv('UNITY_ENGINE_PATH');
     if (!await isCommandInstall('build_winner_app')) {
-      throw '请先通过dart pub global active build_winner_app 进行安装build_winner_app命令';
+      throw '请先通过dart pub global activate build_winner_app 进行安装build_winner_app命令';
     }
     if (!await isCommandInstall('cmake')) {
       throw '请先通过brew install cmake 安装cmake';
