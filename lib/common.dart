@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:meta_tool/define.dart';
+import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 import 'package:color_logger/color_logger.dart';
 
@@ -17,8 +18,45 @@ Future<void> cloneRepository(String workingDirectory, String url) async {
   await ProcessRunner().runProcess(commands, printOutput: true);
 }
 
-Future<void> pullAndSwitchBranch(String workingDirectory, String branch,
-    {bool resetToOrigin = false}) async {}
+Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'reset',
+      '--hard',
+    ],
+    workingDirectory: Directory(workingDirectory),
+  );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'fetch',
+      'origin',
+    ],
+    workingDirectory: Directory(workingDirectory),
+  );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'switch',
+      branch,
+    ],
+    workingDirectory: Directory(workingDirectory),
+  );
+  await ProcessRunner().runProcess([
+    'git',
+    'reset',
+    '--hard',
+    'origin/$branch',
+  ], workingDirectory: Directory(workingDirectory));
+  await ProcessRunner().runProcess([
+    'git',
+    'lfs',
+    'pull',
+    'origin',
+    branch,
+  ], workingDirectory: Directory(workingDirectory));
+}
 
 /// 获取当前的分支名称
 Future<String> getCurrentBranch(String workingDirectory) async {
@@ -105,4 +143,18 @@ void loggerInfo(String message) {
 
 void loggerDebug(String message) {
   logger.log(message, status: LogStatus.debug);
+}
+
+/// 获取当前Unity工程的build_version.txt文件内容
+Future<int> getUnityBuildVersion(String workingDirectory) async {
+  final buildVersionFile = File(join(workingDirectory, 'build_version.txt'));
+  if (!await buildVersionFile.exists()) {
+    throw 'Unity工程的build_version.txt文件不存在';
+  }
+  int? buildVersionId =
+      await buildVersionFile.readAsString().then((e) => int.tryParse(e));
+  if (buildVersionId == null) {
+    throw 'Unity工程的build_version.txt文件内容不是有效的数字';
+  }
+  return buildVersionId;
 }

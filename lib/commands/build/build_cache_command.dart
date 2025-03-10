@@ -14,6 +14,7 @@ abstract class BuildCacheCommand extends Command {
     required String branch,
     required String commitHash,
     required String buildCacheDir,
+    Map<String, dynamic>? data,
   }) async {
     final buildIdPath = join(buildCacheDir, '.build_id');
     final buildId = await getBuildIdFromFile(File(buildIdPath));
@@ -51,6 +52,7 @@ abstract class BuildCacheCommand extends Command {
     required String commitHash,
     required String branch,
     required Cache cache,
+    Map<String, dynamic>? data,
   }) async {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
     final cacheBaseName = basename(buildCacheDir);
@@ -68,7 +70,12 @@ abstract class BuildCacheCommand extends Command {
     );
 
     final zipFile = File(join(buildCacheParentDir.path, '$commitHash.zip'));
-    await cache.updateBranchLatestCommitHash(branch, commitHash, zipFile);
+    await cache.updateBranchLatestCommitHash(
+      branch,
+      commitHash,
+      zipFile,
+      data,
+    );
     await zipFile.delete();
   }
 

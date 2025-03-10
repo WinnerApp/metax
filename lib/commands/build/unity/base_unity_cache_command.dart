@@ -37,6 +37,8 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
 
     final branch = await getCurrentBranch(workspaceDirectory);
     final commitHash = await getCurrentCommitHash(workspaceDirectory);
+    final buildVersionId = await getUnityBuildVersion(workspaceDirectory);
+
     final unityCache = UnityCache(platform: platform);
 
     await updateCache(
@@ -44,6 +46,10 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       branch: branch,
       commitHash: commitHash,
       buildCacheDir: unityCacheDir,
+      data: {
+        'build_version_id': buildVersionId,
+        'branch': branch,
+      },
     );
     loggerSuccess('导出Unity代码完成');
   }
