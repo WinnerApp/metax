@@ -158,3 +158,17 @@ Future<int> getUnityBuildVersion(String workingDirectory) async {
   }
   return buildVersionId;
 }
+
+/// 复制zip 到指定目录下面并先清空当前目录
+Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
+  if (await targetDir.exists()) {
+    await targetDir.delete(recursive: true);
+  }
+  await targetDir.create(recursive: true);
+  await ProcessRunner().runProcess([
+    'unzip',
+    zipPath,
+    '-d',
+    targetDir.path,
+  ]);
+}
