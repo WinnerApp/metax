@@ -31,17 +31,23 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       help: '是否清除缓存',
       defaultsTo: false,
     );
+    argParser.addFlag(
+      'publish',
+      help: '是否发布',
+      defaultsTo: false,
+    );
   }
 
   late String workspace;
   late String configuration;
   late bool clear;
-
+  late bool publish;
   @override
   Future<void> run() async {
     workspace = argResults?['workspace'] ?? Directory.current.path;
     configuration = argResults?['configuration'];
     clear = argResults?['clear'];
+    publish = argResults?['publish'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('pubspec.yaml文件不存在: ${pubspecFile.path}');
@@ -52,13 +58,19 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
 
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);
-    final flutterCache = FrameworkAarCache(
-      platform: BuildPlatform.ios,
-      configuration: configuration == 'debug'
+    BuildConfiguration buildConfiguration;
+    if (publish) {
+      buildConfiguration = BuildConfiguration.release;
+    } else {
+      buildConfiguration = configuration == 'debug'
           ? BuildConfiguration.debug
-          : BuildConfiguration.release,
-      type: BuildType.framework,
-      library: BuildLibrary.flutter,
+          : BuildConfiguration.release;
+    }
+    final flutterCache = FrameworkCache(
+      buildConfiguration: buildConfiguration,
+      buildLibrary: BuildLibrary.flutter,
+      isStore: publish,
+      branch: branch,
     );
     late String buildCacheDir;
     if (configuration == 'debug') {
@@ -68,7 +80,6 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     }
     await updateCache(
       cache: flutterCache,
-      branch: branch,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
     );

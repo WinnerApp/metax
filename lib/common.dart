@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'package:dio/dio.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -171,4 +174,53 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
     '-d',
     targetDir.path,
   ]);
+}
+
+String formatGitLog(String flutterLog, String unityLog) {
+  List<String> filterLogs(String log) {
+    List<String> logs = [];
+    for (var log in log.split("\n")) {
+      /// 如果当前行存在以下关键字 则忽略
+      if (['commit', 'Author', 'Date', 'Merge', '# Conflicts', '#    ']
+          .any((e) => log.toLowerCase().startsWith(e.toLowerCase()))) {
+        continue;
+      }
+      logs.add(log);
+    }
+    return logs;
+  }
+
+  List<String> logs = [];
+  final flutterLogs = filterLogs(flutterLog);
+  final unityLogs = filterLogs(unityLog);
+  if (flutterLogs.length + unityLogs.length > 100) {
+    logs.addAll(unityLogs.sublist(0, min(unityLogs.length, 30)));
+    logs.addAll(flutterLogs.sublist(0, min(flutterLogs.length, 30)));
+  } else {
+    logs.addAll(unityLogs);
+    logs.addAll(flutterLogs);
+  }
+  return logs.join('\n');
+}
+
+/// 发送文本到企业微信
+Future<bool> sendTextToWeixinWebhooks(String text, String hookUrl) async {
+  final dio = Dio();
+  final response = await dio.post(
+    hookUrl,
+    options: Options(headers: {
+      'Content-Type': 'application/json',
+    }),
+    data: json.encode({
+      'msgtype': 'text',
+      'text': {'content': text},
+    }),
+  );
+
+  final status = response.statusCode;
+  if (status != 200) {
+    loggerError('企业微信发送失败:${response.statusMessage}');
+    return false;
+  }
+  return true;
 }

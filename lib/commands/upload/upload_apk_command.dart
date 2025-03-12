@@ -1,87 +1,49 @@
+import 'dart:async';
 import 'dart:io';
-
-import 'package:meta_tool/cache/framework_aar_cache.dart';
-import 'package:meta_tool/cache/unity_cache.dart';
-import 'package:meta_tool/commands/upload/upload_app_command.dart';
-import 'package:meta_tool/commands/upload/upload_app_environment.dart';
-import 'package:meta_tool/define.dart';
-import 'package:path/path.dart';
+import 'package:args/command_runner.dart';
+import 'package:meta_tool/common.dart';
 import 'package:process_runner/process_runner.dart';
 
-class UploadApkCommand extends UploadAppCommand {
-  UploadApkCommand()
-      : super(environment: UploadAppEnvironment(platform: 'android'));
-
+class UploadApkCommand extends Command {
   @override
-  String get description => '上传apk包';
+  String get description => '上传apk';
 
   @override
   String get name => 'apk';
 
-  @override
-  UnityCache get unityCache => UnityCache(platform: BuildPlatform.android);
-
-  @override
-  FrameworkAarCache get flutterFrameworkAarCache => FrameworkAarCache(
-        platform: BuildPlatform.android,
-        configuration: BuildConfiguration.release,
-        type: BuildType.aar,
-        library: BuildLibrary.flutter,
-      );
-
-  @override
-  FrameworkAarCache get unityFrameworkAarCache => FrameworkAarCache(
-        platform: BuildPlatform.android,
-        configuration: BuildConfiguration.release,
-        type: BuildType.aar,
-        library: BuildLibrary.unity,
-      );
-
-  @override
-  Directory get unityProjectDir => Directory(join(
-        environment.workspace,
-        environment.androidUnityPath,
-      ));
-
-  @override
-  Directory get unityFrameworkAarDir => Directory(join(
-        environment.workspace,
-        'android',
-        'aar',
-        'unity',
-      ));
-
-  @override
-  Future<void> buildUnityStaticLibrary() async {
-    await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        'aar',
-        'unity',
-      ],
-      workingDirectory: unityProjectDir,
+  UploadApkCommand() {
+    argParser.addOption(
+      'workspace',
+      help: 'android项目目录,默认为当前目录',
+    );
+    argParser.addOption(
+      'apk',
+      help: 'apk文件路径',
+      mandatory: true,
+    );
+    argParser.addOption(
+      'log',
+      help: '构建日志',
     );
   }
 
   @override
-  Future<void> buildFlutterStaticLibrary() async {
+  FutureOr? run() async {
+    String workspace = argResults?['workspace'] ?? Directory.current.path;
+    String apk = argResults?['apk'];
+    String? log = argResults?['log'];
+    if (!File(apk).existsSync()) {
+      throw Exception('$apk文件不存在');
+    }
     await ProcessRunner().runProcess(
       [
-        'metax',
-        'build',
-        'aar',
-        'flutter',
+        'fastlane',
+        'deploy',
+        'apk:$apk',
+        'changelog:\'$log\'',
       ],
-      workingDirectory: flutterProjectDir,
+      workingDirectory: Directory(workspace),
     );
+    loggerSuccess('上传成功');
   }
-
-  @override
-  Directory get flutterFrameworkAarDir => Directory(join(
-        environment.workspace,
-        'android',
-        'aar',
-        'flutter',
-      ));
 }

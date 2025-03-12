@@ -38,6 +38,7 @@ class UploadAppEnvironment {
   late String sentryAuthToken;
   late String sentryOrg;
   late String sentryProject;
+  late String sentryDist;
 
   late String zealotEndpoint;
   late String zealotToken;
@@ -67,7 +68,8 @@ class UploadAppEnvironment {
     iosHookUrl = readEnv('IOS_HOOK_URL');
     androidHookUrl = readEnv('ANDROID_HOOK_URL');
 
-    appStoreConnectApiKeyFilepath = readEnv('APP_STORE_CONNECT_API_KEY_FILEPATH');
+    appStoreConnectApiKeyFilepath =
+        readEnv('APP_STORE_CONNECT_API_KEY_FILEPATH');
     appStoreConnectApiKeyId = readEnv('APP_STORE_CONNECT_API_KEY_ID');
     appStoreConnectApiIssuerId = readEnv('APP_STORE_CONNECT_API_ISSUER_ID');
     appIdentifier = readEnv('APP_IDENTIFIER');
@@ -81,6 +83,9 @@ class UploadAppEnvironment {
 
     sentryUrl = readEnv('SENTRY_URL');
     sentryAuthToken = readEnv('SENTRY_AUTH_TOKEN');
+    sentryOrg = readEnv('SENTRY_ORG');
+    sentryProject = readEnv('SENTRY_PROJECT');
+    sentryDist = readEnv('SENTRY_DIST');
 
     zealotEndpoint = readEnv('ZEALOT_ENDPOINT');
     zealotToken = readEnv('ZEALOT_TOKEN');

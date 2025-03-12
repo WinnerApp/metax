@@ -38,11 +38,11 @@ class UnityAarCommand extends BuildCacheCommand {
     if (branch == null || commitHash == null) {
       throw Exception('build_id文件格式错误: ${buildIdFile.path}');
     }
-    final unityCache = FrameworkAarCache(
-      platform: BuildPlatform.android,
-      configuration: BuildConfiguration.release,
-      type: BuildType.aar,
-      library: BuildLibrary.unity,
+    final unityCache = AarCache(
+      isStore: true,
+      branch: branch,
+      buildConfiguration: BuildConfiguration.release,
+      buildLibrary: BuildLibrary.unity,
     );
     final buildCacheDir = join(
       Directory(workspace).parent.path,
@@ -53,7 +53,6 @@ class UnityAarCommand extends BuildCacheCommand {
     );
     await updateCache(
       cache: unityCache,
-      branch: branch,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
     );

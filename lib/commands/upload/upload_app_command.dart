@@ -3,17 +3,16 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/appwrite_server.dart';
-import 'package:meta_tool/cache/framework_aar_cache.dart';
-import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/upload/upload_app_environment.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
+import 'package:meta_tool/get_git_log.dart';
+import 'package:meta_tool/upload_sentry.dart';
 import 'package:path/path.dart';
 
 abstract class UploadAppCommand extends Command {
   final UploadAppEnvironment environment;
-  UnityCache get unityCache;
-  FrameworkAarCache get flutterFrameworkAarCache;
-  FrameworkAarCache get unityFrameworkAarCache;
+
   Directory get unityProjectDir;
   Directory get unityFrameworkAarDir;
   Directory get flutterFrameworkAarDir;
@@ -22,6 +21,9 @@ abstract class UploadAppCommand extends Command {
   Directory get iosProjectDir => Directory(join(environment.workspace, 'ios'));
   Directory get androidProjectDir =>
       Directory(join(environment.workspace, 'android'));
+
+  BuildPublish get buildPublish =>
+      environment.isStore ? BuildPublish.store : BuildPublish.test;
 
   late AppwriteServer appwriteServer;
 
@@ -83,20 +85,82 @@ abstract class UploadAppCommand extends Command {
       return;
     }
 
-    /// 复制Unity静态库到指定位置
+    loggerDebug('开始复制Unity静态库到指定位置');
     final buildUnityCommitId = await copyUnityStaticLibrary(
       buildVersionId: buildVersionId,
       commitHash: unityCurrentCommitId,
       branch: environment.branch,
     );
 
-    /// 复制Flutter静态库到指定位置
+    loggerDebug('开始复制Flutter静态库到指定位置');
     final buildFlutterCommitId = await copyFlutterStaticLibrary(
       commitHash: flutterCurrentCommitId,
       branch: environment.branch,
     );
 
-    /// 更新打包配置
+    loggerDebug('正在获取当前Flutter变更日志');
+    final flutterChangeLog = await GetGitLog(
+      root: flutterProjectDir.path,
+      beforeCommitId: flutterCommitId,
+    ).get();
+
+    loggerDebug('正在获取当前Unity变更日志');
+    final unityChangeLog = await GetGitLog(
+      root: unityProjectDir.path,
+      beforeCommitId: unityCommitId,
+    ).get();
+
+    final changeLog = formatGitLog(
+      '''
+[Flutter]: ${environment.branch}
+[Unity]: ${environment.unityBranchName}
+[Tag]: ${environment.tag}
+[version]: ${environment.buildName}(${environment.buildNumber})
+-----------------------
+Flutter更新日志:$flutterCurrentCommitId
+$flutterChangeLog
+''',
+      '''
+Unity更新日志:$unityCurrentCommitId
+$unityChangeLog
+-----------------------
+''',
+    );
+    loggerWarning('''
+当前的打包更新日志为:
+$changeLog
+''');
+
+    loggerDebug('开始进行打包......');
+    await buildApp();
+
+    loggerDebug('开始复制ipa/apk到指定位置');
+    await copyIpaOrApkToBuildDir();
+
+    if (environment.upload) {
+      loggerDebug('开始上传ipa/apk......');
+      final uploadLog =
+          '[Tag:${environment.tag}][Flutter(${environment.branch})][Unity(${environment.unityBranchName})]  新版本发布了，请下载体验!';
+      await uploadApp(log: uploadLog);
+    }
+
+    if (environment.sendLog) {
+      loggerDebug('开始发送日志......');
+      await sendLog(log: changeLog).catchError((e) {
+        loggerError('发送日志失败:${e.toString()}');
+      });
+    }
+
+    /// 上传sentry符号
+    await UploadSentrySymbols(
+      flutterProjectPath: flutterProjectDir.path,
+      project: environment.sentryProject,
+      url: environment.sentryUrl,
+      authToken: environment.sentryAuthToken,
+      org: environment.sentryOrg,
+      dist: environment.sentryDist,
+      release: environment.buildName,
+    ).run();
   }
 
   /// 复制Unity静态库到指定位置
@@ -106,24 +170,25 @@ abstract class UploadAppCommand extends Command {
     required String branch,
   }) async {
     /// 根据VersionId 查询本地是否有已经存在的Unity静态库
-    final cacheCommitHash = await unityCache.getLatestCommitHash(
-      branch: environment.branch,
-      buildVersionId: buildVersionId,
-    );
+    // final cacheCommitHash = await unityCache.getLatestCommitHash(
+    //   branch: environment.branch,
+    //   buildVersionId: buildVersionId,
+    // );
 
-    if (cacheCommitHash != null &&
-        await unityFrameworkAarCache.isCommitHashCacheExists(cacheCommitHash)) {
-      loggerDebug('本地存在缓存Unity静态库，直接进行复制');
-      final zipPath =
-          unityFrameworkAarCache.getCommitHashCachePath(cacheCommitHash);
-      await copyZipToDir(zipPath, unityFrameworkAarDir);
-      return cacheCommitHash;
-    } else {
-      await buildUnityStaticLibrary();
-      final zipPath = unityFrameworkAarCache.getCommitHashCachePath(commitHash);
-      await copyZipToDir(zipPath, unityFrameworkAarDir);
-      return commitHash;
-    }
+    // if (cacheCommitHash != null &&
+    //     await unityFrameworkAarCache.isCommitHashCacheExists(cacheCommitHash)) {
+    //   loggerDebug('本地存在缓存Unity静态库，直接进行复制');
+    //   final zipPath =
+    //       unityFrameworkAarCache.getCommitHashCachePath(cacheCommitHash);
+    //   await copyZipToDir(zipPath, unityFrameworkAarDir);
+    //   return cacheCommitHash;
+    // } else {
+    //   await buildUnityStaticLibrary();
+    //   final zipPath = unityFrameworkAarCache.getCommitHashCachePath(commitHash);
+    //   await copyZipToDir(zipPath, unityFrameworkAarDir);
+    //   return commitHash;
+    // }
+    throw UnimplementedError();
   }
 
   /// 执行打包 Unity 静态库命令
@@ -133,14 +198,26 @@ abstract class UploadAppCommand extends Command {
     required String commitHash,
     required String branch,
   }) async {
-    if (!await flutterFrameworkAarCache.isCommitHashCacheExists(commitHash)) {
-      await buildFlutterStaticLibrary();
-    }
-    final zipPath = flutterFrameworkAarCache.getCommitHashCachePath(commitHash);
-    await copyZipToDir(zipPath, flutterFrameworkAarDir);
+    // if (!await flutterFrameworkAarCache.isCommitHashCacheExists(commitHash)) {
+    //   await buildFlutterStaticLibrary();
+    // }
+    // final zipPath = flutterFrameworkAarCache.getCommitHashCachePath(commitHash);
+    // await copyZipToDir(zipPath, flutterFrameworkAarDir);
     return commitHash;
   }
 
   /// 执行打包 Flutter 静态库命令
   Future<void> buildFlutterStaticLibrary();
+
+  /// 进行打包
+  Future<void> buildApp();
+
+  /// 上传ipa/apk
+  Future<void> uploadApp({required String log});
+
+  /// 复制ipa/apk到指定位置
+  Future<void> copyIpaOrApkToBuildDir();
+
+  /// 发送日志
+  Future<void> sendLog({required String log});
 }

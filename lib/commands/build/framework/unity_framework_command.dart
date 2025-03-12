@@ -40,11 +40,11 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     if (branch == null || commitHash == null) {
       throw 'buildIdFile 格式错误，请先运行 metax build unity';
     }
-    final unityCache = FrameworkAarCache(
-      platform: BuildPlatform.ios,
-      configuration: BuildConfiguration.release,
-      type: BuildType.framework,
-      library: BuildLibrary.unity,
+    final unityCache = FrameworkCache(
+      isStore: true,
+      branch: branch,
+      buildConfiguration: BuildConfiguration.release,
+      buildLibrary: BuildLibrary.unity,
     );
     final buildCacheDir = join(
       workspace,
@@ -53,7 +53,6 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     );
     await updateCache(
       cache: unityCache,
-      branch: branch,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
     );

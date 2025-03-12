@@ -1,14 +1,7 @@
 import 'package:meta_tool/cache/cache.dart';
-import 'package:path/path.dart';
+import 'package:meta_tool/cache/cache_manager.dart';
 
 class BuildCache extends Cache {
   final String buildCacheDir;
-
-  BuildCache({required this.buildCacheDir});
-
-  @override
-  String get cacheHome => buildCacheDir;
-
-  @override
-  String get cacheJsonPath => join(cacheHome, '.build_id');
+  BuildCache(this.buildCacheDir) : super(BuildCacheManager(buildCacheDir));
 }

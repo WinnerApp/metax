@@ -1,89 +1,53 @@
+import 'dart:async';
 import 'dart:io';
 
-import 'package:meta_tool/cache/framework_aar_cache.dart';
-import 'package:meta_tool/cache/unity_cache.dart';
-import 'package:meta_tool/commands/upload/upload_app_command.dart';
-import 'package:meta_tool/commands/upload/upload_app_environment.dart';
-import 'package:meta_tool/define.dart';
-import 'package:path/path.dart';
+import 'package:args/command_runner.dart';
+import 'package:meta_tool/common.dart';
 import 'package:process_runner/process_runner.dart';
 
-class UploadIpaCommand extends UploadAppCommand {
-  UploadIpaCommand()
-      : super(environment: UploadAppEnvironment(platform: 'ios'));
-
+class UploadIpaCommand extends Command {
   @override
-  String get description => '上传ipa包';
+  String get description => '上传ipa';
 
   @override
   String get name => 'ipa';
 
-  @override
-  UnityCache get unityCache => UnityCache(platform: BuildPlatform.ios);
+  UploadIpaCommand() {
+    argParser.addOption(
+      'workspace',
+      help: 'ios项目目录,默认为当前目录',
+    );
 
-  @override
-  FrameworkAarCache get flutterFrameworkAarCache => FrameworkAarCache(
-        platform: BuildPlatform.ios,
-        configuration: BuildConfiguration.release,
-        type: BuildType.framework,
-        library: BuildLibrary.flutter,
-      );
+    argParser.addOption(
+      'ipa',
+      help: 'ipa文件路径',
+      mandatory: true,
+    );
 
-  @override
-  FrameworkAarCache get unityFrameworkAarCache => FrameworkAarCache(
-        platform: BuildPlatform.ios,
-        configuration: BuildConfiguration.release,
-        type: BuildType.framework,
-        library: BuildLibrary.unity,
-      );
-
-  @override
-  Directory get unityProjectDir => Directory(join(
-        environment.workspace,
-        environment.iosUnityPath,
-      ));
-
-  @override
-  Directory get unityFrameworkAarDir => Directory(join(
-        environment.workspace,
-        'ios',
-        'Frameworks',
-        'unity',
-      ));
-
-  @override
-  Future<void> buildUnityStaticLibrary() async {
-    await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        'framework',
-        'unity',
-      ],
-      workingDirectory: unityProjectDir,
+    argParser.addOption(
+      'log',
+      help: '构建日志',
     );
   }
 
   @override
-  Future<void> buildFlutterStaticLibrary() async {
+  Future run() async {
+    String workspace = argResults?['workspace'] ?? Directory.current.path;
+    String ipa = argResults?['ipa'];
+    String? log = argResults?['log'];
+    if (!File(ipa).existsSync()) {
+      throw Exception('$ipa文件不存在');
+    }
+
     await ProcessRunner().runProcess(
       [
-        'metax',
-        'build',
-        'framework',
-        'flutter',
+        'fastlane',
+        'upload_testflight',
+        'ipa:$ipa',
+        'changelog:\'$log\'',
       ],
-      workingDirectory: flutterProjectDir,
+      workingDirectory: Directory(workspace),
     );
+    loggerSuccess('上传成功');
   }
-
-  @override
-  Directory get flutterFrameworkAarDir => Directory(
-        join(
-          environment.workspace,
-          'ios',
-          'Frameworks',
-          'flutter',
-        ),
-      );
 }

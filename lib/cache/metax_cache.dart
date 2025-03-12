@@ -1,11 +1,30 @@
 import 'package:meta_tool/cache/cache.dart';
-import 'package:meta_tool/common.dart';
-import 'package:path/path.dart';
+import 'package:meta_tool/cache/cache_manager.dart';
+import 'package:meta_tool/define.dart';
 
 abstract class MetaxCache extends Cache {
-  @override
-  String get cacheHome => join(readEnv('HOME'), '.metax');
-
-  @override
-  String get cacheJsonPath => join(cacheHome, 'cache.json');
+  final BuildPlatform buildPlatform;
+  final bool isStore;
+  final BuildConfiguration buildConfiguration;
+  final BuildLibrary buildLibrary;
+  final BuildType buildType;
+  final String branch;
+  final int buildId;
+  MetaxCache({
+    required this.buildPlatform,
+    required this.isStore,
+    required this.buildConfiguration,
+    required this.buildLibrary,
+    required this.buildType,
+    required this.branch,
+    this.buildId = 0,
+  }) : super(MetaxCacheManager(
+          buildPlatform: buildPlatform,
+          isStore: isStore,
+          buildConfiguration: buildConfiguration,
+          buildLibrary: buildLibrary,
+          buildType: buildType,
+          branch: branch,
+          buildId: buildId,
+        ));
 }

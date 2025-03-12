@@ -1,26 +1,26 @@
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/define.dart';
-import 'package:path/path.dart';
 
-class FrameworkAarCache extends MetaxCache {
-  final BuildPlatform platform;
-  final BuildConfiguration configuration;
-  final BuildType type;
-  final BuildLibrary library;
+class FrameworkCache extends MetaxCache {
+  FrameworkCache({
+    required super.isStore,
+    required super.branch,
+    required super.buildConfiguration,
+    required super.buildLibrary,
+  }) : super(
+          buildType: BuildType.framework,
+          buildPlatform: BuildPlatform.ios,
+        );
+}
 
-  FrameworkAarCache({
-    required this.platform,
-    required this.configuration,
-    required this.type,
-    required this.library,
-  });
-
-  @override
-  String get cacheHome => join(
-        super.cacheHome,
-        type.value,
-        platform.value,
-        library.value,
-        configuration.value,
-      );
+class AarCache extends MetaxCache {
+  AarCache({
+    required super.isStore,
+    required super.branch,
+    required super.buildConfiguration,
+    required super.buildLibrary,
+  }) : super(
+          buildType: BuildType.aar,
+          buildPlatform: BuildPlatform.ios,
+        );
 }

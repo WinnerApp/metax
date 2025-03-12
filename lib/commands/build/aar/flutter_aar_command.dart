@@ -27,17 +27,23 @@ class FlutterAarCommand extends BuildCacheCommand {
       help: '是否清除缓存',
       defaultsTo: false,
     );
+    argParser.addFlag(
+      'publish',
+      help: '是否发布',
+      defaultsTo: false,
+    );
   }
 
   late String workspace;
   late String configuration;
   late bool clear;
-
+  late bool publish;
   @override
   Future<void> run() async {
     workspace = argResults?['workspace'] ?? Directory.current.path;
     configuration = argResults?['configuration'];
     clear = argResults?['clear'];
+    publish = argResults?['publish'];
     final workspaceDir = Directory(workspace);
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
@@ -45,18 +51,23 @@ class FlutterAarCommand extends BuildCacheCommand {
     }
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);
-    final flutterCache = FrameworkAarCache(
-      platform: BuildPlatform.android,
-      configuration: configuration == 'debug'
+    BuildConfiguration buildConfiguration;
+    if (publish) {
+      buildConfiguration = BuildConfiguration.release;
+    } else {
+      buildConfiguration = configuration == 'debug'
           ? BuildConfiguration.debug
-          : BuildConfiguration.release,
-      type: BuildType.aar,
-      library: BuildLibrary.flutter,
+          : BuildConfiguration.release;
+    }
+    final flutterCache = AarCache(
+      isStore: publish,
+      branch: branch,
+      buildConfiguration: buildConfiguration,
+      buildLibrary: BuildLibrary.flutter,
     );
     final buildCacheDir = join(workspace, 'build', 'host');
     await updateCache(
       cache: flutterCache,
-      branch: branch,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
     );
