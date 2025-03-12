@@ -79,7 +79,7 @@ abstract class BuildCacheCommand extends Command {
       CacheModel(
         branch: cache.branch,
         commitHash: commitHash,
-        buildId: cacheId.toString(),
+        buildId: cache.buildId.toString(),
         isStore: cache.isStore,
         configuration: cache.buildConfiguration.value,
       ),
