@@ -48,4 +48,37 @@ class AppwriteServer {
     });
     return result?.data;
   }
+
+  /// 更新打包版本配置
+  Future<bool> updateBuildConfig({
+    required String databaseId,
+    required String collectionId,
+    required String platform,
+    required String branch,
+    required String unityBranch,
+    required String buildName,
+    required String flutterCommitId,
+    required String unityCommitId,
+    required int buildNumber,
+  }) async {
+    return databases.createDocument(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      documentId: ID.unique(),
+      data: {
+        'platform': platform,
+        'branch': branch,
+        'unity_branch': unityBranch,
+        'build_name': buildName,
+        'flutter_commit_id': flutterCommitId,
+        'unity_commit_id': unityCommitId,
+        'build_number': buildNumber,
+      },
+    ).then((e) {
+      return true;
+    }).catchError((e) {
+      loggerError(e.toString());
+      return false;
+    });
+  }
 }

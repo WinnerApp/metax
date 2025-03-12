@@ -151,6 +151,19 @@ $changeLog
       });
     }
 
+    /// 更新配置
+    await appwriteServer.updateBuildConfig(
+      databaseId: environment.appwriteDatabaseId,
+      collectionId: environment.appwriteCollectionId,
+      platform: environment.platform,
+      branch: environment.branch,
+      unityBranch: environment.unityBranchName,
+      buildName: environment.buildName,
+      flutterCommitId: flutterCurrentCommitId,
+      unityCommitId: unityCurrentCommitId,
+      buildNumber: buildVersionId,
+    );
+
     /// 上传sentry符号
     await UploadSentrySymbols(
       flutterProjectPath: flutterProjectDir.path,
