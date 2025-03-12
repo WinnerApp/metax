@@ -59,7 +59,7 @@ abstract class BuildCacheCommand extends Command {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
     final cacheBaseName = basename(buildCacheDir);
 
-    int cacheId = cache.buildId;
+    String cacheId = commitHash;
 
     /// 压缩
     await ProcessRunner().runProcess(

@@ -11,7 +11,7 @@ import 'package:meta_tool/upload_sentry.dart';
 import 'package:path/path.dart';
 
 abstract class UploadAppCommand extends Command {
-  final UploadAppEnvironment environment;
+  late UploadAppEnvironment environment;
 
   Directory get unityProjectDir;
   Directory get unityFrameworkAarDir;
@@ -25,18 +25,20 @@ abstract class UploadAppCommand extends Command {
   BuildPublish get buildPublish =>
       environment.isStore ? BuildPublish.store : BuildPublish.test;
 
+  String get platform;
+
   late AppwriteServer appwriteServer;
 
-  UploadAppCommand({required this.environment}) {
+  @override
+  FutureOr? run() async {
+    environment = UploadAppEnvironment(platform: platform);
+
     appwriteServer = AppwriteServer(
       endpoint: environment.appwriteEndpoint,
       projectId: environment.appwriteProjectId,
       apiKey: environment.appwriteApiKey,
     );
-  }
 
-  @override
-  FutureOr? run() async {
     if (!flutterProjectDir.existsSync() &&
         !iosProjectDir.existsSync() &&
         !androidProjectDir.existsSync()) {

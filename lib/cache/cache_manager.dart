@@ -26,7 +26,8 @@ class CacheManager {
     if (!await File(cacheJsonPath).exists()) {
       await File(cacheJsonPath).create(recursive: true);
     }
-    await File(cacheJsonPath).writeAsString(jsonEncode(jsonObject));
+    final encoder = JsonEncoder.withIndent('  ');
+    await File(cacheJsonPath).writeAsString(encoder.convert(jsonObject));
   }
 }
 

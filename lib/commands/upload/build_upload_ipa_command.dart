@@ -1,17 +1,12 @@
 import 'dart:io';
-
-import 'package:meta_tool/cache/framework_aar_cache.dart';
-import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/upload/upload_app_command.dart';
-import 'package:meta_tool/commands/upload/upload_app_environment.dart';
 import 'package:meta_tool/common.dart';
-import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
 class BuildUploadIpaCommand extends UploadAppCommand {
-  BuildUploadIpaCommand()
-      : super(environment: UploadAppEnvironment(platform: 'ios'));
+  @override
+  String get platform => 'ios';
 
   @override
   String get description => '上传ipa包';
