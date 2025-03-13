@@ -17,9 +17,16 @@ abstract class BuildCacheCommand extends Command {
   }) async {
     final cacheCommitHash = await cache.getLastCacheCommitHash();
     final startTime = DateTime.now();
+    final buildModel = CacheModel(
+      branch: cache.branch,
+      configuration: cache.buildConfiguration.value,
+      commitHash: commitHash,
+      buildId: cache.buildId.toString(),
+      isStore: cache.isStore,
+    );
     if (cacheCommitHash != null && await cache.isCacheExists(commitHash)) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
-    } else if (await isCacheExitsInBuildDir(cache, buildCacheDir)) {
+    } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir)) {
       loggerInfo('🔍 当前编译已经是最新的,正在复制到本地缓存目录......');
 
       await writeToCacheSystem(
@@ -89,11 +96,11 @@ abstract class BuildCacheCommand extends Command {
   Future<void> buildCache() async {}
 
   /// 当前编译目录是否存在缓存文件
-  Future<bool> isCacheExitsInBuildDir(Cache cache, String buildCacheDir) async {
+  Future<bool> isCacheExitsInBuildDir(
+      CacheModel buildModel, String buildCacheDir) async {
     final buildCache = BuildCache(buildCacheDir);
-    final lastCacheConfig = await cache.getLastCacheConfig();
     final lastBuildConfig = await buildCache.getLastCacheConfig();
-    if (lastCacheConfig == null || lastBuildConfig == null) return false;
-    return lastCacheConfig == lastBuildConfig;
+    if (lastBuildConfig == null) return false;
+    return buildModel == lastBuildConfig;
   }
 }
