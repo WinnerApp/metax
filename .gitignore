@@ -4,3 +4,4 @@
 .vscode/launch.json
 pubspec.lock
 .vscode/settings.json
+test/meta_tool_test.dart
