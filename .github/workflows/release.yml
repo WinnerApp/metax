@@ -23,13 +23,13 @@ jobs:
         run: dart pub get
 
       - name: Build executable
-        run: dart compile exe bin/my_app.dart -o my_app
+        run: dart compile exe bin/metax -o metax
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: my_app-${{ matrix.os }}
-          path: my_app
+          name: metax-${{ matrix.os }}
+          path: metax
 
   release:
     needs: build
@@ -58,7 +58,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/my_app-macos-latest
-          asset_name: my_app-macos
+          asset_name: metax-macos
           asset_content_type: application/octet-stream
 
       - name: Upload Release Assets
@@ -68,5 +68,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/my_app-windows-latest
-          asset_name: my_app-windows.exe
+          asset_name: metax-windows.exe
           asset_content_type: application/octet-stream
