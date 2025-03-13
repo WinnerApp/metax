@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:dart_appwrite/dart_appwrite.dart';
+import 'package:dart_appwrite/models.dart';
 import 'package:meta_tool/common.dart';
 
 class AppwriteServer {
@@ -79,6 +82,36 @@ class AppwriteServer {
     }).catchError((e) {
       loggerError(e.toString());
       return false;
+    });
+  }
+
+  /// 查询缓存列表
+  Future<List<Document>> queryZipCacheList({
+    required String databaseId,
+    required String collectionId,
+    required String platform,
+    required bool isStore,
+    required String buildConfiguration,
+    required String buildLibrary,
+    required String buildType,
+    required String branch,
+  }) async {
+    return databases.listDocuments(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      queries: [
+        Query.equal('platform', platform),
+        Query.equal('is_store', isStore),
+        Query.equal('configuration', buildConfiguration),
+        Query.equal('library', buildLibrary),
+        Query.equal('type', buildType),
+        Query.equal('branch', branch),
+      ],
+    ).then((e) {
+      return e.documents;
+    }).catchError((e) {
+      loggerError(e.toString());
+      return <Document>[];
     });
   }
 
@@ -173,5 +206,15 @@ class AppwriteServer {
       storage.deleteFile(bucketId: bucketId, fileId: fileId);
       return false;
     });
+  }
+
+  Future<Uint8List> downloadFile({
+    required String bucketId,
+    required String fileId,
+  }) async {
+    final Storage storage = Storage(client);
+    final data =
+        await storage.getFileDownload(bucketId: bucketId, fileId: fileId);
+    return data;
   }
 }

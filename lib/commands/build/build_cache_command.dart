@@ -1,7 +1,7 @@
 import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/cache/build_cache.dart';
-import 'package:meta_tool/cache/cache.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
@@ -35,7 +35,7 @@ abstract class BuildCacheCommand extends Command {
         commitHash: commitHash,
       );
     } else {
-      await deleteDirIfExists(buildCacheDir);
+      // await deleteDirIfExists(buildCacheDir);
       await buildCache();
       await BuildCacheManager(buildCacheDir).write([
         CacheModel(

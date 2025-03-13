@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
+import 'package:color_logger/color_logger.dart';
 import 'package:dio/dio.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
-import 'package:color_logger/color_logger.dart';
 
 /// 判断是否是git仓库
 Future<bool> isGitRepository(String workingDirectory) async {
@@ -228,4 +229,14 @@ Future<bool> sendTextToWeixinWebhooks(String text, String hookUrl) async {
     return false;
   }
   return true;
+}
+
+/// 检测当前目录是否是App目录
+Future<bool> isAppDirectory(String workingDirectory) async {
+  final iosDirectory = Directory(join(workingDirectory, 'ios'));
+  final androidDirectory = Directory(join(workingDirectory, 'android'));
+  final flutterDirectory = Directory(join(workingDirectory, 'flutter'));
+  return await iosDirectory.exists() ||
+      await androidDirectory.exists() ||
+      await flutterDirectory.exists();
 }

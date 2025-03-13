@@ -32,8 +32,19 @@ class CacheManager {
 
   /// 根据CommitHash获取缓存
   Future<CacheModel?> getCacheByCommitHash(String commitHash) async {
+    final cacheModels = await read()
+        .then((e) => e.where((e) => e.commitHash == commitHash).toList());
+    if (cacheModels.isEmpty) {
+      return null;
+    }
+    return cacheModels.first;
+  }
+
+  /// 追加缓存
+  Future<void> appendCache(CacheModel cacheModel) async {
     final cacheModels = await read();
-    return cacheModels.firstWhere((e) => e.commitHash == commitHash);
+    cacheModels.add(cacheModel);
+    await write(cacheModels);
   }
 }
 

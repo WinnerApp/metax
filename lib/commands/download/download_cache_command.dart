@@ -2,22 +2,23 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
+import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:prompts/prompts.dart' as prompts;
 
-class UploadCacheCommand extends Command {
+class DownloadCacheCommand extends Command {
   @override
   String get name => 'cache';
 
   @override
-  String get description => '上传构建缓存';
+  String get description => '下载缓存';
 
-  UploadCacheCommand() {
+  DownloadCacheCommand() {
     argParser.addOption(
       'buildPlatform',
       help: '构建平台',
@@ -49,22 +50,9 @@ class UploadCacheCommand extends Command {
       'branch',
       help: '分支',
     );
-
-    argParser.addOption(
-      'buildId',
-      help: '构建ID',
-      defaultsTo: '0',
-    );
-
-    argParser.addOption(
-      'commitHash',
-      help: '指定上传Hash，不指定则上传所有',
-      defaultsTo: '',
-    );
   }
 
   late AppwriteEnvironment appwriteEnvironment;
-
   late String databaseId;
   late String collectionId;
   late String bucketId;
@@ -97,12 +85,40 @@ class UploadCacheCommand extends Command {
         ) ==
         'true';
     String branch = ArgumentGet(argResults).getString('branch');
-    int buildId = ArgumentGet(argResults).getInt('buildId', defaultValue: 0);
-    String commitHash = ArgumentGet(argResults).getString(
-      'commitHash',
-      validate: (p0) => true,
+    final appwriteServer = AppwriteServer(
+      endpoint: appwriteEnvironment.endpoint,
+      projectId: appwriteEnvironment.projectId,
+      apiKey: appwriteEnvironment.apiKey,
     );
+    final cacheDocuments = await appwriteServer.queryZipCacheList(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      platform: buildPlatform,
+      isStore: isStore,
+      buildConfiguration: buildConfiguration,
+      buildLibrary: buildLibrary,
+      buildType: buildType,
+      branch: branch,
+    );
+    if (cacheDocuments.isEmpty) {
+      throw '网络缓存为空';
+    }
+    final builds =
+        cacheDocuments.map((e) => e.data['build_id'].toString()).toList();
+    String buildId = prompts.choose('请选择构建ID', builds) ?? builds.first;
 
+    final commitHashs = cacheDocuments
+        .where((e) => e.data['build_id'].toString() == buildId)
+        .map((e) => e.data['commit_hash'].toString())
+        .toList();
+    if (commitHashs.isEmpty) {
+      throw '构建[$buildId]不存在缓存记录!';
+    }
+    final commitHash =
+        prompts.choose('请选择提交哈希', commitHashs) ?? commitHashs.first;
+    final cacheDocument = cacheDocuments
+        .firstWhere((e) => e.data['commit_hash'].toString() == commitHash);
+    final fileId = cacheDocument.data['file_id'].toString();
     final metaxCache = MetaxCache(
       buildPlatform:
           BuildPlatform.values.firstWhere((e) => e.name == buildPlatform),
@@ -113,65 +129,39 @@ class UploadCacheCommand extends Command {
           BuildLibrary.values.firstWhere((e) => e.name == buildLibrary),
       buildType: BuildType.values.firstWhere((e) => e.name == buildType),
       branch: branch,
-      buildId: buildId,
+      buildId: int.parse(buildId),
     );
-    final cacheModels = await metaxCache.cacheManager.read();
-    List<String> commitHashs = cacheModels.map((e) => e.commitHash).toList();
-    if (commitHashs.isEmpty) {
-      throw '${metaxCache.cacheManager.cacheHome} 缓存为空';
+    final cacheModel =
+        await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
+    final cacheFile = await metaxCache.getZipCachePath(commitHash);
+    final cacheHomeDir = Directory(metaxCache.cacheManager.cacheHome);
+    if (!cacheHomeDir.existsSync()) {
+      cacheHomeDir.createSync(recursive: true);
     }
-    List<String> commitHashsToUpload = [];
-    if (commitHash.isNotEmpty && await metaxCache.isCacheExists(commitHash)) {
-      commitHashsToUpload = [commitHash];
-    } else {
-      commitHashsToUpload = commitHashs;
+    if (cacheModel == null) {
+      await metaxCache.cacheManager.appendCache(
+        CacheModel(
+          branch: branch,
+          configuration: buildConfiguration,
+          commitHash: commitHash,
+          buildId: buildId,
+          isStore: isStore,
+        ),
+      );
+      loggerDebug('写入配置到本地!');
     }
-
-    /// 存储上传失败的commitHash
-    final failedCommitHashs = [];
-    for (var commitHash in commitHashsToUpload) {
-      final isUploadSuccess = await uploadCache(metaxCache, commitHash);
-      if (!isUploadSuccess) {
-        failedCommitHashs.add(commitHash);
+    if (!await metaxCache.isCacheExists(commitHash)) {
+      loggerDebug('下载缓存到本地!');
+      final data = await appwriteServer.downloadFile(
+        bucketId: bucketId,
+        fileId: fileId,
+      );
+      final file = File(cacheFile);
+      if (!file.existsSync()) {
+        await file.create(recursive: true);
       }
+      await file.writeAsBytes(data);
     }
-    if (failedCommitHashs.isNotEmpty) {
-      loggerError('上传失败: ${failedCommitHashs.join(', ')}');
-    } else {
-      loggerSuccess('上传成功');
-    }
-  }
-
-  Future<bool> uploadCache(MetaxCache metaxCache, String commitHash) async {
-    final AppwriteServer appwriteServer = AppwriteServer(
-      endpoint: appwriteEnvironment.endpoint,
-      projectId: appwriteEnvironment.projectId,
-      apiKey: appwriteEnvironment.apiKey,
-    );
-
-    final isAlreadyUploaded = await metaxCache.isCacheExists(commitHash);
-    if (isAlreadyUploaded) {
-      loggerInfo('缓存已存在: $commitHash');
-      return true;
-    }
-
-    final zipFilePath = await metaxCache.getZipCachePath(commitHash);
-    return await appwriteServer.uploadCache(
-      databaseId: databaseId,
-      collectionId: collectionId,
-      bucketId: bucketId,
-      platform: metaxCache.buildPlatform.name,
-      isStore: metaxCache.isStore,
-      branch: metaxCache.branch,
-      buildConfiguration: metaxCache.buildConfiguration.name,
-      buildLibrary: metaxCache.buildLibrary.name,
-      buildType: metaxCache.buildType.name,
-      buildId: metaxCache.buildId,
-      commitHash: commitHash,
-      zipFile: InputFile.fromBytes(
-        bytes: File(zipFilePath).readAsBytesSync(),
-        filename: '$commitHash.zip',
-      ),
-    );
+    loggerSuccess('下载缓存成功!');
   }
 }

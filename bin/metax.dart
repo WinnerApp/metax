@@ -1,6 +1,8 @@
 import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/build/build_command.dart';
+import 'package:meta_tool/commands/download/download_command.dart';
 import 'package:meta_tool/commands/upload/upload_command.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -8,6 +10,7 @@ Future<void> main(List<String> arguments) async {
   final runner = CommandRunner('metax', '欢迎使用棉宇宙工具')
     // ..addCommand(InitCommand())
     ..addCommand(BuildCommand())
-    ..addCommand(UploadCommand());
+    ..addCommand(UploadCommand())
+    ..addCommand(DownloadCommand());
   await runner.run(arguments);
 }

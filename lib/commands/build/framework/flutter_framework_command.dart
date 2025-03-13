@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
@@ -18,36 +20,42 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       'workspace',
       abbr: 's',
       help: 'flutter工程目录，默认使用当前目录',
+      defaultsTo: Directory.current.path,
     );
     argParser.addOption(
       'configuration',
       abbr: 'c',
       help: 'flutter工程配置，debug/release',
       allowed: ['debug', 'release'],
-      mandatory: true,
+    );
+    argParser.addOption(
+      'isStore',
+      help: '是否发布包',
+      allowed: ['true', 'false'],
     );
     argParser.addFlag(
-      'clear',
-      help: '是否清除缓存',
-      defaultsTo: false,
-    );
-    argParser.addFlag(
-      'publish',
-      help: '是否发布',
-      defaultsTo: false,
+      'isUpload',
+      defaultsTo: true,
+      help: '是否上传缓存,默认上传',
     );
   }
 
   late String workspace;
   late String configuration;
-  late bool clear;
-  late bool publish;
+  late bool isStore;
   @override
   Future<void> run() async {
-    workspace = argResults?['workspace'] ?? Directory.current.path;
-    configuration = argResults?['configuration'];
-    clear = argResults?['clear'];
-    publish = argResults?['publish'];
+    workspace = argResults?['workspace'];
+    configuration = ArgumentGet(argResults).getString(
+      'configuration',
+      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+    );
+    isStore = ArgumentGet(argResults).getString(
+          'isStore',
+          allowed: ['true', 'false'],
+        ) ==
+        'true';
+    final isUpload = argResults?['isUpload'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('pubspec.yaml文件不存在: ${pubspecFile.path}');
@@ -59,7 +67,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);
     BuildConfiguration buildConfiguration;
-    if (publish) {
+    if (isStore) {
       buildConfiguration = BuildConfiguration.release;
     } else {
       buildConfiguration = configuration == 'debug'
@@ -69,7 +77,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     final flutterCache = FrameworkCache(
       buildConfiguration: buildConfiguration,
       buildLibrary: BuildLibrary.flutter,
-      isStore: publish,
+      isStore: isStore,
       branch: branch,
     );
     late String buildCacheDir;
@@ -84,18 +92,32 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
     );
     loggerSuccess('导出Flutter Framework完成!');
+    if (isUpload) {
+      loggerDebug('上传缓存...');
+      await ProcessRunner().runProcess(
+        [
+          'metax',
+          'upload',
+          'cache',
+          '--buildPlatform',
+          'ios',
+          '--buildLibrary',
+          'flutter',
+          '--buildConfiguration',
+          buildConfiguration.name,
+          '--buildType',
+          'framework',
+          '--isStore',
+          isStore.toString(),
+          '--commitHash',
+          commitHash,
+        ],
+      );
+    }
   }
 
   @override
   Future<void> buildCache() async {
-    if (clear) {
-      await ProcessRunner().runProcess(
-        ['flutter', 'clean'],
-        workingDirectory: Directory(workspace),
-        printOutput: true,
-      );
-    }
-
     /// flutter pub get
     await ProcessRunner().runProcess(
       ['flutter', 'pub', 'get'],
