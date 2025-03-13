@@ -42,7 +42,7 @@ abstract class Cache {
 
   /// 更新指定分支的最新缓存Commit Hash
   Future<void> updateCacheData(File zipFile, CacheModel model) async {
-    final cacheId = model.buildId;
+    final cacheId = model.commitHash;
     final cacheZipPath = await getZipCachePath(cacheId);
     await copyFile(zipFile, File(cacheZipPath));
     final infos = [...await cacheManager.read()];
