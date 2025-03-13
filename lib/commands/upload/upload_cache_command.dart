@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
+import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
@@ -21,37 +22,32 @@ class UploadCacheCommand extends Command {
       'buildPlatform',
       help: '构建平台',
       allowed: BuildPlatform.values.map((e) => e.name),
-      mandatory: true,
     );
     argParser.addOption(
       'buildConfiguration',
       help: '构建配置',
       allowed: BuildConfiguration.values.map((e) => e.name),
-      mandatory: true,
     );
     argParser.addOption(
       'buildLibrary',
       help: '构建库',
       allowed: BuildLibrary.values.map((e) => e.name),
-      mandatory: true,
     );
     argParser.addOption(
       'buildType',
       help: '构建类型',
       allowed: BuildType.values.map((e) => e.name),
-      mandatory: true,
     );
 
-    argParser.addFlag(
+    argParser.addOption(
       'isStore',
       help: '是否发布版本',
-      defaultsTo: false,
+      allowed: ['true', 'false'],
     );
 
     argParser.addOption(
       'branch',
       help: '分支',
-      mandatory: true,
     );
 
     argParser.addOption(
@@ -78,14 +74,34 @@ class UploadCacheCommand extends Command {
     databaseId = readEnv('APPWRITE_ZIP_DATABASE_ID');
     collectionId = readEnv('APPWRITE_ZIP_COLLECTION_ID');
     bucketId = readEnv('APPWRITE_ZIP_BUCKET_ID');
-    String buildPlatform = argResults?['buildPlatform']!;
-    String buildConfiguration = argResults?['buildConfiguration']!;
-    String buildLibrary = argResults?['buildLibrary']!;
-    String buildType = argResults?['buildType']!;
-    String branch = argResults?['branch']!;
-    String buildId = argResults?['buildId']!;
-    String? commitHash = argResults?['commitHash'];
-    bool isStore = argResults?['isStore'] ?? false;
+    String buildPlatform = ArgumentGet(argResults).getString(
+      'buildPlatform',
+      allowed: BuildPlatform.values.map((e) => e.name).toList(),
+    );
+    String buildConfiguration = ArgumentGet(argResults).getString(
+      'buildConfiguration',
+      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+    );
+    String buildLibrary = ArgumentGet(argResults).getString(
+      'buildLibrary',
+      allowed: BuildLibrary.values.map((e) => e.name).toList(),
+    );
+    String buildType = ArgumentGet(argResults).getString(
+      'buildType',
+      allowed: BuildType.values.map((e) => e.name).toList(),
+    );
+    bool isStore = ArgumentGet(argResults).getString(
+          'isStore',
+          allowed: ['true', 'false'],
+        ) ==
+        'true';
+    String branch = ArgumentGet(argResults).getString('branch');
+    int buildId = ArgumentGet(argResults).getInt('buildId', defaultValue: 0);
+    String commitHash = ArgumentGet(argResults).getString(
+      'commitHash',
+      validate: (p0) => true,
+    );
+
     final metaxCache = MetaxCache(
       buildPlatform:
           BuildPlatform.values.firstWhere((e) => e.name == buildPlatform),
@@ -96,15 +112,15 @@ class UploadCacheCommand extends Command {
           BuildLibrary.values.firstWhere((e) => e.name == buildLibrary),
       buildType: BuildType.values.firstWhere((e) => e.name == buildType),
       branch: branch,
-      buildId: int.parse(buildId),
+      buildId: buildId,
     );
     final cacheModels = await metaxCache.cacheManager.read();
     List<String> commitHashs = cacheModels.map((e) => e.commitHash).toList();
+    if (commitHashs.isEmpty) {
+      throw '${metaxCache.cacheManager.cacheHome} 缓存为空';
+    }
     List<String> commitHashsToUpload = [];
-    if (commitHash != null) {
-      if (await metaxCache.isCacheExists(commitHash)) {
-        throw '缓存不存在: $commitHash';
-      }
+    if (commitHash.isNotEmpty && await metaxCache.isCacheExists(commitHash)) {
       commitHashsToUpload = [commitHash];
     } else {
       commitHashsToUpload = commitHashs;
@@ -131,6 +147,12 @@ class UploadCacheCommand extends Command {
       projectId: appwriteEnvironment.projectId,
       apiKey: appwriteEnvironment.apiKey,
     );
+
+    final isAlreadyUploaded = await metaxCache.isCacheExists(commitHash);
+    if (isAlreadyUploaded) {
+      loggerInfo('缓存已存在: $commitHash');
+      return true;
+    }
 
     final zipFilePath = await metaxCache.getZipCachePath(commitHash);
     return await appwriteServer.uploadCache(

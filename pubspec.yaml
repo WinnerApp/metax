@@ -15,6 +15,7 @@ dependencies:
   color_logger: ^1.0.2
   darty_json_safe: ^1.0.3
   dio: ^5.6.0
+  prompts: ^2.0.0
 
 dev_dependencies:
   lints: ^4.0.0

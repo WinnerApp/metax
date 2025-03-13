@@ -140,7 +140,7 @@ class AppwriteServer {
       fileId: fileId,
       file: zipFile,
       onProgress: (progress) {
-        loggerInfo('上传进度: $progress[${zipFile.filename}]');
+        loggerDebug('上传进度: ${progress.progress}%-[${zipFile.filename}]');
       },
     )
         .then((e) {
