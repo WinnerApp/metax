@@ -88,17 +88,17 @@ abstract class UploadAppCommand extends Command {
     }
 
     loggerDebug('开始复制Unity静态库到指定位置');
-    final buildUnityCommitId = await copyUnityStaticLibrary(
-      buildVersionId: buildVersionId,
-      commitHash: unityCurrentCommitId,
-      branch: environment.branch,
-    );
+    // final buildUnityCommitId = await copyUnityStaticLibrary(
+    //   buildVersionId: buildVersionId,
+    //   commitHash: unityCurrentCommitId,
+    //   branch: environment.branch,
+    // );
 
     loggerDebug('开始复制Flutter静态库到指定位置');
-    final buildFlutterCommitId = await copyFlutterStaticLibrary(
-      commitHash: flutterCurrentCommitId,
-      branch: environment.branch,
-    );
+    // final buildFlutterCommitId = await copyFlutterStaticLibrary(
+    //   commitHash: flutterCurrentCommitId,
+    //   branch: environment.branch,
+    // );
 
     loggerDebug('正在获取当前Flutter变更日志');
     final flutterChangeLog = await GetGitLog(

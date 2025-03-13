@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/cache/build_cache.dart';

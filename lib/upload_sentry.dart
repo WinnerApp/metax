@@ -45,17 +45,20 @@ class UploadSentrySymbols {
       }
     }
     await File(sentrypropertiesFile).writeAsString(properties.join('\n'));
-    await ProcessRunner().runProcess(
-      [
-        'flutter',
-        'packages',
-        'pub',
-        'run',
-        'sentry_dart_plugin',
-      ],
-      workingDirectory: Directory(flutterProjectPath),
-    ).catchError((e) {
-      loggerError('上传sentry符号失败:${e.toString()}');
-    });
+    await ProcessRunner()
+        .runProcess(
+          [
+            'flutter',
+            'packages',
+            'pub',
+            'run',
+            'sentry_dart_plugin',
+          ],
+          workingDirectory: Directory(flutterProjectPath),
+        )
+        .then((e) {})
+        .catchError((e) {
+          loggerError('上传sentry符号失败:${e.toString()}');
+        });
   }
 }
