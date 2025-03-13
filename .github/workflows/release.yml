@@ -23,7 +23,7 @@ jobs:
         run: dart pub get
 
       - name: Build executable
-        run: dart compile exe bin/metax -o metax
+        run: dart compile exe bin/metax.dart -o metax
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -57,7 +57,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/my_app-macos-latest
+          asset_path: artifacts/metax-macos-latest
           asset_name: metax-macos
           asset_content_type: application/octet-stream
 
@@ -67,6 +67,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/my_app-windows-latest
+          asset_path: artifacts/metax-windows-latest
           asset_name: metax-windows.exe
           asset_content_type: application/octet-stream
