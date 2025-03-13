@@ -106,9 +106,14 @@ Future<void> deleteDirIfExists(String path) async {
 }
 
 /// 复制文件
-Future<void> copyFile(File source, File target) async {
+Future<void> copyFile(File source, File target,
+    {bool allowDelete = true}) async {
   if (target.existsSync()) {
-    throw '文件已存在: ${target.path}';
+    if (allowDelete) {
+      await target.delete();
+    } else {
+      throw '文件已存在: ${target.path}';
+    }
   }
   await target.create(recursive: true);
   await source.copy(target.path).catchError((e) async {
