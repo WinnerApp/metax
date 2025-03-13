@@ -118,7 +118,8 @@ class UploadCacheCommand extends Command {
     final cacheModels = await metaxCache.cacheManager.read();
     List<String> commitHashs = cacheModels.map((e) => e.commitHash).toList();
     if (commitHashs.isEmpty) {
-      throw '${metaxCache.cacheManager.cacheHome} 缓存为空';
+      loggerWarning('${metaxCache.cacheManager.cacheHome} 缓存为空');
+      return;
     }
     List<String> commitHashsToUpload = [];
     if (commitHash.isNotEmpty && await metaxCache.isCacheExists(commitHash)) {
@@ -149,7 +150,18 @@ class UploadCacheCommand extends Command {
       apiKey: appwriteEnvironment.apiKey,
     );
 
-    final isAlreadyUploaded = await metaxCache.isCacheExists(commitHash);
+    final isAlreadyUploaded = await appwriteServer.isCacheExists(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      platform: metaxCache.buildPlatform.name,
+      isStore: metaxCache.isStore,
+      branch: metaxCache.branch,
+      buildConfiguration: metaxCache.buildConfiguration.name,
+      buildLibrary: metaxCache.buildLibrary.name,
+      buildType: metaxCache.buildType.name,
+      buildId: metaxCache.buildId,
+      commitHash: commitHash,
+    );
     if (isAlreadyUploaded) {
       loggerInfo('缓存已存在: $commitHash');
       return true;

@@ -122,7 +122,6 @@ class AppwriteServer {
     required String platform,
     required bool isStore,
     required String branch,
-    required String buildName,
     required String buildConfiguration,
     required String buildLibrary,
     required String buildType,

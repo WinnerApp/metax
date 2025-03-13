@@ -50,11 +50,15 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       'configuration',
       allowed: BuildConfiguration.values.map((e) => e.name).toList(),
     );
-    isStore = ArgumentGet(argResults).getString(
-          'isStore',
-          allowed: ['true', 'false'],
-        ) ==
-        'true';
+    if (configuration == 'debug') {
+      isStore = false;
+    } else {
+      isStore = ArgumentGet(argResults).getString(
+            'isStore',
+            allowed: ['true', 'false'],
+          ) ==
+          'true';
+    }
     final isUpload = argResults?['isUpload'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
@@ -109,9 +113,12 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
           'framework',
           '--isStore',
           isStore.toString(),
+          '--branch',
+          branch,
           '--commitHash',
           commitHash,
         ],
+        printOutput: true,
       );
     }
   }
