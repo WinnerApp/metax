@@ -29,6 +29,12 @@ class CacheManager {
     final encoder = JsonEncoder.withIndent('  ');
     await File(cacheJsonPath).writeAsString(encoder.convert(jsonObject));
   }
+
+  /// 根据CommitHash获取缓存
+  Future<CacheModel?> getCacheByCommitHash(String commitHash) async {
+    final cacheModels = await read();
+    return cacheModels.firstWhere((e) => e.commitHash == commitHash);
+  }
 }
 
 class BuildCacheManager extends CacheManager {

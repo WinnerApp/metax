@@ -2,7 +2,7 @@ import 'package:meta_tool/cache/cache.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/define.dart';
 
-abstract class MetaxCache extends Cache {
+class MetaxCache extends Cache {
   final BuildPlatform buildPlatform;
   final bool isStore;
   final BuildConfiguration buildConfiguration;

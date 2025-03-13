@@ -81,4 +81,97 @@ class AppwriteServer {
       return false;
     });
   }
+
+  /// 查询缓存是否存在
+  Future<bool> isCacheExists({
+    required String databaseId,
+    required String collectionId,
+    required String platform,
+    required bool isStore,
+    required String branch,
+    required String buildName,
+    required String buildConfiguration,
+    required String buildLibrary,
+    required String buildType,
+    required String commitHash,
+    required int buildId,
+  }) async {
+    return databases.listDocuments(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      queries: [
+        Query.equal('platform', platform),
+        Query.equal('is_store', isStore),
+        Query.equal('configuration', buildConfiguration),
+        Query.equal('library', buildLibrary),
+        Query.equal('type', buildType),
+        Query.equal('branch', branch),
+        Query.equal('build_id', buildId),
+        Query.equal('commit_hash', commitHash),
+      ],
+    ).then((e) {
+      return e.documents.isNotEmpty;
+    }).catchError((e) {
+      loggerError(e.toString());
+      return false;
+    });
+  }
+
+  /// 上传缓存
+  Future<bool> uploadCache({
+    required String databaseId,
+    required String collectionId,
+    required String bucketId,
+    required String platform,
+    required bool isStore,
+    required String branch,
+    required String buildConfiguration,
+    required String buildLibrary,
+    required String buildType,
+    required String commitHash,
+    required int buildId,
+    required InputFile zipFile,
+  }) async {
+    final Storage storage = Storage(client);
+    final fileId = ID.unique();
+    final isUploadSuccess = await storage
+        .createFile(
+      bucketId: bucketId,
+      fileId: fileId,
+      file: zipFile,
+      onProgress: (progress) {
+        loggerInfo('上传进度: $progress[${zipFile.filename}]');
+      },
+    )
+        .then((e) {
+      return true;
+    }).catchError((e) {
+      loggerError(e.toString());
+      return false;
+    });
+    if (!isUploadSuccess) return false;
+
+    return databases.createDocument(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      documentId: ID.unique(),
+      data: {
+        'platform': platform,
+        'is_store': isStore,
+        'configuration': buildConfiguration,
+        'library': buildLibrary,
+        'type': buildType,
+        'branch': branch,
+        'build_id': buildId,
+        'commit_hash': commitHash,
+        'file_id': fileId,
+      },
+    ).then((e) {
+      return true;
+    }).catchError((e) {
+      loggerError(e.toString());
+      storage.deleteFile(bucketId: bucketId, fileId: fileId);
+      return false;
+    });
+  }
 }

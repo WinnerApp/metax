@@ -3,6 +3,7 @@ import 'package:meta_tool/commands/build/app/ipa_command.dart';
 import 'package:meta_tool/commands/build/app/apk_command.dart';
 import 'package:meta_tool/commands/upload/build_upload_apk_command.dart';
 import 'package:meta_tool/commands/upload/build_upload_ipa_command.dart';
+import 'package:meta_tool/commands/upload/upload_cache_command.dart';
 
 class UploadCommand extends Command {
   @override
@@ -16,5 +17,6 @@ class UploadCommand extends Command {
     addSubcommand(ApkCommand());
     addSubcommand(BuildUploadIpaCommand());
     addSubcommand(BuildUploadApkCommand());
+    addSubcommand(UploadCacheCommand());
   }
 }
