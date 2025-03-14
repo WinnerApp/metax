@@ -240,3 +240,37 @@ Future<bool> isAppDirectory(String workingDirectory) async {
       await androidDirectory.exists() ||
       await flutterDirectory.exists();
 }
+
+/// 上传对应的缓存资源
+Future<void> uploadCacheResource({
+  required BuildPlatform buildPlatform,
+  required BuildLibrary buildLibrary,
+  required BuildConfiguration buildConfiguration,
+  required BuildType buildType,
+  required bool isStore,
+  required String branch,
+  required String commitHash,
+}) async {
+  await ProcessRunner().runProcess(
+    [
+      'metax',
+      'upload',
+      'cache',
+      '--buildPlatform',
+      buildPlatform.name,
+      '--buildLibrary',
+      buildLibrary.name,
+      '--buildConfiguration',
+      buildConfiguration.name,
+      '--buildType',
+      buildType.name,
+      '--isStore',
+      isStore.toString(),
+      '--branch',
+      branch,
+      '--commitHash',
+      commitHash,
+    ],
+    printOutput: true,
+  );
+}

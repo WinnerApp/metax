@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
@@ -19,31 +21,36 @@ class FlutterAarCommand extends BuildCacheCommand {
       'configuration',
       abbr: 'c',
       help: 'flutter工程配置，debug/release',
-      allowed: ['debug', 'release'],
-      mandatory: true,
+      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+    );
+    argParser.addOption(
+      'isStore',
+      help: '是否发布包',
+      allowed: ['true', 'false'],
     );
     argParser.addFlag(
-      'clear',
-      help: '是否清除缓存',
-      defaultsTo: false,
-    );
-    argParser.addFlag(
-      'publish',
-      help: '是否发布',
-      defaultsTo: false,
+      'isUpload',
+      help: '是否上传缓存,默认上传',
+      defaultsTo: true,
     );
   }
 
   late String workspace;
   late String configuration;
-  late bool clear;
-  late bool publish;
+  late bool isStore;
   @override
   Future<void> run() async {
     workspace = argResults?['workspace'] ?? Directory.current.path;
-    configuration = argResults?['configuration'];
-    clear = argResults?['clear'];
-    publish = argResults?['publish'];
+    configuration = ArgumentGet(argResults).getString(
+      'configuration',
+      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+    );
+    isStore = ArgumentGet(argResults).getString(
+          'isStore',
+          allowed: ['true', 'false'],
+        ) ==
+        'true';
+    final isUpload = argResults?['isUpload'];
     final workspaceDir = Directory(workspace);
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
@@ -52,7 +59,7 @@ class FlutterAarCommand extends BuildCacheCommand {
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);
     BuildConfiguration buildConfiguration;
-    if (publish) {
+    if (isStore) {
       buildConfiguration = BuildConfiguration.release;
     } else {
       buildConfiguration = configuration == 'debug'
@@ -60,7 +67,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           : BuildConfiguration.release;
     }
     final flutterCache = AarCache(
-      isStore: publish,
+      isStore: isStore,
       branch: branch,
       buildConfiguration: buildConfiguration,
       buildLibrary: BuildLibrary.flutter,
@@ -72,18 +79,22 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
     );
     loggerSuccess('导出Flutter AAR完成!');
+    if (isUpload) {
+      loggerDebug('上传缓存...');
+      await uploadCacheResource(
+        buildPlatform: BuildPlatform.android,
+        buildLibrary: BuildLibrary.flutter,
+        buildConfiguration: buildConfiguration,
+        buildType: BuildType.aar,
+        isStore: isStore,
+        branch: branch,
+        commitHash: commitHash,
+      );
+    }
   }
 
   @override
   Future<void> buildCache() async {
-    if (clear) {
-      await ProcessRunner().runProcess(
-        ['flutter', 'clean'],
-        workingDirectory: Directory(workspace),
-        printOutput: true,
-      );
-    }
-
     // flutter pub get
     await ProcessRunner().runProcess(
       ['flutter', 'pub', 'get'],

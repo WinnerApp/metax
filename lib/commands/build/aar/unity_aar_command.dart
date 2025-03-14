@@ -1,5 +1,6 @@
 import 'dart:io';
-import 'package:darty_json_safe/darty_json_safe.dart';
+
+import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
@@ -15,7 +16,16 @@ class UnityAarCommand extends BuildCacheCommand {
   String get name => 'unity';
 
   UnityAarCommand() {
-    argParser.addOption('workspace', abbr: 's', help: '安卓目录');
+    argParser.addOption(
+      'workspace',
+      abbr: 's',
+      help: '安卓目录',
+    );
+    argParser.addFlag(
+      'isUpload',
+      help: '是否上传缓存,默认上传',
+      defaultsTo: true,
+    );
   }
 
   late String workspace;
@@ -23,21 +33,21 @@ class UnityAarCommand extends BuildCacheCommand {
   @override
   Future<void> run() async {
     workspace = argResults?['workspace'] ?? Directory.current.path;
+    final isUpload = argResults?['isUpload'];
     final unityDir = Directory(join(workspace, 'unityLibrary'));
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');
     }
-    final buildIdFile = File(join(unityDir.path, '.build_id'));
-    if (!await buildIdFile.exists()) {
-      throw Exception('build_id文件不存在: ${buildIdFile.path}');
+    final buildId = await getUnityBuildVersion(workspace);
+    final cacheManager = BuildCacheManager(workspace);
+    final models = await cacheManager.read();
+    final model = models.where((e) => e.buildId == buildId.toString()).toList();
+    if (model.isEmpty) {
+      throw '$workspace 目录下缓存信息不存在!请先运行[metax build unity_cache android]';
     }
-    final jsonText = await buildIdFile.readAsString().catchError((e) => '{}');
-    final json = JSON(jsonText);
-    final branch = json['branch'].string;
-    final commitHash = json['commitHash'].string;
-    if (branch == null || commitHash == null) {
-      throw Exception('build_id文件格式错误: ${buildIdFile.path}');
-    }
+    final cache = model.first;
+    final branch = cache.branch;
+    final commitHash = cache.commitHash;
     final unityCache = AarCache(
       isStore: true,
       branch: branch,
@@ -58,6 +68,18 @@ class UnityAarCommand extends BuildCacheCommand {
     );
 
     loggerSuccess('打包Unity AAR完成!');
+    if (isUpload) {
+      loggerDebug('上传缓存...');
+      await uploadCacheResource(
+        buildPlatform: BuildPlatform.android,
+        buildLibrary: BuildLibrary.unity,
+        buildConfiguration: BuildConfiguration.release,
+        buildType: BuildType.aar,
+        isStore: true,
+        branch: branch,
+        commitHash: commitHash,
+      );
+    }
   }
 
   @override

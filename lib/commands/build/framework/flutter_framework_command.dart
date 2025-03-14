@@ -98,27 +98,14 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {
       loggerDebug('上传缓存...');
-      await ProcessRunner().runProcess(
-        [
-          'metax',
-          'upload',
-          'cache',
-          '--buildPlatform',
-          'ios',
-          '--buildLibrary',
-          'flutter',
-          '--buildConfiguration',
-          buildConfiguration.name,
-          '--buildType',
-          'framework',
-          '--isStore',
-          isStore.toString(),
-          '--branch',
-          branch,
-          '--commitHash',
-          commitHash,
-        ],
-        printOutput: true,
+      await uploadCacheResource(
+        buildPlatform: BuildPlatform.ios,
+        buildLibrary: BuildLibrary.flutter,
+        buildConfiguration: buildConfiguration,
+        buildType: BuildType.framework,
+        isStore: isStore,
+        branch: branch,
+        commitHash: commitHash,
       );
     }
   }

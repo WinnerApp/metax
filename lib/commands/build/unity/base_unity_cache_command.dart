@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
@@ -9,8 +10,17 @@ import 'package:process_runner/process_runner.dart';
 abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   BuildPlatform get platform;
 
+  BaseUnityCacheCommand() {
+    argParser.addFlag(
+      'isUpload',
+      help: '是否上传缓存,默认上传',
+      defaultsTo: true,
+    );
+  }
+
   @override
   FutureOr? run() async {
+    final isUpload = argResults?['isUpload'];
     final unityWorkspace = readEnv('UNITY_WORKSPACE');
     final iosUnityPath = readEnv('IOS_UNITY_PATH');
     final androidUnityPath = readEnv('ANDROID_UNITY_PATH');
@@ -49,6 +59,18 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       buildCacheDir: unityCacheDir,
     );
     loggerSuccess('导出Unity代码完成');
+    if (isUpload) {
+      loggerDebug('上传缓存...');
+      await uploadCacheResource(
+        buildPlatform: platform,
+        buildLibrary: BuildLibrary.unity,
+        buildConfiguration: BuildConfiguration.release,
+        buildType: BuildType.library,
+        isStore: true,
+        branch: branch,
+        commitHash: commitHash,
+      );
+    }
   }
 
   @override
