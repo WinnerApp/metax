@@ -14,6 +14,7 @@ jobs:
       matrix:
         # 只支持 macos【intel/arm64】 和 windows
         os: [macos-14, windows-latest]
+        architecture: [x64, arm64]
     steps:
       - uses: actions/checkout@v3
 
@@ -21,7 +22,6 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-          architecture: [x64, arm64]
 
       - name: Install dependencies
         run: dart pub get
