@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/commands/upload/upload_app_environment.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/get_git_log.dart';
 import 'package:meta_tool/upload_sentry.dart';
-import 'package:path/path.dart';
 
 abstract class UploadAppCommand extends Command {
   late UploadAppEnvironment environment;
@@ -16,11 +16,9 @@ abstract class UploadAppCommand extends Command {
   Directory get unityProjectDir;
   Directory get unityFrameworkAarDir;
   Directory get flutterFrameworkAarDir;
-  Directory get flutterProjectDir =>
-      Directory(join(environment.workspace, 'metaapp_flutter'));
-  Directory get iosProjectDir => Directory(join(environment.workspace, 'ios'));
-  Directory get androidProjectDir =>
-      Directory(join(environment.workspace, 'android'));
+  Directory get flutterProjectDir => appHomeDir.flutterDir;
+  Directory get iosProjectDir => appHomeDir.iosDir;
+  Directory get androidProjectDir => appHomeDir.androidDir;
 
   BuildPublish get buildPublish =>
       environment.isStore ? BuildPublish.store : BuildPublish.test;
@@ -28,6 +26,7 @@ abstract class UploadAppCommand extends Command {
   String get platform;
 
   late AppwriteServer appwriteServer;
+  late AppHomeDir appHomeDir;
 
   @override
   FutureOr? run() async {
@@ -39,11 +38,7 @@ abstract class UploadAppCommand extends Command {
       apiKey: environment.appwriteApiKey,
     );
 
-    if (!flutterProjectDir.existsSync() &&
-        !iosProjectDir.existsSync() &&
-        !androidProjectDir.existsSync()) {
-      throw Exception('打包目录不正确！打包目录需要包含ios、android、metaapp_flutter目录');
-    }
+    appHomeDir = AppHomeDir(workspace: environment.workspace);
 
     /// 查询最新的打包版本配置
     final config = await appwriteServer.getCurrentBranchBuildConfig(

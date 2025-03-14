@@ -27,6 +27,7 @@ abstract class BuildCacheCommand extends Command {
       buildId: cache.buildId.toString(),
       isStore: cache.isStore,
     );
+
     if (cacheCommitHash != null && await cache.isCacheExists(commitHash)) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
     } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir)) {

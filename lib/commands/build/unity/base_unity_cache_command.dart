@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
+import 'package:meta_tool/commands/unity_environment.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
@@ -21,10 +22,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   @override
   FutureOr? run() async {
     final isUpload = argResults?['isUpload'];
-    final unityWorkspace = readEnv('UNITY_WORKSPACE');
-    final iosUnityPath = readEnv('IOS_UNITY_PATH');
-    final androidUnityPath = readEnv('ANDROID_UNITY_PATH');
-    checkEnv('UNITY_ENGINE_PATH');
+    final unityEnvironment = UnityEnvironment();
     if (!await isCommandInstall('build_winner_app')) {
       throw '请先通过dart pub global activate build_winner_app 进行安装build_winner_app命令';
     }
@@ -36,12 +34,18 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
     late String appWorkspace;
     late String unityCacheDir;
     if (platform == BuildPlatform.ios) {
-      workspaceDirectory = join(unityWorkspace, iosUnityPath);
-      appWorkspace = join(unityWorkspace, 'ios');
+      workspaceDirectory = join(
+        unityEnvironment.unityWorkspace,
+        unityEnvironment.iosUnityPath,
+      );
+      appWorkspace = join(unityEnvironment.unityWorkspace, 'ios');
       unityCacheDir = join(appWorkspace, 'UnityLibrary');
     } else if (platform == BuildPlatform.android) {
-      workspaceDirectory = join(unityWorkspace, androidUnityPath);
-      appWorkspace = join(unityWorkspace, 'android');
+      workspaceDirectory = join(
+        unityEnvironment.unityWorkspace,
+        unityEnvironment.androidUnityPath,
+      );
+      appWorkspace = join(unityEnvironment.unityWorkspace, 'android');
       unityCacheDir = join(appWorkspace, 'unityLibrary');
     }
 

@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
+import 'package:path/path.dart';
+import 'package:prompts/prompts.dart' as prompts;
 
 class ProjectCommand extends Command {
   @override
@@ -12,24 +14,57 @@ class ProjectCommand extends Command {
   String get name => "project";
 
   ProjectCommand() {
-    argParser.addOption("path", abbr: "p", help: "工程路径，默认为当前路径");
-    argParser.addOption("branch", abbr: "b", help: "分支名,默认为main");
-    argParser.addOption('url', abbr: 'u', help: '仓库地址');
+    argParser.addOption(
+      "workspace",
+      help: "APP工作空间路径，默认为当前路径",
+      defaultsTo: Directory.current.path,
+    );
   }
 
   @override
   FutureOr? run() async {
-    final workspace = argResults?["path"] ?? Directory.current.path;
-    // final branch = argResults?["branch"] ?? "main";
-    final url = argResults?["url"];
-    if (url == null) {
-      throw '仓库地址不能为空';
+    final workspace = argResults?["workspace"];
+    final iosGitUrl = readEnv('IOS_GIT_URL');
+    final androidGitUrl = readEnv('ANDROID_GIT_URL');
+    final flutterGitUrl = readEnv('FLUTTER_GIT_URL');
+    final iosProjectDir = Directory(join(workspace, 'ios'));
+    final androidProjectDir = Directory(join(workspace, 'android'));
+    final flutterProjectDir = Directory(join(workspace, 'metaapp_flutter'));
+    if (!iosProjectDir.existsSync()) {
+      await cloneRepository(iosProjectDir.path, iosGitUrl);
     }
-    final workspaceDir = Directory(workspace);
-    if (!workspaceDir.existsSync()) {
-      await cloneRepository(workspace, url);
-    } else if (!await isGitRepository(workspace)) {
-      throw '$workspace 已经存在并且不是一个git仓库';
+    final iosBranchList = await getLatestBranchList(iosProjectDir.path);
+    String? iosBranch = prompts.choose(
+      '请选择IOS分支',
+      iosBranchList,
+    );
+    if (iosBranch == null) {
+      throw 'IOS分支不能为空';
     }
+    await switchBranch(iosProjectDir.path, iosBranch);
+    if (!androidProjectDir.existsSync()) {
+      await cloneRepository(androidProjectDir.path, androidGitUrl);
+    }
+    final androidBranchList = await getLatestBranchList(androidProjectDir.path);
+    String? androidBranch = prompts.choose(
+      '请选择Android分支',
+      androidBranchList,
+    );
+    if (androidBranch == null) {
+      throw 'Android分支不能为空';
+    }
+    await switchBranch(androidProjectDir.path, androidBranch);
+    if (!flutterProjectDir.existsSync()) {
+      await cloneRepository(flutterProjectDir.path, flutterGitUrl);
+    }
+    final flutterBranchList = await getLatestBranchList(flutterProjectDir.path);
+    String? flutterBranch = prompts.choose(
+      '请选择Flutter分支',
+      flutterBranchList,
+    );
+    if (flutterBranch == null) {
+      throw 'Flutter分支不能为空';
+    }
+    await switchBranch(flutterProjectDir.path, flutterBranch);
   }
 }

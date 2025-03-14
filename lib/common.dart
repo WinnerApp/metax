@@ -70,6 +70,35 @@ Future<String> getCurrentBranch(String workingDirectory) async {
       .then((result) => result.stdout.trim());
 }
 
+/// 获取最新分支列表
+Future<List<String>> getLatestBranchList(String workingDirectory) async {
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'fetch',
+      'origin',
+    ],
+    workingDirectory: Directory(workingDirectory),
+  );
+  final commands = ['git', 'branch', '-r'];
+  return ProcessRunner(defaultWorkingDirectory: Directory(workingDirectory))
+      .runProcess(commands, printOutput: true)
+      .then((result) => result.stdout.trim().split('\n'));
+}
+
+/// 切换分支
+Future<void> switchBranch(String workingDirectory, String branch) async {
+  final switchBranch = getBranchName(branch);
+  await ProcessRunner().runProcess(
+    ['git', 'switch', switchBranch],
+    workingDirectory: Directory(workingDirectory),
+  );
+}
+
+String getBranchName(String branch) {
+  return branch.split('/').last;
+}
+
 /// 获取当前的commit hash
 Future<String> getCurrentCommitHash(String workingDirectory) async {
   final commands = ['git', 'rev-parse', 'HEAD'];
