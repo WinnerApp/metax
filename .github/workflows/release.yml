@@ -22,6 +22,8 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+          channel: stable
+          architecture: ${{ matrix.architecture }}
 
       - name: Install dependencies
         run: dart pub get
