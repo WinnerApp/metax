@@ -48,6 +48,7 @@ class UnityAarCommand extends BuildCacheCommand {
     final cache = model.first;
     final branch = cache.branch;
     final commitHash = cache.commitHash;
+    final commitTime = cache.commitTime;
     final unityCache = AarCache(
       isStore: true,
       branch: branch,
@@ -65,6 +66,7 @@ class UnityAarCommand extends BuildCacheCommand {
       cache: unityCache,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
+      commitTime: commitTime,
     );
 
     loggerSuccess('打包Unity AAR完成!');

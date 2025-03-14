@@ -158,6 +158,7 @@ class AppwriteServer {
     required String buildLibrary,
     required String buildType,
     required String commitHash,
+    required DateTime commitTime,
     required int buildId,
     required InputFile zipFile,
   }) async {
@@ -194,6 +195,7 @@ class AppwriteServer {
         'build_id': buildId,
         'commit_hash': commitHash,
         'file_id': fileId,
+        'commit_time': commitTime.toUtc().toIso8601String(),
       },
     ).then((e) {
       return true;

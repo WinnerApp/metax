@@ -14,6 +14,7 @@ abstract class BuildCacheCommand extends Command {
     required MetaxCache cache,
     required String commitHash,
     required String buildCacheDir,
+    required DateTime commitTime,
   }) async {
     final cacheCommitHash = await cache.getLastCacheCommitHash();
     final startTime = DateTime.now();
@@ -26,6 +27,7 @@ abstract class BuildCacheCommand extends Command {
       commitHash: commitHash,
       buildId: cache.buildId.toString(),
       isStore: cache.isStore,
+      commitTime: commitTime,
     );
 
     if (cacheCommitHash != null && await cache.isCacheExists(commitHash)) {
@@ -37,6 +39,7 @@ abstract class BuildCacheCommand extends Command {
         buildCacheDir: buildCacheDir,
         cache: cache,
         commitHash: commitHash,
+        commitTime: commitTime,
       );
     } else {
       // await deleteDirIfExists(buildCacheDir);
@@ -51,12 +54,14 @@ abstract class BuildCacheCommand extends Command {
           commitHash: commitHash,
           buildId: cache.buildId.toString(),
           isStore: cache.isStore,
+          commitTime: commitTime,
         ),
       ]);
       await writeToCacheSystem(
         buildCacheDir: buildCacheDir,
         cache: cache,
         commitHash: commitHash,
+        commitTime: commitTime,
       );
     }
     final endTime = DateTime.now();
@@ -68,6 +73,7 @@ abstract class BuildCacheCommand extends Command {
     required String buildCacheDir,
     required MetaxCache cache,
     required String commitHash,
+    required DateTime commitTime,
   }) async {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
     final cacheBaseName = basename(buildCacheDir);
@@ -98,6 +104,7 @@ abstract class BuildCacheCommand extends Command {
         buildPlatform: cache.buildPlatform.value,
         buildLibrary: cache.buildLibrary.value,
         buildType: cache.buildType.value,
+        commitTime: commitTime,
       ),
     );
     await zipFile.delete();

@@ -6,7 +6,8 @@ class ArgumentGet {
   ArgumentGet(this.argResults);
 
   String getString(
-    String name, {
+    String name,
+    String description, {
     List<String> allowed = const [],
     bool Function(String)? validate,
   }) {
@@ -14,24 +15,24 @@ class ArgumentGet {
     if (value == null) {
       if (allowed.isNotEmpty) {
         value = prompts.choose(
-          '请选择$name:',
+          description,
           allowed,
         );
       }
-      value ??= prompts.get('请输入$name:', validate: validate);
+      value ??= prompts.get(description, validate: validate);
     }
     return value;
   }
 
-  bool getBool(String name) {
+  bool getBool(String name, String description) {
     bool? value = argResults?[name];
-    value ??= prompts.getBool('请输入$name:');
+    value ??= prompts.getBool(description);
     return value;
   }
 
-  int getInt(String name, {int? defaultValue}) {
+  int getInt(String name, String description, {int? defaultValue}) {
     String? value = argResults?[name];
-    value ??= '${prompts.getInt('请输入$name:', defaultsTo: defaultValue)}';
+    value ??= '${prompts.getInt(description, defaultsTo: defaultValue)}';
     return int.parse(value);
   }
 }

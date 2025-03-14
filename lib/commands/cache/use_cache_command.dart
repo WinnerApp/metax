@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
@@ -79,15 +80,18 @@ class UseCacheCommand extends Command {
     final cacheModels = await metaxCacheManager.read();
     buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
+      '请选择构建平台',
       allowed: BuildPlatform.values.map((e) => e.name).toList(),
     );
     buildLibrary = ArgumentGet(argResults).getString(
       'buildLibrary',
+      '请选择构建库',
       allowed: BuildLibrary.values.map((e) => e.name).toList(),
     );
     if (buildLibrary == BuildLibrary.flutter.name) {
       buildConfiguration = ArgumentGet(argResults).getString(
         'buildConfiguration',
+        '请选择构建配置',
         allowed: BuildConfiguration.values.map((e) => e.name).toList(),
       );
     } else {
@@ -96,6 +100,7 @@ class UseCacheCommand extends Command {
 
     buildType = ArgumentGet(argResults).getString(
       'buildType',
+      '请选择构建类型',
       allowed: BuildType.values.map((e) => e.name).toList(),
     );
 
@@ -104,12 +109,10 @@ class UseCacheCommand extends Command {
     } else if (buildType == BuildType.library.name) {
       isStore = true;
     } else {
-      final choose = prompts.choose('是否使用发布包缓存', [
-            'true',
-            'false',
-          ]) ??
-          'false';
-      isStore = choose == 'true';
+      isStore = Unwrap(prompts.choose(
+        '是否使用发布包缓存',
+        ['true', 'false'],
+      )).map((e) => e == 'true').defaultValue(false);
     }
 
     List<CacheModel> filterCacheModels = cacheModels
@@ -128,6 +131,7 @@ class UseCacheCommand extends Command {
 
     final chooseBranch = ArgumentGet(argResults).getString(
       'branch',
+      '请选择分支',
       allowed: branchs,
     );
 
@@ -137,6 +141,7 @@ class UseCacheCommand extends Command {
     final buildIds = filterCacheModels.map((e) => e.buildId).toList();
     String chooseBuildId = ArgumentGet(argResults).getString(
       'buildId',
+      '请选择构建ID',
       allowed: buildIds,
     );
 
@@ -146,6 +151,7 @@ class UseCacheCommand extends Command {
     final commitHashs = filterCacheModels.map((e) => e.commitHash).toList();
     String chooseCommitHash = ArgumentGet(argResults).getString(
       'commitHash',
+      '请选择上传Hash',
       allowed: commitHashs,
     );
 

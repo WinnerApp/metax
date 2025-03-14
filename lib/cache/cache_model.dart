@@ -9,6 +9,7 @@ class CacheModel {
   final String commitHash;
   final String buildId;
   final bool isStore;
+  final DateTime commitTime;
 
   CacheModel({
     required this.buildPlatform,
@@ -19,6 +20,7 @@ class CacheModel {
     required this.commitHash,
     required this.buildId,
     required this.isStore,
+    required this.commitTime,
   });
 
   factory CacheModel.fromJson(Map<String, dynamic> map) {
@@ -32,6 +34,7 @@ class CacheModel {
       commitHash: json['commitHash'].stringValue,
       buildId: json['buildId'].stringValue,
       isStore: json['isStore'].boolValue,
+      commitTime: DateTime.parse(json['commitTime'].stringValue),
     );
   }
 
@@ -45,6 +48,7 @@ class CacheModel {
       'buildPlatform': buildPlatform,
       'buildLibrary': buildLibrary,
       'buildType': buildType,
+      'commitTime': commitTime.toUtc().toIso8601String(),
     };
   }
 

@@ -12,24 +12,24 @@ class AppwriteEnvironment {
   }
 }
 
-class AppwriteCacheEnvironment {
+class AppwriteCacheEnvironment extends AppwriteEnvironment {
   late String databaseId;
   late String collectionId;
   late String bucketId;
 
-  AppwriteCacheEnvironment() {
+  AppwriteCacheEnvironment() : super() {
     databaseId = readEnv('APPWRITE_ZIP_DATABASE_ID');
     collectionId = readEnv('APPWRITE_ZIP_COLLECTION_ID');
     bucketId = readEnv('APPWRITE_ZIP_BUCKET_ID');
   }
 }
 
-class AppwriteBuildEnvironment {
+class AppwriteBuildEnvironment extends AppwriteEnvironment {
   late String databaseId;
   late String collectionId;
   late String bucketId;
 
-  AppwriteBuildEnvironment() {
+  AppwriteBuildEnvironment() : super() {
     databaseId = readEnv('APPWRITE_BUILD_DATABASE_ID');
     collectionId = readEnv('APPWRITE_BUILD_COLLECTION_ID');
     bucketId = readEnv('APPWRITE_BUILD_BUCKET_ID');

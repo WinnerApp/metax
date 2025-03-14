@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
@@ -43,16 +44,17 @@ class FlutterAarCommand extends BuildCacheCommand {
     workspace = argResults?['workspace'] ?? Directory.current.path;
     configuration = ArgumentGet(argResults).getString(
       'configuration',
+      '请选择Flutter AAR构建配置',
       allowed: BuildConfiguration.values.map((e) => e.name).toList(),
     );
     if (configuration == 'debug') {
       isStore = false;
     } else {
-      isStore = ArgumentGet(argResults).getString(
-            'isStore',
-            allowed: ['true', 'false'],
-          ) ==
-          'true';
+      isStore = Unwrap(ArgumentGet(argResults).getString(
+        'isStore',
+        '是否应用市场的Flutter AAR',
+        allowed: ['true', 'false'],
+      )).map((e) => e == 'true').defaultValue(false);
     }
     final isUpload = argResults?['isUpload'];
     final workspaceDir = Directory(workspace);
@@ -62,13 +64,14 @@ class FlutterAarCommand extends BuildCacheCommand {
     }
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);
+    final commitTime = await getCommitTime(workspace, commitHash);
     BuildConfiguration buildConfiguration;
     if (isStore) {
       buildConfiguration = BuildConfiguration.release;
     } else {
-      buildConfiguration = configuration == 'debug'
-          ? BuildConfiguration.debug
-          : BuildConfiguration.release;
+      buildConfiguration = BuildConfiguration.values.firstWhere(
+        (e) => e.name == configuration,
+      );
     }
     final flutterCache = AarCache(
       isStore: isStore,
@@ -81,6 +84,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       cache: flutterCache,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
+      commitTime: commitTime,
     );
     loggerSuccess('导出Flutter AAR完成!');
     if (isUpload) {

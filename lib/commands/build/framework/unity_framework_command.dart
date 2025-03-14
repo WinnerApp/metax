@@ -62,6 +62,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       cache: unityCache,
       commitHash: cache.commitHash,
       buildCacheDir: buildCacheDir,
+      commitTime: cache.commitTime,
     );
     loggerSuccess('导出Unity Framework完成!');
     if (isUpload) {

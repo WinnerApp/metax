@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
@@ -48,16 +49,17 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     workspace = argResults?['workspace'];
     configuration = ArgumentGet(argResults).getString(
       'configuration',
+      '请选择Flutter Framework构建配置',
       allowed: BuildConfiguration.values.map((e) => e.name).toList(),
     );
     if (configuration == 'debug') {
       isStore = false;
     } else {
-      isStore = ArgumentGet(argResults).getString(
-            'isStore',
-            allowed: ['true', 'false'],
-          ) ==
-          'true';
+      isStore = Unwrap(ArgumentGet(argResults).getString(
+        'isStore',
+        '是否应用市场的Flutter Framework',
+        allowed: ['true', 'false'],
+      )).map((e) => e == 'true').defaultValue(false);
     }
     final isUpload = argResults?['isUpload'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
@@ -70,6 +72,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
 
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);
+    final commitTime = await getCommitTime(workspace, commitHash);
     BuildConfiguration buildConfiguration;
     if (isStore) {
       buildConfiguration = BuildConfiguration.release;
@@ -94,6 +97,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       cache: flutterCache,
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
+      commitTime: commitTime,
     );
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {

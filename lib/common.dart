@@ -107,6 +107,15 @@ Future<String> getCurrentCommitHash(String workingDirectory) async {
       .then((result) => result.stdout.trim());
 }
 
+/// 获取指定Commit Hash的提交时间
+Future<DateTime> getCommitTime(
+    String workingDirectory, String commitHash) async {
+  final commands = ['git', 'show', '-s', '--format=%ci', commitHash];
+  return ProcessRunner(defaultWorkingDirectory: Directory(workingDirectory))
+      .runProcess(commands, printOutput: true)
+      .then((result) => DateTime.parse(result.stdout.trim()));
+}
+
 String readEnv(String envName) {
   if (!Platform.environment.keys.contains(envName)) {
     throw "请设置环境变量 【$envName】";
@@ -331,4 +340,48 @@ Future<void> useCache({
     ],
     printOutput: true,
   );
+}
+
+/// 下载对应的缓存资源
+Future<void> downloadCacheResource({
+  required String workspace,
+  required BuildPlatform buildPlatform,
+  required BuildLibrary buildLibrary,
+  required BuildConfiguration buildConfiguration,
+  required BuildType buildType,
+  required bool isStore,
+  required String branch,
+  required String commitHash,
+  int buildId = 0,
+}) async {
+  await ProcessRunner().runProcess(
+    [
+      'metax',
+      'cache',
+      'download',
+      '--buildPlatform',
+      buildPlatform.name,
+      '--buildLibrary',
+      buildLibrary.name,
+      '--buildConfiguration',
+      buildConfiguration.name,
+      '--buildType',
+      buildType.name,
+      '--branch',
+      '--isStore',
+      isStore.toString(),
+      '--branch',
+      branch,
+      '--buildId',
+      buildId.toString(),
+      '--commitHash',
+      commitHash,
+    ],
+    printOutput: true,
+  );
+}
+
+/// 获取缓存资源存放的目录
+Directory getCacheResourceDir(String workspace) {
+  return Directory(join(workspace, 'cache'));
 }
