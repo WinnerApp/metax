@@ -10,7 +10,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        # 只支持 macos【intel/arm64】 和 windows
+        os: [macos-14, windows-latest]
     steps:
       - uses: actions/checkout@v3
 
