@@ -18,6 +18,9 @@ abstract class BuildCacheCommand extends Command {
     final cacheCommitHash = await cache.getLastCacheCommitHash();
     final startTime = DateTime.now();
     final buildModel = CacheModel(
+      buildPlatform: cache.buildPlatform.value,
+      buildLibrary: cache.buildLibrary.value,
+      buildType: cache.buildType.value,
       branch: cache.branch,
       configuration: cache.buildConfiguration.value,
       commitHash: commitHash,
@@ -39,6 +42,9 @@ abstract class BuildCacheCommand extends Command {
       await buildCache();
       await BuildCacheManager(buildCacheDir).write([
         CacheModel(
+          buildPlatform: cache.buildPlatform.value,
+          buildLibrary: cache.buildLibrary.value,
+          buildType: cache.buildType.value,
           branch: cache.branch,
           configuration: cache.buildConfiguration.value,
           commitHash: commitHash,
@@ -88,6 +94,9 @@ abstract class BuildCacheCommand extends Command {
         buildId: cache.buildId.toString(),
         isStore: cache.isStore,
         configuration: cache.buildConfiguration.value,
+        buildPlatform: cache.buildPlatform.value,
+        buildLibrary: cache.buildLibrary.value,
+        buildType: cache.buildType.value,
       ),
     );
     await zipFile.delete();

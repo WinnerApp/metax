@@ -231,16 +231,6 @@ Future<bool> sendTextToWeixinWebhooks(String text, String hookUrl) async {
   return true;
 }
 
-/// 检测当前目录是否是App目录
-Future<bool> isAppDirectory(String workingDirectory) async {
-  final iosDirectory = Directory(join(workingDirectory, 'ios'));
-  final androidDirectory = Directory(join(workingDirectory, 'android'));
-  final flutterDirectory = Directory(join(workingDirectory, 'flutter'));
-  return await iosDirectory.exists() ||
-      await androidDirectory.exists() ||
-      await flutterDirectory.exists();
-}
-
 /// 上传对应的缓存资源
 Future<void> uploadCacheResource({
   required BuildPlatform buildPlatform,
@@ -254,8 +244,8 @@ Future<void> uploadCacheResource({
   await ProcessRunner().runProcess(
     [
       'metax',
-      'upload',
       'cache',
+      'upload',
       '--buildPlatform',
       buildPlatform.name,
       '--buildLibrary',
@@ -270,6 +260,46 @@ Future<void> uploadCacheResource({
       branch,
       '--commitHash',
       commitHash,
+    ],
+    printOutput: true,
+  );
+}
+
+/// 使用缓存
+Future<void> useCache({
+  required String workspace,
+  required BuildPlatform buildPlatform,
+  required BuildLibrary buildLibrary,
+  required BuildConfiguration buildConfiguration,
+  required BuildType buildType,
+  required bool isStore,
+  required String branch,
+  required String commitHash,
+  int buildId = 0,
+}) async {
+  await ProcessRunner().runProcess(
+    [
+      'metax',
+      'cache',
+      'use',
+      '--workspace',
+      workspace,
+      '--buildPlatform',
+      buildPlatform.name,
+      '--buildLibrary',
+      buildLibrary.name,
+      '--buildConfiguration',
+      buildConfiguration.name,
+      '--buildType',
+      buildType.name,
+      '--branch',
+      branch,
+      '--isStore',
+      isStore.toString(),
+      '--commitHash',
+      commitHash,
+      '--buildId',
+      buildId.toString(),
     ],
     printOutput: true,
   );

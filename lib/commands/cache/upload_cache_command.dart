@@ -12,7 +12,7 @@ import 'package:meta_tool/define.dart';
 
 class UploadCacheCommand extends Command {
   @override
-  String get name => 'cache';
+  String get name => 'upload';
 
   @override
   String get description => '上传构建缓存';
@@ -118,7 +118,7 @@ class UploadCacheCommand extends Command {
     final cacheModels = await metaxCache.cacheManager.read();
     List<String> commitHashs = cacheModels.map((e) => e.commitHash).toList();
     if (commitHashs.isEmpty) {
-      loggerWarning('${metaxCache.cacheManager.cacheHome} 缓存为空');
+      loggerWarning('${metaxCache.cacheHomeDir} 缓存为空');
       return;
     }
     List<String> commitHashsToUpload = [];

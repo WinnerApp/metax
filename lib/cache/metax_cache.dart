@@ -1,6 +1,8 @@
 import 'package:meta_tool/cache/cache.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
+import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:path/path.dart';
 
 class MetaxCache extends Cache {
   final BuildPlatform buildPlatform;
@@ -18,13 +20,18 @@ class MetaxCache extends Cache {
     required this.buildType,
     required this.branch,
     this.buildId = 0,
-  }) : super(MetaxCacheManager(
-          buildPlatform: buildPlatform,
-          isStore: isStore,
-          buildConfiguration: buildConfiguration,
-          buildLibrary: buildLibrary,
-          buildType: buildType,
-          branch: branch,
-          buildId: buildId,
-        ));
+  }) : super(
+          join(
+            readEnv('HOME'),
+            '.metax',
+            buildPlatform.name,
+            isStore ? 'store' : 'test',
+            buildConfiguration.name,
+            buildLibrary.name,
+            buildType.name,
+            branch,
+            '$buildId',
+          ),
+          MetaxCacheManager(),
+        );
 }

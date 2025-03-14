@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -13,12 +14,17 @@ import 'package:prompts/prompts.dart' as prompts;
 
 class DownloadCacheCommand extends Command {
   @override
-  String get name => 'cache';
+  String get name => 'download';
 
   @override
   String get description => '下载缓存';
 
   DownloadCacheCommand() {
+    argParser.addOption(
+      'workspace',
+      help: 'App工作区,默认为当前目录',
+      defaultsTo: Directory.current.path,
+    );
     argParser.addOption(
       'buildPlatform',
       help: '构建平台',
@@ -59,6 +65,8 @@ class DownloadCacheCommand extends Command {
 
   @override
   FutureOr? run() async {
+    final workspace = argResults?['workspace'];
+    final appHomeDir = AppHomeDir(workspace: workspace);
     appwriteEnvironment = AppwriteEnvironment();
     databaseId = readEnv('APPWRITE_ZIP_DATABASE_ID');
     collectionId = readEnv('APPWRITE_ZIP_COLLECTION_ID');
@@ -105,7 +113,12 @@ class DownloadCacheCommand extends Command {
     }
     final builds =
         cacheDocuments.map((e) => e.data['build_id'].toString()).toList();
-    String buildId = prompts.choose('请选择构建ID', builds) ?? builds.first;
+    String buildId;
+    if (builds.length == 1) {
+      buildId = builds.first;
+    } else {
+      buildId = prompts.choose('请选择构建ID', builds) ?? builds.first;
+    }
 
     final commitHashs = cacheDocuments
         .where((e) => e.data['build_id'].toString() == buildId)
@@ -114,8 +127,12 @@ class DownloadCacheCommand extends Command {
     if (commitHashs.isEmpty) {
       throw '构建[$buildId]不存在缓存记录!';
     }
-    final commitHash =
-        prompts.choose('请选择提交哈希', commitHashs) ?? commitHashs.first;
+    String commitHash;
+    if (commitHashs.length == 1) {
+      commitHash = commitHashs.first;
+    } else {
+      commitHash = prompts.choose('请选择提交哈希', commitHashs) ?? commitHashs.first;
+    }
     final cacheDocument = cacheDocuments
         .firstWhere((e) => e.data['commit_hash'].toString() == commitHash);
     final fileId = cacheDocument.data['file_id'].toString();
@@ -133,14 +150,17 @@ class DownloadCacheCommand extends Command {
     );
     final cacheModel =
         await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
-    final cacheFile = await metaxCache.getZipCachePath(commitHash);
-    final cacheHomeDir = Directory(metaxCache.cacheManager.cacheHome);
+    final cacheFile = metaxCache.getZipCachePath(commitHash);
+    final cacheHomeDir = Directory(metaxCache.cacheHomeDir);
     if (!cacheHomeDir.existsSync()) {
       cacheHomeDir.createSync(recursive: true);
     }
     if (cacheModel == null) {
       await metaxCache.cacheManager.appendCache(
         CacheModel(
+          buildPlatform: buildPlatform,
+          buildLibrary: buildLibrary,
+          buildType: buildType,
           branch: branch,
           configuration: buildConfiguration,
           commitHash: commitHash,
@@ -163,5 +183,25 @@ class DownloadCacheCommand extends Command {
       await file.writeAsBytes(data);
     }
     loggerSuccess('下载缓存成功!');
+    loggerDebug('使用缓存!');
+    await useCache(
+      workspace: appHomeDir.workspace,
+      buildPlatform: BuildPlatform.values.firstWhere(
+        (e) => e.name == buildPlatform,
+      ),
+      buildLibrary: BuildLibrary.values.firstWhere(
+        (e) => e.name == buildLibrary,
+      ),
+      buildConfiguration: BuildConfiguration.values.firstWhere(
+        (e) => e.name == buildConfiguration,
+      ),
+      buildType: BuildType.values.firstWhere(
+        (e) => e.name == buildType,
+      ),
+      isStore: isStore,
+      branch: branch,
+      commitHash: commitHash,
+      buildId: int.parse(buildId),
+    );
   }
 }
