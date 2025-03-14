@@ -45,11 +45,15 @@ class FlutterAarCommand extends BuildCacheCommand {
       'configuration',
       allowed: BuildConfiguration.values.map((e) => e.name).toList(),
     );
-    isStore = ArgumentGet(argResults).getString(
-          'isStore',
-          allowed: ['true', 'false'],
-        ) ==
-        'true';
+    if (configuration == 'debug') {
+      isStore = false;
+    } else {
+      isStore = ArgumentGet(argResults).getString(
+            'isStore',
+            allowed: ['true', 'false'],
+          ) ==
+          'true';
+    }
     final isUpload = argResults?['isUpload'];
     final workspaceDir = Directory(workspace);
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));

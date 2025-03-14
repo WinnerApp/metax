@@ -173,12 +173,11 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
   if (await targetDir.exists()) {
     await targetDir.delete(recursive: true);
   }
-  await targetDir.create(recursive: true);
   await ProcessRunner().runProcess([
     'unzip',
     zipPath,
     '-d',
-    targetDir.path,
+    targetDir.parent.path,
   ]);
 }
 

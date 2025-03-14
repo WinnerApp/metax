@@ -69,10 +69,7 @@ class UseCacheCommand extends Command {
   late String buildLibrary;
   late String buildConfiguration;
   late String buildType;
-  late String branch;
   late bool isStore;
-  late String commitHash;
-  late int buildId;
 
   @override
   Future<void> run() async {
@@ -104,6 +101,8 @@ class UseCacheCommand extends Command {
 
     if (buildConfiguration == BuildConfiguration.debug.name) {
       isStore = false;
+    } else if (buildType == BuildType.library.name) {
+      isStore = true;
     } else {
       final choose = prompts.choose('是否使用发布包缓存', [
             'true',
@@ -166,7 +165,7 @@ class UseCacheCommand extends Command {
       buildType: BuildType.values.firstWhere(
         (e) => e.name == buildType,
       ),
-      branch: branch,
+      branch: chooseBranch,
       isStore: isStore,
       buildId: int.parse(chooseBuildId),
     );
@@ -234,5 +233,6 @@ class UseCacheCommand extends Command {
 
     final buildManager = BuildCacheManager(copyCacheToDir);
     await buildManager.appendCache(cacheModel);
+    loggerSuccess('使用缓存成功!');
   }
 }

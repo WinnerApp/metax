@@ -21,6 +21,6 @@ class AarCache extends MetaxCache {
     required super.buildLibrary,
   }) : super(
           buildType: BuildType.aar,
-          buildPlatform: BuildPlatform.ios,
+          buildPlatform: BuildPlatform.android,
         );
 }

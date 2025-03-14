@@ -75,30 +75,42 @@ class DownloadCacheCommand extends Command {
       'buildPlatform',
       allowed: BuildPlatform.values.map((e) => e.name).toList(),
     );
-    String buildConfiguration = ArgumentGet(argResults).getString(
-      'buildConfiguration',
-      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
-    );
     String buildLibrary = ArgumentGet(argResults).getString(
       'buildLibrary',
       allowed: BuildLibrary.values.map((e) => e.name).toList(),
     );
+
     String buildType = ArgumentGet(argResults).getString(
       'buildType',
       allowed: BuildType.values.map((e) => e.name).toList(),
     );
-    bool isStore = ArgumentGet(argResults).getString(
-          'isStore',
-          allowed: ['true', 'false'],
-        ) ==
-        'true';
-    String branch = ArgumentGet(argResults).getString('branch');
+    String buildConfiguration;
+    if (buildLibrary == BuildLibrary.unity.name) {
+      buildConfiguration = BuildConfiguration.release.name;
+    } else {
+      buildConfiguration = ArgumentGet(argResults).getString(
+        'buildConfiguration',
+        allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+      );
+    }
+
+    bool isStore;
+    if (buildLibrary == BuildLibrary.flutter.name) {
+      isStore = ArgumentGet(argResults).getString(
+            'isStore',
+            allowed: ['true', 'false'],
+          ) ==
+          'true';
+    } else {
+      isStore = true;
+    }
     final appwriteServer = AppwriteServer(
       endpoint: appwriteEnvironment.endpoint,
       projectId: appwriteEnvironment.projectId,
       apiKey: appwriteEnvironment.apiKey,
     );
-    final cacheDocuments = await appwriteServer.queryZipCacheList(
+    List<Map<String, dynamic>> cacheDocuments =
+        await appwriteServer.queryZipCacheList(
       databaseId: databaseId,
       collectionId: collectionId,
       platform: buildPlatform,
@@ -106,13 +118,20 @@ class DownloadCacheCommand extends Command {
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
-      branch: branch,
     );
     if (cacheDocuments.isEmpty) {
       throw '网络缓存为空';
     }
-    final builds =
-        cacheDocuments.map((e) => e.data['build_id'].toString()).toList();
+    final branchs = cacheDocuments.map((e) => e['branch'].toString()).toList();
+    String branch = ArgumentGet(argResults).getString(
+      'branch',
+      allowed: branchs,
+    );
+
+    cacheDocuments =
+        cacheDocuments.where((e) => e['branch'].toString() == branch).toList();
+
+    final builds = cacheDocuments.map((e) => e['build_id'].toString()).toList();
     String buildId;
     if (builds.length == 1) {
       buildId = builds.first;
@@ -121,8 +140,8 @@ class DownloadCacheCommand extends Command {
     }
 
     final commitHashs = cacheDocuments
-        .where((e) => e.data['build_id'].toString() == buildId)
-        .map((e) => e.data['commit_hash'].toString())
+        .where((e) => e['build_id'].toString() == buildId)
+        .map((e) => e['commit_hash'].toString())
         .toList();
     if (commitHashs.isEmpty) {
       throw '构建[$buildId]不存在缓存记录!';
@@ -134,8 +153,8 @@ class DownloadCacheCommand extends Command {
       commitHash = prompts.choose('请选择提交哈希', commitHashs) ?? commitHashs.first;
     }
     final cacheDocument = cacheDocuments
-        .firstWhere((e) => e.data['commit_hash'].toString() == commitHash);
-    final fileId = cacheDocument.data['file_id'].toString();
+        .firstWhere((e) => e['commit_hash'].toString() == commitHash);
+    final fileId = cacheDocument['file_id'].toString();
     final metaxCache = MetaxCache(
       buildPlatform:
           BuildPlatform.values.firstWhere((e) => e.name == buildPlatform),
@@ -171,7 +190,7 @@ class DownloadCacheCommand extends Command {
       loggerDebug('写入配置到本地!');
     }
     if (!await metaxCache.isCacheExists(commitHash)) {
-      loggerDebug('下载缓存到本地!');
+      loggerDebug('下载缓存到本地中，请稍等......');
       final data = await appwriteServer.downloadFile(
         bucketId: bucketId,
         fileId: fileId,

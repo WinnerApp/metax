@@ -43,6 +43,9 @@ abstract class Cache {
 
   /// 更新指定分支的最新缓存Commit Hash
   Future<void> updateCacheData(File zipFile, CacheModel model) async {
+    if (!Directory(cacheHomeDir).existsSync()) {
+      await Directory(cacheHomeDir).create(recursive: true);
+    }
     final cacheId = model.commitHash;
     final cacheZipPath = getZipCachePath(cacheId);
     await copyFile(zipFile, File(cacheZipPath));

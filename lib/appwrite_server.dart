@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:dart_appwrite/dart_appwrite.dart';
-import 'package:dart_appwrite/models.dart';
 import 'package:meta_tool/common.dart';
 
 class AppwriteServer {
@@ -86,7 +85,7 @@ class AppwriteServer {
   }
 
   /// 查询缓存列表
-  Future<List<Document>> queryZipCacheList({
+  Future<List<Map<String, dynamic>>> queryZipCacheList({
     required String databaseId,
     required String collectionId,
     required String platform,
@@ -94,7 +93,6 @@ class AppwriteServer {
     required String buildConfiguration,
     required String buildLibrary,
     required String buildType,
-    required String branch,
   }) async {
     return databases.listDocuments(
       databaseId: databaseId,
@@ -105,13 +103,12 @@ class AppwriteServer {
         Query.equal('configuration', buildConfiguration),
         Query.equal('library', buildLibrary),
         Query.equal('type', buildType),
-        Query.equal('branch', branch),
       ],
     ).then((e) {
-      return e.documents;
+      return e.documents.map((e) => e.data).toList();
     }).catchError((e) {
       loggerError(e.toString());
-      return <Document>[];
+      return <Map<String, dynamic>>[];
     });
   }
 
