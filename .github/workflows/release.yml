@@ -2,8 +2,10 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*" # 触发条件：当推送的标签以 'v' 开头时
+    branches:
+      - "main"
+    # tags:
+    #   - "v*" # 触发条件：当推送的标签以 'v' 开头时
 
 jobs:
   build:
@@ -19,6 +21,7 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+          architecture: x64, arm64
 
       - name: Install dependencies
         run: dart pub get
