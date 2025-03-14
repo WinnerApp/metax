@@ -24,7 +24,8 @@ jobs:
 
       - name: Build executable
         run: dart compile exe bin/metax.dart -o metax
-
+      - name: ls
+        run: ls -l
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
