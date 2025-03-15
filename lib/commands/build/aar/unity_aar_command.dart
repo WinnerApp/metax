@@ -38,14 +38,9 @@ class UnityAarCommand extends BuildCacheCommand {
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');
     }
-    final buildId = await getUnityBuildVersion(workspace);
     final cacheManager = BuildCacheManager(workspace);
     final models = await cacheManager.read();
-    final model = models.where((e) => e.buildId == buildId.toString()).toList();
-    if (model.isEmpty) {
-      throw '$workspace 目录下缓存信息不存在!请先运行[metax build unity_cache android]';
-    }
-    final cache = model.first;
+    final cache = models.first;
     final branch = cache.branch;
     final commitHash = cache.commitHash;
     final commitTime = cache.commitTime;
@@ -67,7 +62,7 @@ class UnityAarCommand extends BuildCacheCommand {
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
-      cacheId: buildId.toString(),
+      cacheId: cache.buildId.toString(),
     );
 
     loggerSuccess('打包Unity AAR完成!');
