@@ -85,6 +85,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
+      cacheId: commitHash,
     );
     loggerSuccess('导出Flutter AAR完成!');
     if (isUpload) {
@@ -97,6 +98,7 @@ class FlutterAarCommand extends BuildCacheCommand {
         isStore: isStore,
         branch: branch,
         commitHash: commitHash,
+        commitTime: commitTime,
       );
     }
   }

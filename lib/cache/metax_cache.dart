@@ -34,4 +34,6 @@ class MetaxCache extends Cache {
           ),
           MetaxCacheManager(),
         );
+
+  Future<String?> getCommitHashFromCacheId(String cacheId) async => cacheId;
 }

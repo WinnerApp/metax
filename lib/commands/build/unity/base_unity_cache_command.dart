@@ -52,9 +52,11 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
     final branch = await getCurrentBranch(workspaceDirectory);
     final commitHash = await getCurrentCommitHash(workspaceDirectory);
     final commitTime = await getCommitTime(workspaceDirectory, commitHash);
+    final buildId = await getUnityBuildVersion(workspaceDirectory);
     final unityCache = UnityCache(
       buildPlatform: platform,
       branch: branch,
+      buildId: buildId,
     );
 
     await updateCache(
@@ -62,6 +64,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       commitHash: commitHash,
       buildCacheDir: unityCacheDir,
       commitTime: commitTime,
+      cacheId: buildId.toString(),
     );
     loggerSuccess('导出Unity代码完成');
     if (isUpload) {
@@ -74,6 +77,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         isStore: true,
         branch: branch,
         commitHash: commitHash,
+        commitTime: commitTime,
       );
     }
   }

@@ -98,6 +98,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
+      cacheId: commitHash,
     );
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {
@@ -110,6 +111,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         isStore: isStore,
         branch: branch,
         commitHash: commitHash,
+        commitTime: commitTime,
       );
     }
   }

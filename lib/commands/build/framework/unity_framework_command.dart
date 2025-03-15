@@ -39,14 +39,12 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     if (!Directory(xcodeProjectPath).existsSync()) {
       throw '当前目录不是iOS Unity工程目录';
     }
-    final buildId = await getUnityBuildVersion(workspace);
     final cacheManager = BuildCacheManager(workspace);
     final models = await cacheManager.read();
-    final model = models.where((e) => e.buildId == buildId.toString()).toList();
-    if (model.isEmpty) {
+    if (models.isEmpty) {
       throw '$workspace 目录下缓存信息不存在!请先运行[metax build unity_cache ios]';
     }
-    final cache = model.first;
+    final cache = models.first;
     final unityCache = FrameworkCache(
       isStore: true,
       branch: cache.branch,
@@ -63,6 +61,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       commitHash: cache.commitHash,
       buildCacheDir: buildCacheDir,
       commitTime: cache.commitTime,
+      cacheId: cache.buildId.toString(),
     );
     loggerSuccess('导出Unity Framework完成!');
     if (isUpload) {
@@ -75,6 +74,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         isStore: true,
         branch: cache.branch,
         commitHash: cache.commitHash,
+        commitTime: cache.commitTime,
       );
     }
   }

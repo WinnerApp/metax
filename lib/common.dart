@@ -196,7 +196,7 @@ void loggerDebug(String message) {
 Future<int> getUnityBuildVersion(String workingDirectory) async {
   final buildVersionFile = File(join(workingDirectory, 'build_version.txt'));
   if (!await buildVersionFile.exists()) {
-    throw 'Unity工程的build_version.txt文件不存在';
+    throw '$buildVersionFile文件不存在';
   }
   int? buildVersionId =
       await buildVersionFile.readAsString().then((e) => int.tryParse(e));
@@ -277,6 +277,7 @@ Future<void> uploadCacheResource({
   required bool isStore,
   required String branch,
   required String commitHash,
+  required DateTime commitTime,
 }) async {
   await ProcessRunner().runProcess(
     [
@@ -297,6 +298,8 @@ Future<void> uploadCacheResource({
       branch,
       '--commitHash',
       commitHash,
+      '--commitTime',
+      commitTime.toUtc().toIso8601String(),
     ],
     printOutput: true,
   );

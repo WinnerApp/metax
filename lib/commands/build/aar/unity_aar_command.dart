@@ -67,6 +67,7 @@ class UnityAarCommand extends BuildCacheCommand {
       commitHash: commitHash,
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
+      cacheId: buildId.toString(),
     );
 
     loggerSuccess('打包Unity AAR完成!');
@@ -80,6 +81,7 @@ class UnityAarCommand extends BuildCacheCommand {
         isStore: true,
         branch: branch,
         commitHash: commitHash,
+        commitTime: commitTime,
       );
     }
   }

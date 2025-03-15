@@ -15,6 +15,7 @@ abstract class BuildCacheCommand extends Command {
     required String commitHash,
     required String buildCacheDir,
     required DateTime commitTime,
+    required String cacheId,
   }) async {
     final cacheCommitHash = await cache.getLastCacheCommitHash();
     final startTime = DateTime.now();
