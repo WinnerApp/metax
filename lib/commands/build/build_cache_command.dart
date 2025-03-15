@@ -17,7 +17,7 @@ abstract class BuildCacheCommand extends Command {
     required DateTime commitTime,
     required String cacheId,
   }) async {
-    final cacheCommitHash = await cache.getLastCacheCommitHash();
+    final cacheModel = await cache.getCacheModelFromCacheId(cacheId);
     final startTime = DateTime.now();
     final buildModel = CacheModel(
       buildPlatform: cache.buildPlatform.value,
@@ -31,8 +31,10 @@ abstract class BuildCacheCommand extends Command {
       commitTime: commitTime,
     );
 
-    if (cacheCommitHash != null && await cache.isCacheExists(commitHash)) {
+    if (cacheModel != null &&
+        await cache.isCacheExists(cacheModel.commitHash)) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
+      commitHash = cacheModel.commitHash;
     } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir)) {
       loggerInfo('🔍 当前编译已经是最新的,正在复制到本地缓存目录......');
 

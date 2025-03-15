@@ -50,7 +50,7 @@ abstract class Cache {
     final cacheZipPath = getZipCachePath(cacheId);
     await copyFile(zipFile, File(cacheZipPath));
     final infos = [...await cacheManager.read()];
-    final index = infos.indexWhere((e) => e.commitHash == model.commitHash);
+    final index = infos.indexWhere((e) => e == model);
     if (index != -1) {
       infos[index] = model;
     } else {
