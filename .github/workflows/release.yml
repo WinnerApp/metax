@@ -2,10 +2,8 @@ name: Release
 
 on:
   push:
-    branches:
-      - "main"
-    # tags:
-    #   - "v*" # 触发条件：当推送的标签以 'v' 开头时
+    tags:
+      - "v*" # 触发条件：当推送的标签以 'v' 开头时
 
 jobs:
   build:
