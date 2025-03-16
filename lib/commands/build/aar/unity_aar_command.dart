@@ -38,7 +38,7 @@ class UnityAarCommand extends BuildCacheCommand {
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');
     }
-    final cacheManager = BuildCacheManager(workspace);
+    final cacheManager = BuildCacheManager(unityDir.path);
     final models = await cacheManager.read();
     final cache = models.first;
     final branch = cache.branch;
