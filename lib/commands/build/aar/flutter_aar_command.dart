@@ -18,6 +18,7 @@ class FlutterAarCommand extends BuildCacheCommand {
 
   FlutterAarCommand() {
     argParser.addOption('workspace', abbr: 's', help: 'flutter工程目录，默认使用当前目录');
+
     argParser.addOption(
       'configuration',
       abbr: 'c',
@@ -60,7 +61,7 @@ class FlutterAarCommand extends BuildCacheCommand {
     final workspaceDir = Directory(workspace);
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
-      throw Exception('pubspec.yaml文件不存在: ${pubspecFile.path}');
+      throw Exception('${workspaceDir.path} 不是一个Flutter工程');
     }
     final branch = await getCurrentBranch(workspace);
     final commitHash = await getCurrentCommitHash(workspace);

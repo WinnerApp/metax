@@ -19,7 +19,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     argParser.addOption(
       'workspace',
       abbr: 's',
-      help: 'unity工程目录，默认使用当前目录',
+      help: 'iOS工程目录，默认使用当前目录',
     );
     argParser.addFlag(
       'isUpload',
@@ -35,14 +35,15 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     workspace = argResults?['workspace'] ?? Directory.current.path;
     final isUpload = argResults?['isUpload'];
     final workspaceDir = Directory(workspace);
-    final xcodeProjectPath = join(workspaceDir.path, 'Unity-iPhone.xcodeproj');
+    final unityLibraryDir = join(workspaceDir.path, 'UnityLibrary');
+    final xcodeProjectPath = join(unityLibraryDir, 'Unity-iPhone.xcodeproj');
     if (!Directory(xcodeProjectPath).existsSync()) {
-      throw '当前目录不是iOS Unity工程目录';
+      throw '$unityLibraryDir 不存在';
     }
-    final cacheManager = BuildCacheManager(workspace);
+    final cacheManager = BuildCacheManager(unityLibraryDir);
     final models = await cacheManager.read();
     if (models.isEmpty) {
-      throw '$workspace 目录下缓存信息不存在!请先运行[metax build unity_cache ios]';
+      throw '$unityLibraryDir 目录下缓存信息不存在!请先运行[metax build unity_cache ios]';
     }
     final cache = models.first;
     final unityCache = FrameworkCache(

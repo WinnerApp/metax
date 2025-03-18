@@ -25,12 +25,6 @@ abstract class Cache {
     return models.last;
   }
 
-  /// 根据cacheId获取缓存Commit Hash
-  Future<String?> getLastCacheCommitHash([CacheFilter? filter]) async {
-    final config = await getLastCacheConfig(filter);
-    return config?.commitHash;
-  }
-
   /// 判断指定Commit Hash缓存是否存在
   Future<bool> isCacheExists(String commitHash) async {
     final cacheZipPath = getZipCachePath(commitHash);

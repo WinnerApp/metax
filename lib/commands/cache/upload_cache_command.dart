@@ -86,16 +86,22 @@ class UploadCacheCommand extends Command {
       '请选择构建平台',
       allowed: BuildPlatform.values.map((e) => e.name).toList(),
     );
-    String buildConfiguration = ArgumentGet(argResults).getString(
-      'buildConfiguration',
-      '请选择构建配置',
-      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
-    );
+
     String buildLibrary = ArgumentGet(argResults).getString(
       'buildLibrary',
       '请选择构建库',
       allowed: BuildLibrary.values.map((e) => e.name).toList(),
     );
+    late String buildConfiguration;
+    if (buildLibrary == BuildLibrary.flutter.name) {
+      buildConfiguration = ArgumentGet(argResults).getString(
+        'buildConfiguration',
+        '请选择构建配置',
+        allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+      );
+    } else {
+      buildConfiguration = BuildConfiguration.release.name;
+    }
     String buildType = ArgumentGet(argResults).getString(
       'buildType',
       '请选择构建类型',

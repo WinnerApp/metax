@@ -388,3 +388,8 @@ Future<void> downloadCacheResource({
 Directory getCacheResourceDir(String workspace) {
   return Directory(join(workspace, 'cache'));
 }
+
+/// 生成Flutter环境参数
+Future<void> generateFlutterEnv(String workspace) async {
+  throw UnimplementedError();
+}

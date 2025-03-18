@@ -64,7 +64,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     final isUpload = argResults?['isUpload'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
-      throw Exception('pubspec.yaml文件不存在: ${pubspecFile.path}');
+      throw Exception('$workspace 不是一个Flutter工程');
     }
     if (!await isGitRepository(workspace)) {
       throw Exception('当前目录不是git仓库: $workspace');
@@ -77,9 +77,9 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     if (isStore) {
       buildConfiguration = BuildConfiguration.release;
     } else {
-      buildConfiguration = configuration == 'debug'
-          ? BuildConfiguration.debug
-          : BuildConfiguration.release;
+      buildConfiguration = BuildConfiguration.values.firstWhere(
+        (e) => e.name == configuration,
+      );
     }
     final flutterCache = FrameworkCache(
       buildConfiguration: buildConfiguration,
