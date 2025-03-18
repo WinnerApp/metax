@@ -393,3 +393,29 @@ Directory getCacheResourceDir(String workspace) {
 Future<void> generateFlutterEnv(String workspace) async {
   throw UnimplementedError();
 }
+
+/// 获取当前时间戳
+int getCurrentTimestamp() {
+  return DateTime.now().millisecondsSinceEpoch ~/ 1000;
+}
+
+Future<void> writeEnvironmentValueInFile(
+  String filePath,
+  String key,
+  String value,
+) async {
+  final file = File(filePath);
+  final environmentContent = '$key=$value';
+  if (!await file.exists()) {
+    await file.create(recursive: true);
+    await file.writeAsString(environmentContent);
+  } else {
+    final contents = await file.readAsLines().then((e) => e.map((e) {
+          if (e.startsWith('$key=')) {
+            return environmentContent;
+          }
+          return e;
+        }).toList());
+    await file.writeAsString(contents.join('\n'));
+  }
+}

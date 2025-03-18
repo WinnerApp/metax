@@ -54,8 +54,9 @@ class InitCacheCommand extends Command {
     final appwriteEnvironment = AppwriteCacheEnvironment();
     final unityEnvironment = UnityEnvironment();
 
-    final flutterBranchs =
-        await getLatestBranchList(appHomeDir.flutterDir.path);
+    final flutterBranchs = await getLatestBranchList(
+      appHomeDir.flutterDir.path,
+    );
     final branch = ArgumentGet(argResults).getString(
       'branch',
       '请选择Flutter分支',

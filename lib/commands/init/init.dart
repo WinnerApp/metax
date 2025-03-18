@@ -1,4 +1,5 @@
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/commands/init/branch.dart';
 import 'package:meta_tool/commands/init/project_command.dart';
 
 class InitCommand extends Command {
@@ -10,5 +11,6 @@ class InitCommand extends Command {
 
   InitCommand() {
     addSubcommand(ProjectCommand());
+    addSubcommand(BranchCommand());
   }
 }

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
+import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 class ProjectCommand extends Command {
@@ -19,52 +21,149 @@ class ProjectCommand extends Command {
       help: "APP工作空间路径，默认为当前路径",
       defaultsTo: Directory.current.path,
     );
+    argParser.addOption(
+      'iosGitUrl',
+      help: 'IOS工程Git地址',
+    );
+    argParser.addOption(
+      'androidGitUrl',
+      help: 'Android工程Git地址',
+    );
+    argParser.addOption(
+      'flutterGitUrl',
+      help: 'Flutter工程Git地址',
+    );
   }
 
   @override
   FutureOr? run() async {
     final workspace = argResults?["workspace"];
-    final iosGitUrl = readEnv('IOS_GIT_URL');
-    final androidGitUrl = readEnv('ANDROID_GIT_URL');
-    final flutterGitUrl = readEnv('FLUTTER_GIT_URL');
-    final iosProjectDir = Directory(join(workspace, 'ios'));
-    final androidProjectDir = Directory(join(workspace, 'android'));
-    final flutterProjectDir = Directory(join(workspace, 'metaapp_flutter'));
-    if (!iosProjectDir.existsSync()) {
-      await cloneRepository(iosProjectDir.path, iosGitUrl);
-    }
-    final iosBranchList = await getLatestBranchList(iosProjectDir.path);
-    String? iosBranch = prompts.choose(
-      '请选择IOS分支',
-      iosBranchList,
+    final isInitIos = prompts.choose(
+      '是否需要初始化IOS工程',
+      ['需要', '不需要'],
     );
-    if (iosBranch == null) {
-      throw 'IOS分支不能为空';
+    if (isInitIos == '需要') {
+      final iosGitUrl = ArgumentGet(argResults).getString(
+        'iosGitUrl',
+        '请输入IOS工程Git地址',
+      );
+      final iosProjectDir = Directory(join(workspace, 'ios'));
+      await _initGitProject(iosProjectDir, iosGitUrl);
+      final versionName = prompts.get('请输入版本号，例如1.0.0');
+      final generateXcconfigContent = '''
+# COCOAPODS_PARALLEL_CODE_SIGN=true
+# FLUTTER_BUILD_NAME=$versionName
+# FLUTTER_BUILD_NUMBER=${getCurrentTimestamp()}
+# EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386
+# EXCLUDED_ARCHS[sdk=iphoneos*]=armv7
+''';
+
+      final localGeneratedXcconfigFile = File(join(
+        iosProjectDir.path,
+        'Flutter',
+        'Generated.xcconfig',
+      ));
+      await createFileAndWrite(
+        localGeneratedXcconfigFile,
+        generateXcconfigContent,
+      );
     }
-    await switchBranch(iosProjectDir.path, iosBranch);
-    if (!androidProjectDir.existsSync()) {
-      await cloneRepository(androidProjectDir.path, androidGitUrl);
-    }
-    final androidBranchList = await getLatestBranchList(androidProjectDir.path);
-    String? androidBranch = prompts.choose(
-      '请选择Android分支',
-      androidBranchList,
+
+    final isInitAndroid = prompts.choose(
+      '是否需要初始化Android工程',
+      ['需要', '不需要'],
     );
-    if (androidBranch == null) {
-      throw 'Android分支不能为空';
+    if (isInitAndroid == '需要') {
+      final androidGitUrl = ArgumentGet(argResults).getString(
+        'androidGitUrl',
+        '请输入Android工程Git地址',
+      );
+      final androidProjectDir = Directory(join(workspace, 'android'));
+      await _initGitProject(androidProjectDir, androidGitUrl);
+
+      final keyPropertiesContent = '''
+storePassword=winer2023
+keyPassword=winer2023
+keyAlias=upload
+storeFile=$workspace/winner-metaapp-keystore.jks
+''';
+      final keyPropertiesFile = File(join(
+        androidProjectDir.path,
+        'key.properties',
+      ));
+      await createFileAndWrite(keyPropertiesFile, keyPropertiesContent);
+      final sdkDir = ArgumentGet(argResults).getString(
+        'sdkDir',
+        '请输入Android SDK路径',
+      );
+      final ndkDir = ArgumentGet(argResults).getString(
+        'ndkDir',
+        '请输入NDK路径',
+      );
+      final versionName = prompts.get('请输入版本号，例如1.0.0');
+      final localPropertiesContent = '''
+sdk.dir=$sdkDir
+flutterSourceCompile=false
+useUnityAarBuild=true
+enableRocketX=true
+ndk.dir=$ndkDir
+flutter.versionName=$versionName
+flutter.versionCode=${getCurrentTimestamp()}
+flutter.buildMode=release
+flutter.compileSdkVersion=32
+flutter.minSdkVersion=21
+''';
+      final localPropertiesFile = File(join(
+        androidProjectDir.path,
+        'local.properties',
+      ));
+      await createFileAndWrite(localPropertiesFile, localPropertiesContent);
     }
-    await switchBranch(androidProjectDir.path, androidBranch);
-    if (!flutterProjectDir.existsSync()) {
-      await cloneRepository(flutterProjectDir.path, flutterGitUrl);
-    }
-    final flutterBranchList = await getLatestBranchList(flutterProjectDir.path);
-    String? flutterBranch = prompts.choose(
-      '请选择Flutter分支',
-      flutterBranchList,
+
+    final isInitFlutter = prompts.choose(
+      '是否需要初始化Flutter工程',
+      ['需要', '不需要'],
     );
-    if (flutterBranch == null) {
-      throw 'Flutter分支不能为空';
+    if (isInitFlutter == '需要') {
+      final flutterGitUrl = ArgumentGet(argResults).getString(
+        'flutterGitUrl',
+        '请输入Flutter工程Git地址',
+      );
+      final flutterProjectDir = Directory(join(workspace, 'metaapp_flutter'));
+      await _initGitProject(flutterProjectDir, flutterGitUrl);
+      await ProcessRunner().runProcess(
+        [
+          'flutter',
+          'pub',
+          'get',
+        ],
+        workingDirectory: flutterProjectDir,
+      );
+      await ProcessRunner().runProcess(
+        [
+          'flutter',
+          'pub',
+          'run',
+          'dart_define',
+          'generate',
+        ],
+        workingDirectory: flutterProjectDir,
+      );
     }
-    await switchBranch(flutterProjectDir.path, flutterBranch);
+  }
+
+  Future<void> _initGitProject(Directory projectDir, String gitUrl) async {
+    if (!projectDir.existsSync()) {
+      await cloneRepository(projectDir.path, gitUrl);
+    }
+    final branchList = await getLatestBranchList(projectDir.path);
+    String? branch = prompts.choose(
+      '请选择分支',
+      branchList,
+    );
+    if (branch == null) {
+      throw '分支不能为空';
+    }
+    await switchBranch(projectDir.path, branch);
   }
 }
