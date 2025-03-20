@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
-import 'package:path/path.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 class BranchCommand extends Command {
@@ -16,7 +16,7 @@ class BranchCommand extends Command {
   BranchCommand() {
     argParser.addOption(
       'workspace',
-      help: '工作目录',
+      help: 'App工作目录',
       defaultsTo: Directory.current.path,
     );
   }
@@ -24,17 +24,15 @@ class BranchCommand extends Command {
   @override
   FutureOr? run() async {
     final workspace = argResults?['workspace'];
-    final iosDir = Directory(join(workspace, 'ios'));
-    final androidDir = Directory(join(workspace, 'android'));
-    final flutterDir = Directory(join(workspace, 'metaapp_flutter'));
-    if (iosDir.existsSync()) {
-      await _initBranch(iosDir, '请选择IOS分支');
+    final appHomeDir = AppHomeDir(workspace: workspace);
+    if (appHomeDir.iosDir.existsSync()) {
+      await _initBranch(appHomeDir.iosDir, '请选择IOS分支');
     }
-    if (androidDir.existsSync()) {
-      await _initBranch(androidDir, '请选择Android分支');
+    if (appHomeDir.androidDir.existsSync()) {
+      await _initBranch(appHomeDir.androidDir, '请选择Android分支');
     }
-    if (flutterDir.existsSync()) {
-      await _initBranch(flutterDir, '请选择Flutter分支');
+    if (appHomeDir.flutterDir.existsSync()) {
+      await _initBranch(appHomeDir.flutterDir, '请选择Flutter分支');
     }
   }
 

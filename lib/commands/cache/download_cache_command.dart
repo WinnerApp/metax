@@ -16,7 +16,7 @@ class DownloadCacheCommand extends Command {
   String get name => 'download';
 
   @override
-  String get description => '下载缓存';
+  String get description => '下载网络指定缓存';
 
   DownloadCacheCommand() {
     argParser.addOption(

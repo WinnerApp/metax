@@ -69,18 +69,11 @@ class UploadCacheCommand extends Command {
     );
   }
 
-  late AppwriteEnvironment appwriteEnvironment;
-
-  late String databaseId;
-  late String collectionId;
-  late String bucketId;
+  late AppwriteCacheEnvironment appwriteCacheEnvironment;
 
   @override
   FutureOr? run() async {
-    appwriteEnvironment = AppwriteEnvironment();
-    databaseId = readEnv('APPWRITE_ZIP_DATABASE_ID');
-    collectionId = readEnv('APPWRITE_ZIP_COLLECTION_ID');
-    bucketId = readEnv('APPWRITE_ZIP_BUCKET_ID');
+    appwriteCacheEnvironment = AppwriteCacheEnvironment();
     String buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
       '请选择构建平台',
@@ -184,14 +177,14 @@ class UploadCacheCommand extends Command {
 
   Future<bool> uploadCache(MetaxCache metaxCache, CacheModel model) async {
     final AppwriteServer appwriteServer = AppwriteServer(
-      endpoint: appwriteEnvironment.endpoint,
-      projectId: appwriteEnvironment.projectId,
-      apiKey: appwriteEnvironment.apiKey,
+      endpoint: appwriteCacheEnvironment.endpoint,
+      projectId: appwriteCacheEnvironment.projectId,
+      apiKey: appwriteCacheEnvironment.apiKey,
     );
 
     final isAlreadyUploaded = await appwriteServer.isCacheExists(
-      databaseId: databaseId,
-      collectionId: collectionId,
+      databaseId: appwriteCacheEnvironment.databaseId,
+      collectionId: appwriteCacheEnvironment.collectionId,
       platform: metaxCache.buildPlatform.name,
       isStore: metaxCache.isStore,
       branch: metaxCache.branch,
@@ -208,9 +201,9 @@ class UploadCacheCommand extends Command {
 
     final zipFilePath = metaxCache.getZipCachePath(model.commitHash);
     return await appwriteServer.uploadCache(
-      databaseId: databaseId,
-      collectionId: collectionId,
-      bucketId: bucketId,
+      databaseId: appwriteCacheEnvironment.databaseId,
+      collectionId: appwriteCacheEnvironment.collectionId,
+      bucketId: appwriteCacheEnvironment.bucketId,
       platform: metaxCache.buildPlatform.name,
       isStore: metaxCache.isStore,
       branch: metaxCache.branch,

@@ -22,7 +22,10 @@ abstract class Cache {
   Future<CacheModel?> getLastCacheConfig([CacheFilter? filter]) async {
     final models = await filterCacheDataList(filter ?? (e) => true);
     if (models.isEmpty) return null;
-    return models.last;
+    models.sort((a, b) {
+      return b.commitTime.compareTo(a.commitTime);
+    });
+    return models.first;
   }
 
   /// 判断指定Commit Hash缓存是否存在

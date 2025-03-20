@@ -77,3 +77,36 @@ class CacheModel {
         buildType,
       );
 }
+
+class ServerCacheModel extends CacheModel {
+  final String fileId;
+
+  ServerCacheModel({
+    required this.fileId,
+    required super.buildPlatform,
+    required super.buildLibrary,
+    required super.buildType,
+    required super.branch,
+    required super.configuration,
+    required super.commitHash,
+    required super.buildId,
+    required super.isStore,
+    required super.commitTime,
+  });
+
+  factory ServerCacheModel.fromJson(Map<String, dynamic> map) {
+    final json = JSON(map);
+    return ServerCacheModel(
+      fileId: json['file_id'].stringValue,
+      buildPlatform: json['platform'].stringValue,
+      buildLibrary: json['library'].stringValue,
+      buildType: json['type'].stringValue,
+      branch: json['branch'].stringValue,
+      configuration: json['configuration'].stringValue,
+      commitHash: json['commit_hash'].stringValue,
+      buildId: json['build_id'].stringValue,
+      isStore: json['is_store'].boolValue,
+      commitTime: DateTime.parse(json['commit_time'].stringValue),
+    );
+  }
+}

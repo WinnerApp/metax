@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -10,6 +11,21 @@ import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
 abstract class BuildCacheCommand extends Command {
+  BuildCacheCommand() {
+    argParser.addFlag(
+      'isUpload',
+      help: '是否上传缓存',
+      defaultsTo: true,
+    );
+  }
+
+  late bool isUpload;
+
+  @override
+  FutureOr? run() async {
+    isUpload = argResults?['isUpload'] ?? true;
+  }
+
   Future<void> updateCache({
     required MetaxCache cache,
     required String commitHash,
@@ -45,7 +61,6 @@ abstract class BuildCacheCommand extends Command {
         commitTime: commitTime,
       );
     } else {
-      // await deleteDirIfExists(buildCacheDir);
       await buildCache();
       await BuildCacheManager(buildCacheDir).write([
         CacheModel(

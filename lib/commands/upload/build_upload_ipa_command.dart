@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:meta_tool/commands/upload/upload_app_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
@@ -15,54 +16,7 @@ class BuildUploadIpaCommand extends UploadAppCommand {
   String get name => 'build_upload_ipa';
 
   @override
-  Directory get unityProjectDir => Directory(join(
-        environment.workspace,
-        environment.iosUnityPath,
-      ));
-
-  @override
-  Directory get unityFrameworkAarDir => Directory(join(
-        environment.workspace,
-        'ios',
-        'Frameworks',
-        'unity',
-      ));
-
-  @override
-  Future<void> buildUnityStaticLibrary() async {
-    await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        'framework',
-        'unity',
-      ],
-      workingDirectory: unityProjectDir,
-    );
-  }
-
-  @override
-  Future<void> buildFlutterStaticLibrary() async {
-    await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        'framework',
-        'flutter',
-      ],
-      workingDirectory: flutterProjectDir,
-    );
-  }
-
-  @override
-  Directory get flutterFrameworkAarDir => Directory(
-        join(
-          environment.workspace,
-          'ios',
-          'Frameworks',
-          'flutter',
-        ),
-      );
+  String get buildType => 'framework';
 
   @override
   Future<void> buildApp() async {
@@ -73,7 +27,7 @@ class BuildUploadIpaCommand extends UploadAppCommand {
         'app',
         'ipa',
       ],
-      workingDirectory: iosProjectDir,
+      workingDirectory: appHomeDir.iosDir,
     );
   }
 
@@ -89,7 +43,7 @@ class BuildUploadIpaCommand extends UploadAppCommand {
         '--log',
         log,
       ],
-      workingDirectory: iosProjectDir,
+      workingDirectory: appHomeDir.iosDir,
     );
   }
 

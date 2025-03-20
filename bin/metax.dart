@@ -10,12 +10,5 @@ Future<void> main(List<String> arguments) async {
     ..addCommand(BuildCommand())
     ..addCommand(UploadCommand())
     ..addCommand(CacheCommand());
-  runner.argParser.addOption(
-    'version',
-    help: '版本号',
-    callback: (p0) {
-      print('v0.0.15');
-    },
-  );
   await runner.run(arguments);
 }

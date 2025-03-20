@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:meta_tool/common.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -15,7 +16,7 @@ class GetGitLog {
     late String result;
     if (beforeCommitId == null) {
       result = await ProcessRunner().runProcess(
-        ['git', 'log', '-1'],
+        ['git', 'log', '-30'],
         workingDirectory: Directory(root),
       ).then((value) => value.output);
     } else {

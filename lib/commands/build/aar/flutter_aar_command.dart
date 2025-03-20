@@ -30,11 +30,6 @@ class FlutterAarCommand extends BuildCacheCommand {
       help: '是否发布包',
       allowed: ['true', 'false'],
     );
-    argParser.addFlag(
-      'isUpload',
-      help: '是否上传缓存,默认上传',
-      defaultsTo: true,
-    );
   }
 
   late String workspace;
@@ -42,6 +37,7 @@ class FlutterAarCommand extends BuildCacheCommand {
   late bool isStore;
   @override
   Future<void> run() async {
+    await super.run();
     workspace = argResults?['workspace'] ?? Directory.current.path;
     configuration = ArgumentGet(argResults).getString(
       'configuration',
@@ -57,7 +53,6 @@ class FlutterAarCommand extends BuildCacheCommand {
         allowed: ['true', 'false'],
       )).map((e) => e == 'true').defaultValue(false);
     }
-    final isUpload = argResults?['isUpload'];
     final workspaceDir = Directory(workspace);
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {

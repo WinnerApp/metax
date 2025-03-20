@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/app_home_dir.dart';
+import 'package:meta_tool/appwrite_environment.dart';
+import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/cache_model.dart';
@@ -10,11 +12,12 @@ import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
+import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 class UseCacheCommand extends Command {
   @override
-  String get description => '使用缓存';
+  String get description => '使用缓存,缓存顺序本地缓存->网络缓存->本地编译缓存';
 
   @override
   String get name => 'use';
@@ -46,24 +49,11 @@ class UseCacheCommand extends Command {
       help: '构建类型',
       allowed: BuildType.values.map((e) => e.name),
     );
-    argParser.addOption(
-      'branch',
-      help: '分支',
-      defaultsTo: 'master',
-    );
-    argParser.addFlag(
-      'isStore',
-      help: '是否发布包缓存',
-      defaultsTo: false,
-    );
-    argParser.addOption(
-      'commitHash',
-      help: 'Git Hash',
-    );
-    argParser.addOption(
-      'buildId',
-      help: '构建ID',
-    );
+    argParser.addOption('branch', help: '分支');
+    argParser.addFlag('isStore', help: '是否发布包缓存', defaultsTo: true);
+    argParser.addOption('commitHash', help: 'Git Hash');
+    argParser.addOption('buildId', help: '构建ID');
+    argParser.addFlag('isUseCache', help: '是否使用缓存', defaultsTo: true);
   }
 
   late String buildPlatform;
@@ -71,18 +61,32 @@ class UseCacheCommand extends Command {
   late String buildConfiguration;
   late String buildType;
   late bool isStore;
-
+  late bool isUseCache;
+  late String branch;
+  late AppHomeDir appHomeDir;
+  late AppwriteCacheEnvironment appwriteCacheEnvironment;
+  late String? commitHash;
+  late String? buildId;
   @override
   Future<void> run() async {
-    final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace: workspace);
-    final metaxCacheManager = MetaxCacheManager();
-    final cacheModels = await metaxCacheManager.read();
+    final workspace = argResults?['workspace'] as String;
+    appHomeDir = AppHomeDir(workspace: workspace);
+    appwriteCacheEnvironment = AppwriteCacheEnvironment();
+    isUseCache = argResults?['isUseCache'];
     buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
       '请选择构建平台',
       allowed: BuildPlatform.values.map((e) => e.name).toList(),
     );
+    if (buildPlatform == BuildPlatform.ios.name &&
+        !appHomeDir.iosDir.existsSync()) {
+      throw Exception('目录[${appHomeDir.iosDir.path}]不存在,无法初始化缓存！');
+    }
+    if (buildPlatform == BuildPlatform.android.name &&
+        !appHomeDir.androidDir.existsSync()) {
+      throw Exception('目录[${appHomeDir.androidDir.path}]不存在,无法初始化缓存！');
+    }
+
     buildLibrary = ArgumentGet(argResults).getString(
       'buildLibrary',
       '请选择构建库',
@@ -95,150 +99,337 @@ class UseCacheCommand extends Command {
         allowed: BuildConfiguration.values.map((e) => e.name).toList(),
       );
     } else {
-      buildConfiguration = 'release';
+      buildConfiguration = BuildConfiguration.release.name;
     }
 
-    buildType = ArgumentGet(argResults).getString(
-      'buildType',
-      '请选择构建类型',
-      allowed: BuildType.values.map((e) => e.name).toList(),
-    );
-
-    if (buildConfiguration == BuildConfiguration.debug.name) {
-      isStore = false;
-    } else if (buildType == BuildType.library.name) {
-      isStore = true;
+    if (buildPlatform == BuildPlatform.ios.name) {
+      if (buildLibrary == BuildLibrary.flutter.name) {
+        buildType = BuildType.framework.value;
+      } else {
+        buildType = ArgumentGet(argResults).getString(
+          'buildType',
+          '请选择构建类型',
+          allowed: [
+            BuildType.framework.value,
+            BuildType.library.value,
+          ],
+        );
+      }
     } else {
+      if (buildLibrary == BuildLibrary.flutter.name) {
+        buildType = BuildType.aar.value;
+      } else {
+        buildType = ArgumentGet(argResults).getString(
+          'buildType',
+          '请选择构建类型',
+          allowed: [
+            BuildType.aar.value,
+            BuildType.library.value,
+          ],
+        );
+      }
+    }
+
+    if (buildLibrary == BuildLibrary.flutter.name) {
       isStore = Unwrap(prompts.choose(
         '是否使用发布包缓存',
         ['true', 'false'],
       )).map((e) => e == 'true').defaultValue(false);
+    } else {
+      isStore = true;
     }
 
-    List<CacheModel> filterCacheModels = cacheModels
-        .where((e) =>
-            e.buildPlatform == buildPlatform &&
-            e.buildLibrary == buildLibrary &&
-            e.configuration == buildConfiguration &&
-            e.buildType == buildType &&
-            e.isStore == isStore)
-        .toList();
-
-    final branchs = filterCacheModels.map((e) => e.branch).toList();
-    if (filterCacheModels.isEmpty) {
-      throw Exception('没有找到分支缓存');
-    }
-
-    final chooseBranch = ArgumentGet(argResults).getString(
+    branch = ArgumentGet(argResults).getString(
       'branch',
-      '请选择分支',
-      allowed: branchs,
+      '请输入分支',
     );
 
-    filterCacheModels =
-        filterCacheModels.where((e) => e.branch == chooseBranch).toList();
+    commitHash = argResults?['commitHash'] as String?;
+    buildId = argResults?['buildId'] as String?;
+    CacheModel? useCacheModel;
+    if (isUseCache) {
+      /// 查询是否存在本地缓存
+      final localCacheModel = await queryLocalCache();
+      if (localCacheModel != null) {
+        useCacheModel = localCacheModel;
+      } else {
+        /// 查询是否存在网络缓存
+        final networkCacheModel = await queryNetworkCache();
+        if (networkCacheModel != null) {
+          useCacheModel = networkCacheModel;
 
-    final buildIds = filterCacheModels.map((e) => e.buildId).toList();
-    String chooseBuildId = ArgumentGet(argResults).getString(
-      'buildId',
-      '请选择构建ID',
-      allowed: buildIds,
-    );
+          /// 下载网络缓存
+          await downloadCacheResource(
+            workspace: workspace,
+            buildPlatform: BuildPlatform.values.firstWhere(
+              (e) => e.name == buildPlatform,
+            ),
+            buildLibrary: BuildLibrary.values.firstWhere(
+              (e) => e.name == buildLibrary,
+            ),
+            buildConfiguration: BuildConfiguration.values.firstWhere(
+              (e) => e.name == buildConfiguration,
+            ),
+            buildType: BuildType.values.firstWhere(
+              (e) => e.name == buildType,
+            ),
+            isStore: isStore,
+            branch: branch,
+            commitHash: networkCacheModel.commitHash,
+            buildId: int.parse(networkCacheModel.buildId),
+          );
+        }
+      }
+    } else {
+      /// 不使用缓存 重新进行编译
+      useCacheModel = await compileCache();
+    }
+    if (useCacheModel == null) {
+      throw Exception('无法找到对应缓存!');
+    }
+    await useCache(useCacheModel);
+  }
 
-    filterCacheModels =
-        filterCacheModels.where((e) => e.buildId == chooseBuildId).toList();
+  /// 查询本地是否存在缓存
+  Future<CacheModel?> queryLocalCache() async {
+    final metaxCacheManager = MetaxCacheManager();
+    final localCacheModels = await metaxCacheManager.read();
 
-    final commitHashs = filterCacheModels.map((e) => e.commitHash).toList();
-    String chooseCommitHash = ArgumentGet(argResults).getString(
-      'commitHash',
-      '请选择上传Hash',
-      allowed: commitHashs,
-    );
+    /// 获取当前分支的最新缓存
+    final cacheModel = findCacheInList(localCacheModels);
+    if (cacheModel == null) return null;
+    final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
+    if (!await metaxCache.isCacheExists(cacheModel.commitHash)) return null;
+    return cacheModel;
+  }
 
-    final cacheModel =
-        filterCacheModels.firstWhere((e) => e.commitHash == chooseCommitHash);
-
-    final metaxCache = MetaxCache(
+  /// 根据buildId创建MetaxCache
+  MetaxCache createMetaxCache(int buildId) {
+    return MetaxCache(
       buildPlatform: BuildPlatform.values.firstWhere(
         (e) => e.name == buildPlatform,
+      ),
+      isStore: isStore,
+      buildConfiguration: BuildConfiguration.values.firstWhere(
+        (e) => e.name == buildConfiguration,
       ),
       buildLibrary: BuildLibrary.values.firstWhere(
         (e) => e.name == buildLibrary,
       ),
-      buildConfiguration: BuildConfiguration.values.firstWhere(
-        (e) => e.name == buildConfiguration,
-      ),
       buildType: BuildType.values.firstWhere(
         (e) => e.name == buildType,
       ),
-      branch: chooseBranch,
-      isStore: isStore,
-      buildId: int.parse(chooseBuildId),
+      branch: branch,
+      buildId: buildId,
     );
+  }
 
-    late String copyCacheToDir;
+  /// 获取二进制缓存存放的路径
+  String getBinaryCachePath({
+    required AppHomeDir appHomeDir,
+    required String buildPlatform,
+    required String buildLibrary,
+    required String buildType,
+    required String buildConfiguration,
+  }) {
     if (buildPlatform == BuildPlatform.ios.name) {
       if (buildType == BuildType.library.name) {
-        copyCacheToDir = join(
-          appHomeDir.iosDir.path,
-          'UnityLibrary',
-        );
-      } else {
-        if (buildConfiguration == BuildConfiguration.debug.name) {
-          copyCacheToDir = join(
-            appHomeDir.iosDir.path,
-            'framework',
-            'flutter',
-            'Debug',
-          );
-        } else {
-          if (buildLibrary == BuildLibrary.flutter.name) {
-            copyCacheToDir = join(
-              appHomeDir.iosDir.path,
-              'framework',
-              'flutter',
-              'Release',
-            );
+        return join(appHomeDir.iosDir.path, 'UnityLibrary');
+      } else if (buildType == BuildType.framework.name) {
+        if (buildLibrary == BuildLibrary.unity.name) {
+          return join(appHomeDir.iosDir.path, 'frameworks', 'unity');
+        } else if (buildLibrary == BuildLibrary.flutter.name) {
+          if (buildConfiguration == BuildConfiguration.release.name) {
+            return join(
+                appHomeDir.iosDir.path, 'frameworks', 'flutter', 'Release');
+          } else if (buildConfiguration == BuildConfiguration.debug.name) {
+            return join(
+                appHomeDir.iosDir.path, 'frameworks', 'flutter', 'Debug');
           } else {
-            copyCacheToDir = join(
-              appHomeDir.iosDir.path,
-              'framework',
-              'unity',
-            );
+            throw Exception('不支持的构建配置: $buildConfiguration');
           }
+        } else {
+          throw Exception('不支持的构建库: $buildLibrary');
         }
+      } else {
+        throw Exception('不支持的构建类型: $buildType');
+      }
+    } else if (buildPlatform == BuildPlatform.android.name) {
+      if (buildType == BuildType.library.name) {
+        return join(appHomeDir.androidDir.path, 'unityLibrary');
+      } else if (buildType == BuildType.aar.name) {
+        if (buildLibrary == BuildLibrary.unity.name) {
+          return join(appHomeDir.androidDir.path, 'aar', 'unity');
+        } else if (buildLibrary == BuildLibrary.flutter.name) {
+          return join(appHomeDir.androidDir.path, 'aar', 'flutter');
+        } else {
+          throw Exception('不支持的构建库: $buildLibrary');
+        }
+      } else {
+        throw Exception('不支持的构建类型: $buildType');
       }
     } else {
-      if (buildType == BuildType.library.name) {
-        copyCacheToDir = join(appHomeDir.androidDir.path, 'unityLibrary');
+      throw Exception('不支持的平台: $buildPlatform');
+    }
+  }
+
+  /// 使用缓存
+  Future<void> useCache(CacheModel cacheModel) async {
+    final targetDir = Directory(
+      getBinaryCachePath(
+        appHomeDir: appHomeDir,
+        buildPlatform: buildPlatform,
+        buildLibrary: buildLibrary,
+        buildType: buildType,
+        buildConfiguration: buildConfiguration,
+      ),
+    );
+    final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
+    final zipPath = metaxCache.getZipCachePath(cacheModel.commitHash);
+    return copyZipToDir(zipPath, targetDir);
+  }
+
+  /// 查询网络是否存在缓存
+  Future<CacheModel?> queryNetworkCache() async {
+    /// 获取当前网络缓存全部列表
+    final appwriteService = AppwriteServer(
+      endpoint: appwriteCacheEnvironment.endpoint,
+      projectId: appwriteCacheEnvironment.projectId,
+      apiKey: appwriteCacheEnvironment.apiKey,
+    );
+    final zipCacheList = await appwriteService.queryZipCacheList(
+      databaseId: appwriteCacheEnvironment.databaseId,
+      collectionId: appwriteCacheEnvironment.collectionId,
+      platform: buildPlatform,
+      isStore: isStore,
+      buildConfiguration: buildConfiguration,
+      buildLibrary: buildLibrary,
+      buildType: buildType,
+    );
+    final serverCacheModels =
+        zipCacheList.map((e) => ServerCacheModel.fromJson(e)).toList();
+    return findCacheInList(serverCacheModels);
+  }
+
+  /// 从一组缓存中查找适合的缓存
+  CacheModel? findCacheInList(List<CacheModel> cacheModels) {
+    /// 查询本地是否存在缓存
+    cacheModels = cacheModels
+        .where((e) => e.buildPlatform == buildPlatform)
+        .where((e) => e.isStore == isStore)
+        .where((e) => e.configuration == buildConfiguration)
+        .where((e) => e.buildLibrary == buildLibrary)
+        .where((e) => e.buildType == buildType)
+        .where((e) => e.branch == branch)
+        .toList();
+
+    if (commitHash != null) {
+      cacheModels =
+          cacheModels.where((e) => e.commitHash == commitHash).toList();
+    }
+
+    if (buildId != null) {
+      cacheModels = cacheModels.where((e) => e.buildId == buildId).toList();
+    }
+
+    if (cacheModels.isEmpty) return null;
+
+    /// 如果是Unity则按照BuildId排序
+    /// 如果是Flutter则按照CommitHash排序
+    if (buildLibrary == BuildLibrary.flutter.name) {
+      cacheModels.sort((a, b) => b.commitTime.compareTo(a.commitTime));
+    } else if (buildLibrary == BuildLibrary.unity.name) {
+      cacheModels.sort((a, b) {
+        final aBuildId = int.parse(a.buildId);
+        final bBuildId = int.parse(b.buildId);
+        return bBuildId.compareTo(aBuildId);
+      });
+    } else {
+      throw UnimplementedError();
+    }
+
+    /// 获取当前分支的最新缓存
+    return cacheModels.last;
+  }
+
+  /// 编译缓存
+  Future<CacheModel?> compileCache() async {
+    if (buildType == BuildType.library.name) {
+      await compileUnityLibrary();
+    } else {
+      if (buildLibrary == BuildLibrary.flutter.name) {
+        await compileFlutter();
+      } else if (buildLibrary == BuildLibrary.unity.name) {
+        await compileUnityLibrary();
+        await compileUnity();
       } else {
-        if (buildLibrary == BuildLibrary.flutter.name) {
-          copyCacheToDir = join(
-            appHomeDir.androidDir.path,
-            'aar',
-            'flutter',
-          );
-        } else {
-          copyCacheToDir = join(
-            appHomeDir.androidDir.path,
-            'aar',
-            'unity',
-          );
-        }
+        throw UnimplementedError();
       }
     }
+    return queryLocalCache();
+  }
 
-    if (!await metaxCache.isCacheExists(chooseCommitHash)) {
-      throw '$chooseCommitHash 缓存Zip在本地不存在！';
-    }
-
-    await copyZipToDir(
-      metaxCache.getZipCachePath(chooseCommitHash),
-      Directory(copyCacheToDir),
+  /// 编译Unity Library
+  Future<void> compileUnityLibrary() async {
+    await ProcessRunner().runProcess(
+      [
+        'metax',
+        'build',
+        'unity_cache',
+        buildPlatform,
+      ],
     );
+  }
 
-    final buildManager = BuildCacheManager(copyCacheToDir);
-    await buildManager.appendCache(cacheModel);
-    loggerSuccess('使用缓存成功!');
+  /// 编译Unity
+  Future<void> compileUnity() async {
+    late Directory workingDirectory;
+    late String buildType;
+    if (buildPlatform == BuildPlatform.ios.name) {
+      workingDirectory = appHomeDir.iosDir;
+      buildType = BuildType.framework.name;
+    } else if (buildPlatform == BuildPlatform.android.name) {
+      workingDirectory = appHomeDir.androidDir;
+      buildType = BuildType.aar.name;
+    } else {
+      throw UnimplementedError();
+    }
+    await ProcessRunner().runProcess(
+      [
+        'metax',
+        'build',
+        buildType,
+        'unity',
+      ],
+      workingDirectory: workingDirectory,
+    );
+  }
+
+  /// 编译Flutter
+  Future<void> compileFlutter() async {
+    late Directory workingDirectory;
+    late String buildType;
+    if (buildPlatform == BuildPlatform.ios.name) {
+      workingDirectory = appHomeDir.iosDir;
+      buildType = BuildType.framework.name;
+    } else if (buildPlatform == BuildPlatform.android.name) {
+      workingDirectory = appHomeDir.androidDir;
+      buildType = BuildType.aar.name;
+    } else {
+      throw UnimplementedError();
+    }
+    await ProcessRunner().runProcess(
+      [
+        'metax',
+        'build',
+        buildType,
+        'flutter',
+        '--configuration',
+        buildConfiguration,
+        '--isStore',
+        isStore.toString(),
+      ],
+      workingDirectory: workingDirectory,
+    );
   }
 }

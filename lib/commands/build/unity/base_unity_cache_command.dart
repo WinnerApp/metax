@@ -10,18 +10,9 @@ import 'package:process_runner/process_runner.dart';
 
 abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   BuildPlatform get platform;
-
-  BaseUnityCacheCommand() {
-    argParser.addFlag(
-      'isUpload',
-      help: '是否上传缓存,默认上传',
-      defaultsTo: true,
-    );
-  }
-
   @override
   FutureOr? run() async {
-    final isUpload = argResults?['isUpload'];
+    await super.run();
     final unityEnvironment = UnityEnvironment();
     if (!await isCommandInstall('build_winner_app')) {
       throw '请先通过dart pub global activate build_winner_app 进行安装build_winner_app命令';

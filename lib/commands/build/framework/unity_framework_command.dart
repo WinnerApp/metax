@@ -21,19 +21,14 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       abbr: 's',
       help: 'iOS工程目录，默认使用当前目录',
     );
-    argParser.addFlag(
-      'isUpload',
-      defaultsTo: true,
-      help: '是否上传缓存,默认上传',
-    );
   }
 
   late String workspace;
 
   @override
   Future<void> run() async {
+    await super.run();
     workspace = argResults?['workspace'] ?? Directory.current.path;
-    final isUpload = argResults?['isUpload'];
     final workspaceDir = Directory(workspace);
     final unityLibraryDir = join(workspaceDir.path, 'UnityLibrary');
     final xcodeProjectPath = join(unityLibraryDir, 'Unity-iPhone.xcodeproj');

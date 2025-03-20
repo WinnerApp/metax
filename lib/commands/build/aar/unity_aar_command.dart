@@ -21,19 +21,14 @@ class UnityAarCommand extends BuildCacheCommand {
       abbr: 's',
       help: '安卓目录',
     );
-    argParser.addFlag(
-      'isUpload',
-      help: '是否上传缓存,默认上传',
-      defaultsTo: true,
-    );
   }
 
   late String workspace;
 
   @override
   Future<void> run() async {
+    await super.run();
     workspace = argResults?['workspace'] ?? Directory.current.path;
-    final isUpload = argResults?['isUpload'];
     final unityDir = Directory(join(workspace, 'unityLibrary'));
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');

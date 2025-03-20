@@ -34,11 +34,6 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       help: '是否发布包',
       allowed: ['true', 'false'],
     );
-    argParser.addFlag(
-      'isUpload',
-      defaultsTo: true,
-      help: '是否上传缓存,默认上传',
-    );
   }
 
   late String workspace;
@@ -46,6 +41,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
   late bool isStore;
   @override
   Future<void> run() async {
+    await super.run();
     workspace = argResults?['workspace'];
     configuration = ArgumentGet(argResults).getString(
       'configuration',
@@ -61,7 +57,6 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         allowed: ['true', 'false'],
       )).map((e) => e == 'true').defaultValue(false);
     }
-    final isUpload = argResults?['isUpload'];
     final pubspecFile = File(join(workspace, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('$workspace 不是一个Flutter工程');

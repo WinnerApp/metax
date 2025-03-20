@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:meta_tool/commands/upload/upload_app_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
@@ -14,52 +15,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
   String get name => 'build_upload_apk';
 
   @override
-  Directory get unityProjectDir => Directory(join(
-        environment.workspace,
-        environment.androidUnityPath,
-      ));
-
-  @override
-  Directory get unityFrameworkAarDir => Directory(join(
-        environment.workspace,
-        'android',
-        'aar',
-        'unity',
-      ));
-
-  @override
-  Future<void> buildUnityStaticLibrary() async {
-    await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        'aar',
-        'unity',
-      ],
-      workingDirectory: unityProjectDir,
-    );
-  }
-
-  @override
-  Future<void> buildFlutterStaticLibrary() async {
-    await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        'aar',
-        'flutter',
-      ],
-      workingDirectory: flutterProjectDir,
-    );
-  }
-
-  @override
-  Directory get flutterFrameworkAarDir => Directory(join(
-        environment.workspace,
-        'android',
-        'aar',
-        'flutter',
-      ));
+  String get buildType => 'aar';
 
   @override
   Future<void> buildApp() async {
@@ -70,7 +26,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
         'app',
         'apk',
       ],
-      workingDirectory: androidProjectDir,
+      workingDirectory: appHomeDir.androidDir,
     );
   }
 
@@ -86,7 +42,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
         '--log',
         log,
       ],
-      workingDirectory: androidProjectDir,
+      workingDirectory: appHomeDir.androidDir,
     );
   }
 
