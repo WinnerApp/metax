@@ -19,6 +19,7 @@ abstract class UploadAppCommand extends Command {
 
   late AppwriteServer appwriteServer;
   late AppHomeDir appHomeDir;
+  late ProcessRunner buildAppRunner;
 
   UploadAppCommand() {
     argParser.addOption(
@@ -32,9 +33,11 @@ abstract class UploadAppCommand extends Command {
   @override
   FutureOr? run() async {
     appHomeDir = AppHomeDir(workspace: environment.workspace);
+    buildAppRunner =
+        await createBuildAppRunner(appHomeDir, environment.isStore);
     bool isUseEnvironment = argResults?['isUseEnvironment'];
     environment = isUseEnvironment
-        ? UploadAppEnvironment.fromEnvironment()
+        ? UploadAppEnvironment.fromEnvironment(Platform.environment)
         : await chooseEnvironment();
 
     appwriteServer = AppwriteServer(
@@ -183,7 +186,8 @@ $changeLog
 
   /// 复制Unity静态库到指定位置
   Future<String?> copyUnityStaticLibrary(int buildVersionId) async {
-    await ProcessRunner().runProcess(
+    final appRunner = await createAppRunner(appHomeDir);
+    await appRunner.runProcess(
       [
         'metax',
         'cache',
@@ -279,6 +283,12 @@ $changeLog
       '是',
       '否',
     ]);
+
+    Map<String, String> environmentMap = await loadBuildAppEnvironment(
+      appHomeDir,
+      isStore == '是',
+    );
+
     return UploadAppEnvironment.choose(
       platform: platform,
       workspace: appHomeDir.workspace,
@@ -291,6 +301,7 @@ $changeLog
       isStore: isStore == '是',
       iosBranch: iosBranch!,
       androidBranch: androidBranch!,
+      environment: environmentMap,
     );
   }
 }

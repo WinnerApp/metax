@@ -33,7 +33,7 @@ class BuildUploadIpaCommand extends UploadAppCommand {
 
   @override
   Future<void> uploadApp({required String log}) async {
-    await ProcessRunner().runProcess(
+    await buildAppRunner.runProcess(
       [
         'metax',
         'upload',

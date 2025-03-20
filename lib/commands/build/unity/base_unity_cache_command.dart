@@ -1,14 +1,23 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/commands/unity_environment.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 abstract class BaseUnityCacheCommand extends BuildCacheCommand {
+  BaseUnityCacheCommand() {
+    argParser.addOption(
+      'workspace',
+      help: 'App工作目录',
+      defaultsTo: Directory.current.path,
+    );
+  }
+
   BuildPlatform get platform;
   @override
   FutureOr? run() async {
@@ -75,7 +84,9 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
-    await ProcessRunner().runProcess(
+    final workspace = argResults?['workspace'];
+    final appRunner = await createAppRunner(AppHomeDir(workspace: workspace));
+    await appRunner.runProcess(
       [
         'build_winner_app',
         'export',

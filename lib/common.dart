@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:color_logger/color_logger.dart';
 import 'package:dio/dio.dart';
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -116,15 +117,20 @@ Future<DateTime> getCommitTime(
       .then((result) => DateTime.parse(result.stdout.trim()));
 }
 
-String readEnv(String envName) {
-  if (!Platform.environment.keys.contains(envName)) {
+String readEnv(
+  String envName, {
+  Map<String, String>? environment,
+}) {
+  environment ??= Platform.environment;
+  if (!environment.keys.contains(envName)) {
     throw "请设置环境变量 【$envName】";
   }
-  return Platform.environment[envName]!;
+  return environment[envName]!;
 }
 
-void checkEnv(String envName) {
-  if (!Platform.environment.keys.contains(envName)) {
+void checkEnv(String envName, {Map<String, String>? environment}) {
+  environment ??= Platform.environment;
+  if (!environment.keys.contains(envName)) {
     throw "请设置环境变量 【$envName】";
   }
 }
@@ -418,4 +424,94 @@ Future<void> writeEnvironmentValueInFile(
         }).toList());
     await file.writeAsString(contents.join('\n'));
   }
+}
+
+/// 从文件读取设置的环境
+Future<Map<String, String>> readEnvironmentFromFile(String filePath) async {
+  Map<String, String> environment = {};
+  final file = File(filePath);
+  if (!await file.exists()) {
+    return environment;
+  }
+  final contents = await file.readAsLines();
+  for (var line in contents) {
+    final match = RegExp(r'(\w+)=(\S+)').firstMatch(line);
+    if (match != null) {
+      environment[match.group(1)!] = match.group(2)!;
+    }
+  }
+  return environment;
+}
+
+Future<Map<String, String>> loadAppEnvironment(AppHomeDir appHomeDir) async {
+  final appEnvFile = File(join(
+    appHomeDir.workspace,
+    'jenkins_ci',
+    'env',
+    'app.env',
+  ));
+  if (!await appEnvFile.exists()) {
+    throw '请使用metax init app_environment 初始化环境变量';
+  }
+  final environment = await readEnvironmentFromFile(appEnvFile.path);
+  return environment;
+}
+
+Future<Map<String, String>> loadBuildAppEnvironment(
+    AppHomeDir appHomeDir, bool isStore) async {
+  final environment = await loadAppEnvironment(appHomeDir);
+  final commonEnvFile = File(join(
+    appHomeDir.workspace,
+    'jenkins_ci',
+    'env',
+    'build_app',
+    'common',
+    '.env',
+  ));
+  if (!await commonEnvFile.exists()) {
+    environment.addAll(await readEnvironmentFromFile(commonEnvFile.path));
+  }
+  if (isStore) {
+    final releaseEnvFile = File(join(
+      appHomeDir.workspace,
+      'jenkins_ci',
+      'env',
+      'build_app',
+      'release',
+      '.env',
+    ));
+    if (!await releaseEnvFile.exists()) {
+      environment.addAll(await readEnvironmentFromFile(releaseEnvFile.path));
+    }
+  } else {
+    final debugEnvFile = File(join(
+      appHomeDir.workspace,
+      'jenkins_ci',
+      'env',
+      'build_app',
+      'debug',
+      '.env',
+    ));
+    if (!await debugEnvFile.exists()) {
+      environment.addAll(await readEnvironmentFromFile(debugEnvFile.path));
+    }
+  }
+  return environment;
+}
+
+Future<ProcessRunner> createAppRunner(AppHomeDir appHomeDir) async {
+  final environment = await loadAppEnvironment(appHomeDir);
+  return ProcessRunner(
+    defaultWorkingDirectory: Directory(appHomeDir.workspace),
+    environment: environment,
+  );
+}
+
+Future<ProcessRunner> createBuildAppRunner(
+    AppHomeDir appHomeDir, bool isStore) async {
+  final environment = await loadBuildAppEnvironment(appHomeDir, isStore);
+  return ProcessRunner(
+    defaultWorkingDirectory: Directory(appHomeDir.workspace),
+    environment: environment,
+  );
 }
