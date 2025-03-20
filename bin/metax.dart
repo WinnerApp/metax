@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/build/build_command.dart';
 import 'package:meta_tool/commands/cache/cache_command.dart';
 import 'package:meta_tool/commands/init/init.dart';
+import 'package:meta_tool/commands/publish/publish_command.dart';
 import 'package:meta_tool/commands/upload/upload_command.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -9,6 +10,7 @@ Future<void> main(List<String> arguments) async {
     ..addCommand(InitCommand())
     ..addCommand(BuildCommand())
     ..addCommand(UploadCommand())
-    ..addCommand(CacheCommand());
+    ..addCommand(CacheCommand())
+    ..addCommand(PublishCommand());
   await runner.run(arguments);
 }
