@@ -12,7 +12,6 @@ import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 abstract class UploadAppCommand extends Command {
-  late UploadAppEnvironment environment;
   String get buildType;
 
   String get platform;
@@ -20,6 +19,7 @@ abstract class UploadAppCommand extends Command {
   late AppwriteServer appwriteServer;
   late AppHomeDir appHomeDir;
   late ProcessRunner buildAppRunner;
+  late String workspace;
 
   UploadAppCommand() {
     argParser.addOption(
@@ -32,13 +32,15 @@ abstract class UploadAppCommand extends Command {
 
   @override
   FutureOr? run() async {
-    appHomeDir = AppHomeDir(workspace: environment.workspace);
-    buildAppRunner =
-        await createBuildAppRunner(appHomeDir, environment.isStore);
+    workspace = argResults?['workspace'] ?? Directory.current.path;
+    appHomeDir = AppHomeDir(workspace: workspace);
     bool isUseEnvironment = argResults?['isUseEnvironment'];
-    environment = isUseEnvironment
+    final environment = isUseEnvironment
         ? UploadAppEnvironment.fromEnvironment(Platform.environment)
         : await chooseEnvironment();
+
+    buildAppRunner =
+        await createBuildAppRunner(appHomeDir, environment.isStore);
 
     appwriteServer = AppwriteServer(
       endpoint: environment.appwriteBuildEnvironment.endpoint,
@@ -77,16 +79,16 @@ abstract class UploadAppCommand extends Command {
 
     /// 将Unity工程切换分支到代码最新
     await pullAndSwitchBranch(
-      environment.unityProjectDir,
+      unityProjectDir(workspace, platform),
       environment.unityBranchName,
     );
 
     /// 获取当前Unity工程的Commit id
     final unityCurrentCommitId =
-        await getCurrentCommitHash(environment.unityProjectDir);
+        await getCurrentCommitHash(unityProjectDir(workspace, platform));
 
     final buildVersionId =
-        await getUnityBuildVersion(environment.unityProjectDir);
+        await getUnityBuildVersion(unityProjectDir(workspace, platform));
 
     loggerDebug('正在获取当前Flutter变更日志');
     final flutterChangeLog = await GetGitLog(
@@ -96,7 +98,7 @@ abstract class UploadAppCommand extends Command {
 
     loggerDebug('正在获取当前Unity变更日志');
     final unityChangeLog = await GetGitLog(
-      root: environment.unityProjectDir,
+      root: unityProjectDir(workspace, platform),
       beforeCommitId: unityCommitId,
     ).get();
 
@@ -134,16 +136,16 @@ $changeLog
     }
 
     loggerDebug('开始复制Unity静态库到指定位置');
-    await copyUnityStaticLibrary(buildVersionId);
+    await copyUnityStaticLibrary(buildVersionId, environment);
 
     loggerDebug('开始复制Flutter静态库到指定位置');
-    await copyFlutterStaticLibrary(flutterCurrentCommitId);
+    await copyFlutterStaticLibrary(flutterCurrentCommitId, environment);
 
     loggerDebug('开始进行打包......');
     await buildApp();
 
     loggerDebug('开始复制ipa/apk到指定位置');
-    await copyIpaOrApkToBuildDir();
+    await copyIpaOrApkToBuildDir(environment);
 
     if (environment.upload) {
       loggerDebug('开始上传ipa/apk......');
@@ -154,7 +156,7 @@ $changeLog
 
     if (environment.sendLog) {
       loggerDebug('开始发送日志......');
-      await sendLog(log: changeLog).catchError((e) {
+      await sendLog(log: changeLog, environment: environment).catchError((e) {
         loggerError('发送日志失败:${e.toString()}');
       });
     }
@@ -185,7 +187,8 @@ $changeLog
   }
 
   /// 复制Unity静态库到指定位置
-  Future<String?> copyUnityStaticLibrary(int buildVersionId) async {
+  Future<String?> copyUnityStaticLibrary(
+      int buildVersionId, UploadAppEnvironment environment) async {
     final appRunner = await createAppRunner(appHomeDir);
     await appRunner.runProcess(
       [
@@ -211,7 +214,10 @@ $changeLog
     return null;
   }
 
-  Future<String?> copyFlutterStaticLibrary(String commitHash) async {
+  Future<String?> copyFlutterStaticLibrary(
+    String commitHash,
+    UploadAppEnvironment environment,
+  ) async {
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -243,10 +249,11 @@ $changeLog
   Future<void> uploadApp({required String log});
 
   /// 复制ipa/apk到指定位置
-  Future<void> copyIpaOrApkToBuildDir();
+  Future<void> copyIpaOrApkToBuildDir(UploadAppEnvironment environment);
 
   /// 发送日志
-  Future<void> sendLog({required String log});
+  Future<void> sendLog(
+      {required String log, required UploadAppEnvironment environment});
 
   /// 通过交互获取环境变量
   Future<UploadAppEnvironment> chooseEnvironment() async {
@@ -257,7 +264,7 @@ $changeLog
     );
     final unityBranch = prompts.choose(
       '请选择Unity分支(比如main):',
-      await getLatestBranchList(environment.unityProjectDir),
+      await getLatestBranchList(unityProjectDir(workspace, platform)),
     );
     final iosBranch = prompts.choose(
       '请选择IOS分支(比如main):',

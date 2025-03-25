@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:meta_tool/commands/upload/upload_app_command.dart';
+import 'package:meta_tool/commands/upload/upload_app_environment.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -47,7 +48,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
   }
 
   String get apkPath => join(
-        environment.workspace,
+        workspace,
         'build',
         'app',
         'outputs',
@@ -57,7 +58,9 @@ class BuildUploadApkCommand extends UploadAppCommand {
       );
 
   @override
-  Future<void> copyIpaOrApkToBuildDir() async {
+  Future<void> copyIpaOrApkToBuildDir(
+    UploadAppEnvironment environment,
+  ) async {
     final channel = 'AppStore';
     final buildName = environment.buildName;
     final buildNumber = environment.buildNumber.toString();
@@ -78,7 +81,8 @@ class BuildUploadApkCommand extends UploadAppCommand {
   }
 
   @override
-  Future<void> sendLog({required String log}) async {
+  Future<void> sendLog(
+      {required String log, required UploadAppEnvironment environment}) async {
     await sendTextToWeixinWebhooks(log, environment.androidHookUrl);
   }
 }

@@ -50,11 +50,6 @@ class UploadAppEnvironment {
 
   final String tag;
 
-  String get unityProjectDir => join(
-        workspace,
-        platform == 'ios' ? iosUnityPath : androidUnityPath,
-      );
-
   UploadAppEnvironment({
     required this.platform,
     required this.workspace,
@@ -170,3 +165,10 @@ String _autoBuildNumber() {
   buildNumber ??= getCurrentTimestamp().toString();
   return buildNumber;
 }
+
+String unityProjectDir(String workspace, String platform) => join(
+      readEnv('UNITY_WORKSPACE', environment: Platform.environment),
+      platform == 'ios'
+          ? readEnv('IOS_UNITY_PATH', environment: Platform.environment)
+          : readEnv('ANDROID_UNITY_PATH', environment: Platform.environment),
+    );
