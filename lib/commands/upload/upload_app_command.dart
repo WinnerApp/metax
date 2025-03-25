@@ -266,14 +266,19 @@ $changeLog
       '请选择Unity分支(比如main):',
       await getLatestBranchList(unityProjectDir(workspace, platform)),
     );
-    final iosBranch = prompts.choose(
-      '请选择IOS分支(比如main):',
-      await getLatestBranchList(appHomeDir.iosDir.path),
-    );
-    final androidBranch = prompts.choose(
-      '请选择Android分支(比如main):',
-      await getLatestBranchList(appHomeDir.androidDir.path),
-    );
+    String? iosBranch;
+    String? androidBranch;
+    if (environment.platform == 'ios') {
+      iosBranch = prompts.choose(
+        '请选择IOS分支(比如main):',
+        await getLatestBranchList(appHomeDir.iosDir.path),
+      );
+    } else {
+      androidBranch = prompts.choose(
+        '请选择Android分支(比如main):',
+        await getLatestBranchList(appHomeDir.androidDir.path),
+      );
+    }
     final forceBuild = prompts.choose('是否强制打包?', [
       '是',
       '否',
@@ -295,6 +300,38 @@ $changeLog
       appHomeDir,
       isStore == '是',
     );
+
+    if (platform == 'android') {
+      String zealotChannelKey = environmentMap['TEST_ZEALOT_CHANNEL_KEY']!;
+      if (isStore == '是') {
+        final zealotChannel = prompts.choose(
+          '请选择Zealot渠道',
+          [
+            'Winner',
+            'Tencent',
+            'HuaWei',
+            'XiaoMi',
+            'Oppo',
+            'MeiZu',
+            'Vivo',
+            'Honor',
+            'Samsung',
+          ],
+        );
+        final keys = {
+          'Winner': environmentMap['WINNER_ZEALOT_CHANNEL_KEY']!,
+          'Tencent': environmentMap['TENCENT_ZEALOT_CHANNEL_KEY']!,
+          'HuaWei': environmentMap['HUAWEI_ZEALOT_CHANNEL_KEY']!,
+          'XiaoMi': environmentMap['XIAOMI_ZEALOT_CHANNEL_KEY']!,
+          'Oppo': environmentMap['OPPO_ZEALOT_CHANNEL_KEY']!,
+          'MeiZu': environmentMap['MEIZU_ZEALOT_CHANNEL_KEY']!,
+          'Vivo': environmentMap['VIVO_ZEALOT_CHANNEL_KEY']!,
+          'Honor': environmentMap['HONOR_ZEALOT_CHANNEL_KEY']!,
+          'Samsung': environmentMap['SAMSUNG_ZEALOT_CHANNEL_KEY']!,
+        };
+        zealotChannelKey = keys[zealotChannel]!;
+      }
+    }
 
     return UploadAppEnvironment.choose(
       platform: platform,
