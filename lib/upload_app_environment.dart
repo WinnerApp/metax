@@ -75,7 +75,7 @@ class UploadAppEnvironment {
             readBuildAppEnv('APP_STORE_CONNECT_API_ISSUER_ID', appHomeDir),
         appIdentifier = readBuildAppEnv('APP_IDENTIFIER', appHomeDir),
         appId = readBuildAppEnv('APP_ID', appHomeDir),
-        appwriteBuildEnvironment = AppwriteBuildEnvironment(),
+        appwriteBuildEnvironment = AppwriteBuildEnvironment(appHomeDir),
         sentryUrl = readBuildAppEnv('SENTRY_URL', appHomeDir),
         sentryAuthToken = readBuildAppEnv('SENTRY_AUTH_TOKEN', appHomeDir),
         sentryOrg = readBuildAppEnv('SENTRY_ORG', appHomeDir),

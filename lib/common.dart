@@ -151,11 +151,13 @@ String readAppEnv(String envName, AppHomeDir appHomeDir) {
   );
 }
 
-String readBuildAppEnv(String envName, AppHomeDir appHomeDir) {
-  final environment = loadBuildAppEnvironment(appHomeDir, false);
+String readBuildAppEnv(String envName, AppHomeDir appHomeDir,
+    {Map<String, String>? environment}) {
+  environment ??= loadBuildAppEnvironment(appHomeDir, false);
   return readEnv(
     envName,
     environment: environment,
+    throwMessage: '请先配置打包的环境变量',
   );
 }
 
@@ -485,6 +487,17 @@ Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
     throw '请使用metax init app_environment 初始化环境变量';
   }
   final environment = readEnvironmentFromFile(appEnvFile.path);
+  final appWriteEnvFile = File(join(
+    appHomeDir.workspace,
+    'jenkins_ci',
+    'env',
+    'appwrite',
+    '.env',
+  ));
+  if (!appWriteEnvFile.existsSync()) {
+    throw '${appWriteEnvFile.path}文件不存在';
+  }
+  environment.addAll(readEnvironmentFromFile(appWriteEnvFile.path));
   return environment;
 }
 

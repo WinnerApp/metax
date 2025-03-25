@@ -27,14 +27,14 @@ class ProjectCommand extends Command {
   @override
   FutureOr? run() async {
     final workspace = argResults?["workspace"];
-    final appHomeDir = AppHomeDir(workspace: workspace);
+    final appHomeDir = AppHomeDir(workspace);
     final appRunner = await createAppRunner(appHomeDir);
     final isInitIos = prompts.choose(
       '是否需要初始化IOS工程',
       ['需要', '不需要'],
     );
     if (isInitIos == '需要') {
-      final iosGitUrl = appRunner.environment['IOS_GIT_URL']!;
+      final iosGitUrl = readAppEnv('IOS_GIT_URL', appHomeDir);
       final iosProjectDir = Directory(join(workspace, 'ios'));
       await _initGitProject(iosProjectDir, iosGitUrl);
       final versionName = prompts.get('请输入版本号，例如1.0.0');
@@ -62,7 +62,7 @@ class ProjectCommand extends Command {
       ['需要', '不需要'],
     );
     if (isInitAndroid == '需要') {
-      final androidGitUrl = appRunner.environment['ANDROID_GIT_URL']!;
+      final androidGitUrl = readAppEnv('ANDROID_GIT_URL', appHomeDir);
       final androidProjectDir = Directory(join(workspace, 'android'));
       await _initGitProject(androidProjectDir, androidGitUrl);
 
@@ -77,14 +77,8 @@ storeFile=$workspace/winner-metaapp-keystore.jks
         'key.properties',
       ));
       await createFileAndWrite(keyPropertiesFile, keyPropertiesContent);
-      final sdkDir = ArgumentGet(argResults).getString(
-        'sdkDir',
-        '请输入Android SDK路径',
-      );
-      final ndkDir = ArgumentGet(argResults).getString(
-        'ndkDir',
-        '请输入NDK路径',
-      );
+      final sdkDir = readAppEnv('SDK_DIR', appHomeDir);
+      final ndkDir = readAppEnv('NDK_DIR', appHomeDir);
       final versionName = prompts.get('请输入版本号，例如1.0.0');
       final localPropertiesContent = '''
 sdk.dir=$sdkDir

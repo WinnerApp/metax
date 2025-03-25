@@ -88,7 +88,7 @@ abstract class UploadAppCommand extends Command {
   @override
   FutureOr? run() async {
     workspace = argResults?['workspace'];
-    appHomeDir = AppHomeDir(workspace: workspace);
+    appHomeDir = AppHomeDir(workspace);
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     final environment = await chooseEnvironment(unityEnvironment);
 
@@ -271,6 +271,7 @@ $changeLog
         '--unityBranch',
         environment.unityBranchName,
       ],
+      printOutput: true,
     );
     return null;
   }
@@ -300,6 +301,7 @@ $changeLog
         commitHash,
         '--no-isUseCache',
       ],
+      printOutput: true,
     );
     return null;
   }
@@ -377,7 +379,10 @@ $changeLog
     );
 
     loggerDebug('环境变量:${environmentMap.toString()}');
-    String zealotChannelKey = environmentMap['TEST_ZEALOT_CHANNEL_KEY']!;
+    String zealotChannelKey = readBuildAppEnv(
+      'TEST_ZEALOT_CHANNEL_KEY',
+      appHomeDir,
+    );
     if (platform == 'android') {
       if (isStore == '是') {
         final zealotChannel = ArgumentGet(argResults).getString(

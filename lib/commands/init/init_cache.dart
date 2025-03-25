@@ -24,7 +24,7 @@ class InitCacheCommand extends Command {
   @override
   FutureOr? run() async {
     final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace: workspace);
+    final appHomeDir = AppHomeDir(workspace);
     loggerDebug('正在初始化iOS静态库');
     await ProcessRunner().runProcess(
       [

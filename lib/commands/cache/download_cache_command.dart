@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:darty_json_safe/darty_json_safe.dart';
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -19,6 +20,11 @@ class DownloadCacheCommand extends Command {
   String get description => '下载网络指定缓存';
 
   DownloadCacheCommand() {
+    argParser.addOption(
+      'workspace',
+      help: 'app运行目录',
+      defaultsTo: Directory.current.path,
+    );
     argParser.addOption(
       'buildPlatform',
       help: '构建平台',
@@ -68,7 +74,8 @@ class DownloadCacheCommand extends Command {
 
   @override
   FutureOr? run() async {
-    appwriteEnvironment = AppwriteCacheEnvironment();
+    final workspace = argResults?['workspace'];
+    appwriteEnvironment = AppwriteCacheEnvironment(AppHomeDir(workspace));
     String buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
       '请选择构建平台',

@@ -1,3 +1,4 @@
+import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
 
 class AppwriteEnvironment {
@@ -5,10 +6,12 @@ class AppwriteEnvironment {
   late String projectId;
   late String apiKey;
 
-  AppwriteEnvironment() {
-    endpoint = readEnv('APPWRITE_ENDPOINT');
-    projectId = readEnv('APPWRITE_PROJECT_ID');
-    apiKey = readEnv('APPWRITE_API_KEY');
+  final AppHomeDir appHomeDir;
+
+  AppwriteEnvironment(this.appHomeDir) {
+    endpoint = readAppEnv('APPWRITE_ENDPOINT', appHomeDir);
+    projectId = readAppEnv('APPWRITE_PROJECT_ID', appHomeDir);
+    apiKey = readAppEnv('APPWRITE_API_KEY', appHomeDir);
   }
 }
 
@@ -17,10 +20,10 @@ class AppwriteCacheEnvironment extends AppwriteEnvironment {
   late String collectionId;
   late String bucketId;
 
-  AppwriteCacheEnvironment() : super() {
-    databaseId = readEnv('APPWRITE_ZIP_DATABASE_ID');
-    collectionId = readEnv('APPWRITE_ZIP_COLLECTION_ID');
-    bucketId = readEnv('APPWRITE_ZIP_BUCKET_ID');
+  AppwriteCacheEnvironment(super.appHomeDir) {
+    databaseId = readAppEnv('APPWRITE_ZIP_DATABASE_ID', appHomeDir);
+    collectionId = readAppEnv('APPWRITE_ZIP_COLLECTION_ID', appHomeDir);
+    bucketId = readAppEnv('APPWRITE_ZIP_BUCKET_ID', appHomeDir);
   }
 }
 
@@ -28,8 +31,8 @@ class AppwriteBuildEnvironment extends AppwriteEnvironment {
   late String databaseId;
   late String collectionId;
 
-  AppwriteBuildEnvironment() : super() {
-    databaseId = readEnv('APPWRITE_BUILD_DATABASE_ID');
-    collectionId = readEnv('APPWRITE_BUILD_COLLECTION_ID');
+  AppwriteBuildEnvironment(super.appHomeDir) {
+    databaseId = readAppEnv('APPWRITE_BUILD_DATABASE_ID', appHomeDir);
+    collectionId = readAppEnv('APPWRITE_BUILD_COLLECTION_ID', appHomeDir);
   }
 }

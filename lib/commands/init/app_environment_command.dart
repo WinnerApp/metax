@@ -32,29 +32,88 @@ class AppEnvironmentCommand extends Command {
       await envFile.create(recursive: true);
     }
 
-    final unityWorkspace =
-        environment['UNITY_WORKSPACE'] ?? prompts.get('请输入包含Unity工程 APP主目录');
-    environment['UNITY_WORKSPACE'] = unityWorkspace;
-    final iosUnityPath =
-        environment['IOS_UNITY_PATH'] ?? prompts.get('请输入IOS Unity路径');
-    environment['IOS_UNITY_PATH'] = iosUnityPath;
-    final androidUnityPath =
-        environment['ANDROID_UNITY_PATH'] ?? prompts.get('请输入Android Unity路径');
-    environment['ANDROID_UNITY_PATH'] = androidUnityPath;
-    final unityEnginePath =
-        environment['UNITY_ENGINE_PATH'] ?? prompts.get('请输入Unity引擎路径');
-    environment['UNITY_ENGINE_PATH'] = unityEnginePath;
-    final iosGitUrl =
-        environment['IOS_GIT_URL'] ?? prompts.get('请输入IOS Git URL');
-    environment['IOS_GIT_URL'] = iosGitUrl;
-    final androidGitUrl =
-        environment['ANDROID_GIT_URL'] ?? prompts.get('请输入Android Git URL');
-    environment['ANDROID_GIT_URL'] = androidGitUrl;
-    final flutterGitUrl =
-        environment['FLUTTER_GIT_URL'] ?? prompts.get('请输入Flutter Git URL');
-    environment['FLUTTER_GIT_URL'] = flutterGitUrl;
-    await envFile.writeAsString(environment.entries
-        .map((e) => 'export ${e.key}=${e.value}')
-        .join('\n'));
+    _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'UNITY_WORKSPACE',
+      '请输入包含Unity工程的APP主目录',
+    );
+    _writeEnvironmentWithPrompt(
+        environment, envFile, 'IOS_UNITY_PATH', '请输入IOS Unity路径');
+    _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'ANDROID_UNITY_PATH',
+      '请输入Android Unity路径',
+    );
+    _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'UNITY_ENGINE_PATH',
+      '请输入Unity引擎路径',
+    );
+    _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'ANDROID_GIT_URL',
+      '请输入Android Git URL',
+    );
+    _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'FLUTTER_GIT_URL',
+      '请输入Flutter Git URL',
+    );
+    _writeEnvironmentWithPrompt(environment, envFile, 'NDK_DIR', '请输入NDK路径',
+        validator: (value) {
+      final ndkBuild = File(join(value, 'ndk-build'));
+      if (!ndkBuild.existsSync()) {
+        throw Exception('NDK路径错误');
+      }
+      return true;
+    });
+    _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'SDK_DIR',
+      '请输入Android SDK路径',
+      validator: (value) {
+        final sdkBuildTools = Directory(join(value, 'build-tools'));
+        if (!sdkBuildTools.existsSync()) {
+          throw Exception('Android SDK路径错误');
+        }
+        return true;
+      },
+    );
+    _writeEnvironment(
+      environment,
+      'APP_STORE_CONNECT_API_KEY_FILEPATH',
+      join(workspace, 'AuthKey_KSVTNYDT6P.p8'),
+      envFile,
+    );
+  }
+
+  _writeEnvironmentWithPrompt(
+    Map<String, String> environment,
+    File envFile,
+    String name,
+    String prompt, {
+    bool Function(String)? validator,
+  }) {
+    final value = environment[name] ?? prompts.get(prompt);
+    if (validator != null) {
+      if (!validator(value)) {
+        throw Exception('输入错误');
+      }
+    }
+    _writeEnvironment(environment, name, value, envFile);
+  }
+
+  _writeEnvironment(Map<String, String> environment, String name, String value,
+      File envFile) {
+    environment[name] = value;
+    envFile.writeAsStringSync(
+      environment.entries.map((e) => 'export ${e.key}=${e.value}').join('\n'),
+    );
   }
 }

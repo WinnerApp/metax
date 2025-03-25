@@ -24,7 +24,7 @@ class BranchCommand extends Command {
   @override
   FutureOr? run() async {
     final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace: workspace);
+    final appHomeDir = AppHomeDir(workspace);
     if (appHomeDir.iosDir.existsSync()) {
       await _initBranch(appHomeDir.iosDir, '请选择IOS分支');
     }

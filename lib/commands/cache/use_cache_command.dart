@@ -72,8 +72,8 @@ class UseCacheCommand extends Command {
   @override
   Future<void> run() async {
     final workspace = argResults?['workspace'] as String;
-    appHomeDir = AppHomeDir(workspace: workspace);
-    appwriteCacheEnvironment = AppwriteCacheEnvironment();
+    appHomeDir = AppHomeDir(workspace);
+    appwriteCacheEnvironment = AppwriteCacheEnvironment(appHomeDir);
     isUseCache = argResults?['isUseCache'];
     buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
@@ -388,6 +388,7 @@ class UseCacheCommand extends Command {
         '--unityBranch',
         unityBranch,
       ],
+      printOutput: true,
     );
   }
 
@@ -412,6 +413,7 @@ class UseCacheCommand extends Command {
         'unity',
       ],
       workingDirectory: workingDirectory,
+      printOutput: true,
     );
   }
 
@@ -440,6 +442,7 @@ class UseCacheCommand extends Command {
         isStore.toString(),
       ],
       workingDirectory: workingDirectory,
+      printOutput: true,
     );
   }
 }

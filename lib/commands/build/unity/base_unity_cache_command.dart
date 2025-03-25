@@ -28,7 +28,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   FutureOr? run() async {
     await super.run();
     final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace: workspace);
+    final appHomeDir = AppHomeDir(workspace);
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     if (!await isCommandInstall('build_winner_app')) {
       throw '请先通过dart pub global activate build_winner_app 进行安装build_winner_app命令';
@@ -94,7 +94,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   @override
   Future<void> buildCache() async {
     final workspace = argResults?['workspace'];
-    final appRunner = await createAppRunner(AppHomeDir(workspace: workspace));
+    final appRunner = await createAppRunner(AppHomeDir(workspace));
     await appRunner.runProcess(
       [
         'build_winner_app',

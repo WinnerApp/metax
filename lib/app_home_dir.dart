@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 class AppHomeDir {
   final String workspace;
 
-  AppHomeDir({required this.workspace});
+  AppHomeDir(this.workspace);
 
   Directory get iosDir => Directory(join(workspace, 'ios'));
   Directory get androidDir => Directory(join(workspace, 'android'));
