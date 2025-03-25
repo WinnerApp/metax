@@ -81,6 +81,15 @@ Future<List<String>> getLatestBranchList(String workingDirectory) async {
     ],
     workingDirectory: Directory(workingDirectory),
   );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'remote',
+      'prune',
+      'origin',
+    ],
+    workingDirectory: Directory(workingDirectory),
+  );
   final commands = ['git', 'branch', '-r'];
   return ProcessRunner(defaultWorkingDirectory: Directory(workingDirectory))
       .runProcess(commands, printOutput: true)
@@ -120,12 +129,34 @@ Future<DateTime> getCommitTime(
 String readEnv(
   String envName, {
   Map<String, String>? environment,
+  String? throwMessage,
 }) {
   environment ??= Platform.environment;
   if (!environment.keys.contains(envName)) {
-    throw "请设置环境变量 【$envName】";
+    String message = "请设置环境变量 【$envName】";
+    if (throwMessage != null) {
+      message += " $throwMessage";
+    }
+    throw message;
   }
   return environment[envName]!;
+}
+
+String readAppEnv(String envName, AppHomeDir appHomeDir) {
+  final environment = loadAppEnvironment(appHomeDir);
+  return readEnv(
+    envName,
+    environment: environment,
+    throwMessage: '请先执行metax init app_environment',
+  );
+}
+
+String readBuildAppEnv(String envName, AppHomeDir appHomeDir) {
+  final environment = loadBuildAppEnvironment(appHomeDir, false);
+  return readEnv(
+    envName,
+    environment: environment,
+  );
 }
 
 void checkEnv(String envName, {Map<String, String>? environment}) {
@@ -427,13 +458,13 @@ Future<void> writeEnvironmentValueInFile(
 }
 
 /// 从文件读取设置的环境
-Future<Map<String, String>> readEnvironmentFromFile(String filePath) async {
+Map<String, String> readEnvironmentFromFile(String filePath) {
   Map<String, String> environment = {};
   final file = File(filePath);
-  if (!await file.exists()) {
+  if (!file.existsSync()) {
     return environment;
   }
-  final contents = await file.readAsLines();
+  final contents = file.readAsLinesSync();
   for (var line in contents) {
     final match = RegExp(r'(\w+)=(\S+)').firstMatch(line);
     if (match != null) {
@@ -443,23 +474,24 @@ Future<Map<String, String>> readEnvironmentFromFile(String filePath) async {
   return environment;
 }
 
-Future<Map<String, String>> loadAppEnvironment(AppHomeDir appHomeDir) async {
+Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
   final appEnvFile = File(join(
     appHomeDir.workspace,
     'jenkins_ci',
     'env',
     'app.env',
   ));
-  if (!await appEnvFile.exists()) {
+  if (!appEnvFile.existsSync()) {
     throw '请使用metax init app_environment 初始化环境变量';
   }
-  final environment = await readEnvironmentFromFile(appEnvFile.path);
+  final environment = readEnvironmentFromFile(appEnvFile.path);
   return environment;
 }
 
-Future<Map<String, String>> loadBuildAppEnvironment(
-    AppHomeDir appHomeDir, bool isStore) async {
-  final environment = await loadAppEnvironment(appHomeDir);
+Map<String, String> loadBuildAppEnvironment(
+    AppHomeDir appHomeDir, bool isStore) {
+  final environment = loadAppEnvironment(appHomeDir);
+  // jenkins_ci/env/build_app/common/.env
   final commonEnvFile = File(join(
     appHomeDir.workspace,
     'jenkins_ci',
@@ -468,8 +500,8 @@ Future<Map<String, String>> loadBuildAppEnvironment(
     'common',
     '.env',
   ));
-  if (!await commonEnvFile.exists()) {
-    environment.addAll(await readEnvironmentFromFile(commonEnvFile.path));
+  if (commonEnvFile.existsSync()) {
+    environment.addAll(readEnvironmentFromFile(commonEnvFile.path));
   }
   if (isStore) {
     final releaseEnvFile = File(join(
@@ -480,8 +512,8 @@ Future<Map<String, String>> loadBuildAppEnvironment(
       'release',
       '.env',
     ));
-    if (!await releaseEnvFile.exists()) {
-      environment.addAll(await readEnvironmentFromFile(releaseEnvFile.path));
+    if (releaseEnvFile.existsSync()) {
+      environment.addAll(readEnvironmentFromFile(releaseEnvFile.path));
     }
   } else {
     final debugEnvFile = File(join(
@@ -492,15 +524,15 @@ Future<Map<String, String>> loadBuildAppEnvironment(
       'debug',
       '.env',
     ));
-    if (!await debugEnvFile.exists()) {
-      environment.addAll(await readEnvironmentFromFile(debugEnvFile.path));
+    if (debugEnvFile.existsSync()) {
+      environment.addAll(readEnvironmentFromFile(debugEnvFile.path));
     }
   }
   return environment;
 }
 
 Future<ProcessRunner> createAppRunner(AppHomeDir appHomeDir) async {
-  final environment = await loadAppEnvironment(appHomeDir);
+  final environment = loadAppEnvironment(appHomeDir);
   return ProcessRunner(
     defaultWorkingDirectory: Directory(appHomeDir.workspace),
     environment: environment,
@@ -509,9 +541,29 @@ Future<ProcessRunner> createAppRunner(AppHomeDir appHomeDir) async {
 
 Future<ProcessRunner> createBuildAppRunner(
     AppHomeDir appHomeDir, bool isStore) async {
-  final environment = await loadBuildAppEnvironment(appHomeDir, isStore);
+  final environment = loadBuildAppEnvironment(appHomeDir, isStore);
   return ProcessRunner(
     defaultWorkingDirectory: Directory(appHomeDir.workspace),
     environment: environment,
   );
+}
+
+/// 检测安卓NDK是否存在
+Future<void> checkAndroidNDK(AppHomeDir appHomeDir) async {
+  final localPropertyFile = File(join(
+    appHomeDir.androidDir.path,
+    'local.properties',
+  ));
+  if (!localPropertyFile.existsSync()) {
+    throw '${localPropertyFile.path}文件不存在';
+  }
+  final environment = readEnvironmentFromFile(localPropertyFile.path);
+  final ndkDir = environment['ndk.dir'];
+  if (ndkDir == null) {
+    throw '请先通过metax init android_environment 初始化安卓环境ndk.dir变量';
+  }
+  final ndkBuild = File(join(ndkDir, 'ndk-build'));
+  if (!ndkBuild.existsSync()) {
+    throw 'ndk.dir路径错误，请检查是否正确！';
+  }
 }

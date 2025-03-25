@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:dart_appwrite/dart_appwrite.dart';
-import 'package:dio/dio.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';

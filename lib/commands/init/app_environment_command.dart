@@ -27,7 +27,7 @@ class AppEnvironmentCommand extends Command {
     Map<String, String> environment = {};
     final envFile = File(join(workspace, 'jenkins_ci', 'env', 'app.env'));
     if (await envFile.exists()) {
-      environment = await readEnvironmentFromFile(envFile.path);
+      environment = readEnvironmentFromFile(envFile.path);
     } else {
       await envFile.create(recursive: true);
     }

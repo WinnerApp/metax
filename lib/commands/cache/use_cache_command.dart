@@ -54,6 +54,7 @@ class UseCacheCommand extends Command {
     argParser.addOption('commitHash', help: 'Git Hash');
     argParser.addOption('buildId', help: '构建ID');
     argParser.addFlag('isUseCache', help: '是否使用缓存', defaultsTo: true);
+    argParser.addOption('unityBranch', help: 'Unity分支');
   }
 
   late String buildPlatform;
@@ -63,6 +64,7 @@ class UseCacheCommand extends Command {
   late bool isStore;
   late bool isUseCache;
   late String branch;
+  late String unityBranch;
   late AppHomeDir appHomeDir;
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
   late String? commitHash;
@@ -143,6 +145,12 @@ class UseCacheCommand extends Command {
       'branch',
       '请输入分支',
     );
+    if (buildLibrary == BuildLibrary.unity.name) {
+      unityBranch = ArgumentGet(argResults).getString(
+        'unityBranch',
+        '请输入Unity分支',
+      );
+    }
 
     commitHash = argResults?['commitHash'] as String?;
     buildId = argResults?['buildId'] as String?;
@@ -377,6 +385,8 @@ class UseCacheCommand extends Command {
         'build',
         'unity_cache',
         buildPlatform,
+        '--unityBranch',
+        unityBranch,
       ],
     );
   }

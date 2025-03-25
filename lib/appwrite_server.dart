@@ -34,8 +34,8 @@ class AppwriteServer {
       queries: [
         Query.equal('platform', platform),
         Query.equal('branch', branch),
-        Query.equal('unityBranch', unityBranch),
-        Query.equal('buildName', buildName),
+        Query.equal('unity_branch', unityBranch),
+        Query.equal('build_name', buildName),
         Query.orderDesc('\$createdAt'),
         Query.limit(1),
       ],

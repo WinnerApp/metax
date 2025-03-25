@@ -4,12 +4,13 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_server.dart';
-import 'package:meta_tool/commands/upload/upload_app_environment.dart';
+import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/get_git_log.dart';
+import 'package:meta_tool/unity_environment.dart';
+import 'package:meta_tool/upload_app_environment.dart';
 import 'package:meta_tool/upload_sentry.dart';
 import 'package:process_runner/process_runner.dart';
-import 'package:prompts/prompts.dart' as prompts;
 
 abstract class UploadAppCommand extends Command {
   String get buildType;
@@ -27,17 +28,69 @@ abstract class UploadAppCommand extends Command {
       help: 'App工作目录',
       defaultsTo: Directory.current.path,
     );
-    argParser.addFlag('isUseEnvironment', help: '是否使用环境变量', defaultsTo: false);
+    argParser.addOption(
+      'flutterBranch',
+      help: 'Flutter分支',
+    );
+    argParser.addOption(
+      'unityBranch',
+      help: 'Unity分支',
+    );
+    argParser.addOption(
+      'buildName',
+      help: '打包版本号',
+    );
+    argParser.addOption(
+      'iosBranch',
+      help: 'IOS分支',
+    );
+    argParser.addOption(
+      'androidBranch',
+      help: 'Android分支',
+    );
+    argParser.addOption(
+      'forceBuild',
+      help: '是否强制打包',
+      allowed: ['true', 'false'],
+    );
+    argParser.addOption(
+      'upload',
+      help: '是否上传',
+      allowed: ['true', 'false'],
+    );
+    argParser.addOption(
+      'sendLog',
+      help: '是否发送日志',
+      allowed: ['true', 'false'],
+    );
+    argParser.addOption(
+      'isStore',
+      help: '是否是市场包',
+      allowed: ['true', 'false'],
+    );
+    argParser.addOption(
+      'zealotChannel',
+      help: 'Zealot渠道',
+      allowed: [
+        'Winner',
+        'Tencent',
+        'HuaWei',
+        'XiaoMi',
+        'Oppo',
+        'MeiZu',
+        'Vivo',
+        'Honor',
+        'Samsung'
+      ],
+    );
   }
 
   @override
   FutureOr? run() async {
-    workspace = argResults?['workspace'] ?? Directory.current.path;
+    workspace = argResults?['workspace'];
     appHomeDir = AppHomeDir(workspace: workspace);
-    bool isUseEnvironment = argResults?['isUseEnvironment'];
-    final environment = isUseEnvironment
-        ? UploadAppEnvironment.fromEnvironment(Platform.environment)
-        : await chooseEnvironment();
+    final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+    final environment = await chooseEnvironment(unityEnvironment);
 
     buildAppRunner =
         await createBuildAppRunner(appHomeDir, environment.isStore);
@@ -76,19 +129,24 @@ abstract class UploadAppCommand extends Command {
     /// 获取当前Flutter工程的Commit id
     final flutterCurrentCommitId =
         await getCurrentCommitHash(appHomeDir.flutterDir.path);
+    late String unityProjectWorkspace;
+    if (platform == 'ios') {
+      unityProjectWorkspace = unityEnvironment.iosUnityWorkspace;
+    } else {
+      unityProjectWorkspace = unityEnvironment.androidUnityWorkspace;
+    }
 
     /// 将Unity工程切换分支到代码最新
     await pullAndSwitchBranch(
-      unityProjectDir(workspace, platform),
+      unityProjectWorkspace,
       environment.unityBranchName,
     );
 
     /// 获取当前Unity工程的Commit id
     final unityCurrentCommitId =
-        await getCurrentCommitHash(unityProjectDir(workspace, platform));
+        await getCurrentCommitHash(unityProjectWorkspace);
 
-    final buildVersionId =
-        await getUnityBuildVersion(unityProjectDir(workspace, platform));
+    final buildVersionId = await getUnityBuildVersion(unityProjectWorkspace);
 
     loggerDebug('正在获取当前Flutter变更日志');
     final flutterChangeLog = await GetGitLog(
@@ -98,7 +156,7 @@ abstract class UploadAppCommand extends Command {
 
     loggerDebug('正在获取当前Unity变更日志');
     final unityChangeLog = await GetGitLog(
-      root: unityProjectDir(workspace, platform),
+      root: unityProjectWorkspace,
       beforeCommitId: unityCommitId,
     ).get();
 
@@ -209,6 +267,9 @@ $changeLog
         environment.isStore.toString(),
         '--buildId',
         buildVersionId.toString(),
+        '--no-isUseCache',
+        '--unityBranch',
+        environment.unityBranchName,
       ],
     );
     return null;
@@ -237,6 +298,7 @@ $changeLog
         environment.isStore.toString(),
         '--commitHash',
         commitHash,
+        '--no-isUseCache',
       ],
     );
     return null;
@@ -252,61 +314,76 @@ $changeLog
   Future<void> copyIpaOrApkToBuildDir(UploadAppEnvironment environment);
 
   /// 发送日志
-  Future<void> sendLog(
-      {required String log, required UploadAppEnvironment environment});
+  Future<void> sendLog({
+    required String log,
+    required UploadAppEnvironment environment,
+  });
 
   /// 通过交互获取环境变量
-  Future<UploadAppEnvironment> chooseEnvironment() async {
-    final buildName = prompts.get('请输入版本号(比如1.0.0):');
-    final flutterBranch = prompts.choose(
-      '请选择Flutter分支(比如main):',
-      await getLatestBranchList(appHomeDir.flutterDir.path),
+  Future<UploadAppEnvironment> chooseEnvironment(
+      UnityEnvironment unityEnvironment) async {
+    final buildName = ArgumentGet(argResults).getString('buildName', '请输入版本号');
+    final flutterBranch = ArgumentGet(argResults).getString(
+      'flutterBranch',
+      '请输入Flutter分支',
+      allowed: await getLatestBranchList(appHomeDir.flutterDir.path),
     );
-    final unityBranch = prompts.choose(
-      '请选择Unity分支(比如main):',
-      await getLatestBranchList(unityProjectDir(workspace, platform)),
+    final unityBranch = ArgumentGet(argResults).getString(
+      'unityBranch',
+      '请选择Unity分支',
+      allowed: await getLatestBranchList(
+        unityEnvironment.getPlatfromUnityWorkspace(platform),
+      ),
     );
     String? iosBranch;
     String? androidBranch;
-    if (environment.platform == 'ios') {
-      iosBranch = prompts.choose(
-        '请选择IOS分支(比如main):',
-        await getLatestBranchList(appHomeDir.iosDir.path),
+    if (platform == 'ios') {
+      iosBranch = ArgumentGet(argResults).getString(
+        'iosBranch',
+        '请选择IOS分支',
+        allowed: await getLatestBranchList(appHomeDir.iosDir.path),
       );
     } else {
-      androidBranch = prompts.choose(
-        '请选择Android分支(比如main):',
-        await getLatestBranchList(appHomeDir.androidDir.path),
+      androidBranch = ArgumentGet(argResults).getString(
+        'androidBranch',
+        '请选择Android分支',
+        allowed: await getLatestBranchList(appHomeDir.androidDir.path),
       );
     }
-    final forceBuild = prompts.choose('是否强制打包?', [
-      '是',
-      '否',
-    ]);
-    final upload = prompts.choose('是否上传?', [
-      '是',
-      '否',
-    ]);
-    final sendLog = prompts.choose('是否发送日志?', [
-      '是',
-      '否',
-    ]);
-    final isStore = prompts.choose('是否是市场包?', [
-      '是',
-      '否',
-    ]);
-
-    Map<String, String> environmentMap = await loadBuildAppEnvironment(
-      appHomeDir,
-      isStore == '是',
+    final forceBuild = ArgumentGet(argResults).getString(
+      'forceBuild',
+      '是否强制打包?',
+      allowed: ['true', 'false'],
+    );
+    final upload = ArgumentGet(argResults).getString(
+      'upload',
+      '是否上传?',
+      allowed: ['true', 'false'],
+    );
+    final sendLog = ArgumentGet(argResults).getString(
+      'sendLog',
+      '是否发送日志?',
+      allowed: ['true', 'false'],
+    );
+    final isStore = ArgumentGet(argResults).getString(
+      'isStore',
+      '是否是市场包?',
+      allowed: ['true', 'false'],
     );
 
+    Map<String, String> environmentMap = loadBuildAppEnvironment(
+      appHomeDir,
+      isStore == 'true',
+    );
+
+    loggerDebug('环境变量:${environmentMap.toString()}');
+    String zealotChannelKey = environmentMap['TEST_ZEALOT_CHANNEL_KEY']!;
     if (platform == 'android') {
-      String zealotChannelKey = environmentMap['TEST_ZEALOT_CHANNEL_KEY']!;
       if (isStore == '是') {
-        final zealotChannel = prompts.choose(
+        final zealotChannel = ArgumentGet(argResults).getString(
+          'zealotChannel',
           '请选择Zealot渠道',
-          [
+          allowed: [
             'Winner',
             'Tencent',
             'HuaWei',
@@ -331,21 +408,24 @@ $changeLog
         };
         zealotChannelKey = keys[zealotChannel]!;
       }
+      environmentMap['ZEALOT_CHANNEL_KEY'] = zealotChannelKey;
     }
 
     return UploadAppEnvironment.choose(
       platform: platform,
       workspace: appHomeDir.workspace,
       buildName: buildName,
-      branch: flutterBranch!,
+      branch: flutterBranch,
       forceBuild: forceBuild == '是',
-      unityBranchName: unityBranch!,
+      unityBranchName: unityBranch,
       upload: upload == '是',
       sendLog: sendLog == '是',
       isStore: isStore == '是',
-      iosBranch: iosBranch!,
-      androidBranch: androidBranch!,
-      environment: environmentMap,
+      iosBranch: iosBranch ?? '',
+      androidBranch: androidBranch ?? '',
+      appHomeDir: appHomeDir,
+      unityEnvironment: unityEnvironment,
+      zealotChannelKey: zealotChannelKey,
     );
   }
 }

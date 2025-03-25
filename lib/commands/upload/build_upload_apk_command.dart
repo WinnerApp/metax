@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:meta_tool/commands/upload/upload_app_command.dart';
-import 'package:meta_tool/commands/upload/upload_app_environment.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/upload_app_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -58,9 +58,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
       );
 
   @override
-  Future<void> copyIpaOrApkToBuildDir(
-    UploadAppEnvironment environment,
-  ) async {
+  Future<void> copyIpaOrApkToBuildDir(UploadAppEnvironment environment) async {
     final channel = 'AppStore';
     final buildName = environment.buildName;
     final buildNumber = environment.buildNumber.toString();
