@@ -64,7 +64,6 @@ class UseCacheCommand extends Command {
   late bool isStore;
   late bool isUseCache;
   late String branch;
-  late String unityBranch;
   late AppHomeDir appHomeDir;
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
   late String? commitHash;
@@ -141,19 +140,21 @@ class UseCacheCommand extends Command {
       isStore = true;
     }
 
-    branch = ArgumentGet(argResults).getString(
-      'branch',
-      '请输入分支',
-    );
     if (buildLibrary == BuildLibrary.unity.name) {
-      unityBranch = ArgumentGet(argResults).getString(
+      branch = ArgumentGet(argResults).getString(
         'unityBranch',
         '请输入Unity分支',
+      );
+    } else if (buildLibrary == BuildLibrary.flutter.name) {
+      branch = ArgumentGet(argResults).getString(
+        'branch',
+        '请输入分支',
       );
     }
 
     commitHash = argResults?['commitHash'] as String?;
     buildId = argResults?['buildId'] as String?;
+
     CacheModel? useCacheModel;
     if (isUseCache) {
       /// 查询是否存在本地缓存
@@ -188,14 +189,13 @@ class UseCacheCommand extends Command {
           );
         }
       }
-    } else {
-      /// 不使用缓存 重新进行编译
-      useCacheModel = await compileCache();
     }
+    useCacheModel ??= await compileCache();
     if (useCacheModel == null) {
       throw Exception('无法找到对应缓存!');
     }
     await useCache(useCacheModel);
+    loggerSuccess('使用缓存成功');
   }
 
   /// 查询本地是否存在缓存
@@ -294,7 +294,7 @@ class UseCacheCommand extends Command {
     );
     final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
     final zipPath = metaxCache.getZipCachePath(cacheModel.commitHash);
-    return copyZipToDir(zipPath, targetDir);
+    await copyZipToDir(zipPath, targetDir);
   }
 
   /// 查询网络是否存在缓存
@@ -362,13 +362,38 @@ class UseCacheCommand extends Command {
 
   /// 编译缓存
   Future<CacheModel?> compileCache() async {
+    loggerDebug('buildType: $buildType');
     if (buildType == BuildType.library.name) {
       await compileUnityLibrary();
     } else {
       if (buildLibrary == BuildLibrary.flutter.name) {
         await compileFlutter();
       } else if (buildLibrary == BuildLibrary.unity.name) {
-        await compileUnityLibrary();
+        final commandLine = [
+          'metax',
+          'cache',
+          'use',
+          '--buildPlatform',
+          buildPlatform,
+          '--buildConfiguration',
+          'release',
+          '--buildLibrary',
+          'unity',
+          '--buildType',
+          'library',
+          '--unityBranch',
+          branch,
+          '--isStore',
+        ];
+        if (buildId != null) {
+          commandLine.add('--buildId');
+          commandLine.add(buildId.toString());
+        }
+        await ProcessRunner().runProcess(
+          commandLine,
+          printOutput: true,
+          workingDirectory: Directory(appHomeDir.workspace),
+        );
         await compileUnity();
       } else {
         throw UnimplementedError();
@@ -386,7 +411,7 @@ class UseCacheCommand extends Command {
         'unity_cache',
         buildPlatform,
         '--unityBranch',
-        unityBranch,
+        branch,
       ],
       printOutput: true,
     );
