@@ -25,7 +25,7 @@ class InitCacheCommand extends Command {
   FutureOr? run() async {
     final workspace = argResults?['workspace'];
     final appHomeDir = AppHomeDir(workspace);
-    loggerDebug('正在初始化iOS静态库');
+    loggerDebug('正在初始化iOS Flutter静态库');
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -39,7 +39,9 @@ class InitCacheCommand extends Command {
         'framework',
       ],
       workingDirectory: Directory(appHomeDir.workspace),
+      printOutput: true,
     );
+    loggerDebug('正在初始化iOS Unity静态库');
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -53,8 +55,9 @@ class InitCacheCommand extends Command {
         'framework',
       ],
       workingDirectory: Directory(appHomeDir.workspace),
+      printOutput: true,
     );
-    loggerDebug('正在初始化Android静态库');
+    loggerDebug('正在初始化Android Flutter静态库');
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -68,7 +71,9 @@ class InitCacheCommand extends Command {
         'aar',
       ],
       workingDirectory: Directory(appHomeDir.workspace),
+      printOutput: true,
     );
+    loggerDebug('正在初始化Android Unity静态库');
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -82,6 +87,7 @@ class InitCacheCommand extends Command {
         'aar',
       ],
       workingDirectory: Directory(appHomeDir.workspace),
+      printOutput: true,
     );
     loggerDebug('初始化缓存完成');
   }
