@@ -245,7 +245,7 @@ $changeLog
   }
 
   /// 复制Unity静态库到指定位置
-  Future<String?> copyUnityStaticLibrary(
+  Future<void> copyUnityStaticLibrary(
       int buildVersionId, UploadAppEnvironment environment) async {
     final appRunner = await createAppRunner(appHomeDir);
     await appRunner.runProcess(
@@ -261,22 +261,18 @@ $changeLog
         'unity',
         '--buildType',
         buildType,
-        '--branch',
-        environment.branch,
         '--isStore',
-        environment.isStore.toString(),
+        'true',
         '--buildId',
         buildVersionId.toString(),
-        '--no-isUseCache',
         '--unityBranch',
         environment.unityBranchName,
       ],
       printOutput: true,
     );
-    return null;
   }
 
-  Future<String?> copyFlutterStaticLibrary(
+  Future<void> copyFlutterStaticLibrary(
     String commitHash,
     UploadAppEnvironment environment,
   ) async {
@@ -299,11 +295,9 @@ $changeLog
         environment.isStore.toString(),
         '--commitHash',
         commitHash,
-        '--no-isUseCache',
       ],
       printOutput: true,
     );
-    return null;
   }
 
   /// 进行打包
