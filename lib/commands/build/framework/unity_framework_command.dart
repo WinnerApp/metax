@@ -94,7 +94,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         'clean',
         'build'
       ],
-      workingDirectory: Directory(workspace),
+      workingDirectory: Directory(join(workspace, 'UnityLibrary')),
       printOutput: true,
     );
   }
