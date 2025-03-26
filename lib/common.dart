@@ -257,12 +257,15 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
   if (await targetDir.exists()) {
     await targetDir.delete(recursive: true);
   }
-  await ProcessRunner().runProcess([
-    'unzip',
-    zipPath,
-    '-d',
-    targetDir.parent.path,
-  ]);
+  await ProcessRunner().runProcess(
+    [
+      'unzip',
+      zipPath,
+      '-d',
+      targetDir.parent.path,
+    ],
+    printOutput: true,
+  );
 }
 
 String formatGitLog(String flutterLog, String unityLog) {
@@ -403,6 +406,7 @@ Future<void> downloadCacheResource({
   required String commitHash,
   int buildId = 0,
 }) async {
+  loggerDebug('下载缓存到本地中，请稍等......');
   await ProcessRunner().runProcess(
     [
       'metax',
@@ -428,6 +432,7 @@ Future<void> downloadCacheResource({
     ],
     printOutput: true,
   );
+  loggerSuccess('下载缓存成功');
 }
 
 /// 获取缓存资源存放的目录
