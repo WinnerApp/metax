@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
@@ -13,7 +12,6 @@ import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
-import 'package:prompts/prompts.dart' as prompts;
 
 class UseCacheCommand extends Command {
   @override
@@ -45,10 +43,15 @@ class UseCacheCommand extends Command {
       allowed: BuildType.values.map((e) => e.name),
     );
     argParser.addOption('branch', help: '分支');
-    argParser.addFlag('isStore', help: '是否发布包缓存', defaultsTo: true);
+    argParser.addOption('isStore', help: '是否发布包缓存', allowed: ['true', 'false']);
     argParser.addOption('commitHash', help: 'Git Hash');
     argParser.addOption('buildId', help: '构建ID');
-    argParser.addFlag('isUseCache', help: '是否使用缓存', defaultsTo: true);
+    argParser.addOption(
+      'isUseCache',
+      help: '是否使用缓存',
+      allowed: ['true', 'false'],
+      defaultsTo: 'true',
+    );
     argParser.addOption('unityBranch', help: 'Unity分支');
   }
 
@@ -65,7 +68,7 @@ class UseCacheCommand extends Command {
   @override
   Future<void> run() async {
     appwriteCacheEnvironment = AppwriteCacheEnvironment(appHomeDir);
-    isUseCache = argResults?['isUseCache'];
+
     buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
       '请选择构建平台',
@@ -124,10 +127,12 @@ class UseCacheCommand extends Command {
     }
 
     if (buildLibrary == BuildLibrary.flutter.name) {
-      isStore = Unwrap(prompts.choose(
-        '是否使用发布包缓存',
-        ['true', 'false'],
-      )).map((e) => e == 'true').defaultValue(false);
+      isStore = ArgumentGet(argResults).getString(
+            'isStore',
+            '是否使用发布包缓存',
+            allowed: ['true', 'false'],
+          ) ==
+          'true';
     } else {
       isStore = true;
     }
@@ -143,6 +148,13 @@ class UseCacheCommand extends Command {
         '请输入分支',
       );
     }
+
+    isUseCache = ArgumentGet(argResults).getString(
+          'isUseCache',
+          '是否使用缓存',
+          allowed: ['true', 'false'],
+        ) ==
+        'true';
 
     commitHash = argResults?['commitHash'] as String?;
     buildId = argResults?['buildId'] as String?;
@@ -433,13 +445,10 @@ class UseCacheCommand extends Command {
 
   /// 编译Flutter
   Future<void> compileFlutter() async {
-    late Directory workingDirectory;
     late String buildType;
     if (buildPlatform == BuildPlatform.ios.name) {
-      workingDirectory = appHomeDir.iosDir;
       buildType = BuildType.framework.name;
     } else if (buildPlatform == BuildPlatform.android.name) {
-      workingDirectory = appHomeDir.androidDir;
       buildType = BuildType.aar.name;
     } else {
       throw UnimplementedError();
@@ -455,7 +464,7 @@ class UseCacheCommand extends Command {
         '--isStore',
         isStore.toString(),
       ],
-      workingDirectory: workingDirectory,
+      workingDirectory: appHomeDir.directory,
       printOutput: true,
     );
   }
