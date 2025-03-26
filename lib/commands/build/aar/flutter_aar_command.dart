@@ -133,6 +133,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           'aar',
           '--no-profile',
           '--no-release',
+          '--target-platform=android-arm64',
           '--verbose'
         ],
         workingDirectory: appHomeDir.flutterDir,
@@ -147,6 +148,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           'aar',
           '--no-debug',
           '--no-profile',
+          '--target-platform=android-arm64',
           '--verbose',
         ],
         workingDirectory: appHomeDir.flutterDir,
