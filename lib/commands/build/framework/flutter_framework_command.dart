@@ -35,19 +35,19 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
   @override
   Future<void> run() async {
     await super.run();
-    configuration = ArgumentGet(argResults).getString(
-      'configuration',
-      '请选择Flutter Framework构建配置',
-      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
-    );
-    if (configuration == 'debug') {
-      isStore = false;
+    isStore = Unwrap(ArgumentGet(argResults).getString(
+      'isStore',
+      '是否应用市场的Flutter Framework',
+      allowed: ['true', 'false'],
+    )).map((e) => e == 'true').defaultValue(false);
+    if (isStore) {
+      configuration = 'release';
     } else {
-      isStore = Unwrap(ArgumentGet(argResults).getString(
-        'isStore',
-        '是否应用市场的Flutter Framework',
-        allowed: ['true', 'false'],
-      )).map((e) => e == 'true').defaultValue(false);
+      configuration = ArgumentGet(argResults).getString(
+        'configuration',
+        '请选择Flutter Framework构建配置',
+        allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+      );
     }
     final flutterDir = appHomeDir.flutterDir;
     final pubspecFile = File(join(flutterDir.path, 'pubspec.yaml'));
