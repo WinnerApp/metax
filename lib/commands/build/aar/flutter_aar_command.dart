@@ -30,34 +30,33 @@ class FlutterAarCommand extends BuildCacheCommand {
     );
   }
 
-  late String workspace;
   late String configuration;
   late bool isStore;
   @override
   Future<void> run() async {
     await super.run();
-    configuration = ArgumentGet(argResults).getString(
-      'configuration',
-      '请选择Flutter AAR构建配置',
-      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
-    );
-    if (configuration == 'debug') {
-      isStore = false;
+    isStore = Unwrap(ArgumentGet(argResults).getString(
+      'isStore',
+      '是否应用市场的Flutter AAR',
+      allowed: ['true', 'false'],
+    )).map((e) => e == 'true').defaultValue(false);
+    if (isStore) {
+      configuration = 'release';
     } else {
-      isStore = Unwrap(ArgumentGet(argResults).getString(
-        'isStore',
-        '是否应用市场的Flutter AAR',
-        allowed: ['true', 'false'],
-      )).map((e) => e == 'true').defaultValue(false);
+      configuration = ArgumentGet(argResults).getString(
+        'configuration',
+        '请选择Flutter AAR构建配置',
+        allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+      );
     }
     final workspaceDir = appHomeDir.flutterDir;
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('${workspaceDir.path} 不是一个Flutter工程');
     }
-    final branch = await getCurrentBranch(workspace);
-    final commitHash = await getCurrentCommitHash(workspace);
-    final commitTime = await getCommitTime(workspace, commitHash);
+    final branch = await getCurrentBranch(workspaceDir.path);
+    final commitHash = await getCurrentCommitHash(workspaceDir.path);
+    final commitTime = await getCommitTime(workspaceDir.path, commitHash);
     BuildConfiguration buildConfiguration;
     if (isStore) {
       buildConfiguration = BuildConfiguration.release;
@@ -72,7 +71,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildConfiguration: buildConfiguration,
       buildLibrary: BuildLibrary.flutter,
     );
-    final buildCacheDir = join(workspace, 'build', 'host');
+    final buildCacheDir = join(workspaceDir.path, 'build', 'host');
     await updateCache(
       cache: flutterCache,
       commitHash: commitHash,
@@ -101,17 +100,17 @@ class FlutterAarCommand extends BuildCacheCommand {
     // flutter pub get
     await ProcessRunner().runProcess(
       ['flutter', 'pub', 'get'],
-      workingDirectory: Directory(workspace),
+      workingDirectory: appHomeDir.flutterDir,
       printOutput: true,
     );
     // metaapp_flutter/buildConfigs/android
     final androidConfigDir =
-        Directory(join(workspace, 'buildConfigs', 'android'));
+        Directory(join(appHomeDir.flutterDir.path, 'buildConfigs', 'android'));
     if (!androidConfigDir.existsSync()) {
       throw Exception('buildConfigs/android目录不存在: ${androidConfigDir.path}');
     }
 
-    final toConfigDir = Directory(join(workspace, '.android'));
+    final toConfigDir = Directory(join(appHomeDir.flutterDir.path, '.android'));
     if (!toConfigDir.existsSync()) {
       throw Exception('.android目录不存在: ${toConfigDir.path}');
     }
@@ -120,7 +119,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       /// cp -r -f "$android_config_dir"/* "$generate_android_dir"
       await ProcessRunner().runProcess(
         ['cp', '-rf', "${androidConfigDir.path}/.", toConfigDir.path],
-        workingDirectory: Directory(workspace),
+        workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
     }
@@ -136,7 +135,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           '--no-release',
           '--verbose'
         ],
-        workingDirectory: Directory(workspace),
+        workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
     } else {
@@ -150,7 +149,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           '--no-profile',
           '--verbose',
         ],
-        workingDirectory: Directory(workspace),
+        workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
     }

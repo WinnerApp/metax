@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
@@ -85,8 +84,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
-    final workspace = argResults?['workspace'];
-    final appRunner = await createAppRunner(AppHomeDir(workspace));
+    final appRunner = await createAppRunner(appHomeDir);
     await appRunner.runProcess(
       [
         'build_winner_app',
