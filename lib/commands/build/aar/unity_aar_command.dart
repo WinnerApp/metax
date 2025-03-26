@@ -18,8 +18,8 @@ class UnityAarCommand extends BuildCacheCommand {
   UnityAarCommand() {
     argParser.addOption(
       'workspace',
-      abbr: 's',
-      help: '安卓目录',
+      help: 'app运行目录，默认使用当前目录',
+      defaultsTo: Directory.current.path,
     );
   }
 
@@ -29,7 +29,7 @@ class UnityAarCommand extends BuildCacheCommand {
   Future<void> run() async {
     await super.run();
     workspace = argResults?['workspace'] ?? Directory.current.path;
-    final unityDir = Directory(join(workspace, 'unityLibrary'));
+    final unityDir = Directory(join(workspace, 'android', 'unityLibrary'));
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');
     }
@@ -46,7 +46,7 @@ class UnityAarCommand extends BuildCacheCommand {
       buildLibrary: BuildLibrary.unity,
     );
     final buildCacheDir = join(
-      Directory(workspace).parent.path,
+      Directory(workspace).path,
       'build',
       'unityLibrary',
       'outputs',

@@ -19,7 +19,8 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     argParser.addOption(
       'workspace',
       abbr: 's',
-      help: 'iOS工程目录，默认使用当前目录',
+      help: 'app运行目录，默认使用当前目录',
+      defaultsTo: Directory.current.path,
     );
   }
 
@@ -30,7 +31,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     await super.run();
     workspace = argResults?['workspace'] ?? Directory.current.path;
     final workspaceDir = Directory(workspace);
-    final unityLibraryDir = join(workspaceDir.path, 'UnityLibrary');
+    final unityLibraryDir = join(workspaceDir.path, 'ios', 'UnityLibrary');
     final xcodeProjectPath = join(unityLibraryDir, 'Unity-iPhone.xcodeproj');
     if (!Directory(xcodeProjectPath).existsSync()) {
       throw '$unityLibraryDir 不存在';
@@ -94,7 +95,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         'clean',
         'build'
       ],
-      workingDirectory: Directory(join(workspace, 'UnityLibrary')),
+      workingDirectory: Directory(join(workspace, 'ios', 'UnityLibrary')),
       printOutput: true,
     );
   }
