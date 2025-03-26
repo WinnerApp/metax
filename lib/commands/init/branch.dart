@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 class BranchCommand extends Command {
@@ -13,18 +13,8 @@ class BranchCommand extends Command {
   @override
   String get name => 'branch';
 
-  BranchCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'App工作目录',
-      defaultsTo: Directory.current.path,
-    );
-  }
-
   @override
   FutureOr? run() async {
-    final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace);
     if (appHomeDir.iosDir.existsSync()) {
       await _initBranch(appHomeDir.iosDir, '请选择IOS分支');
     }

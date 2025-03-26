@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:process_runner/process_runner.dart';
 
 class InitCacheCommand extends Command {
@@ -13,18 +13,8 @@ class InitCacheCommand extends Command {
   @override
   String get name => 'cache';
 
-  InitCacheCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'App工作目录',
-      defaultsTo: Directory.current.path,
-    );
-  }
-
   @override
   FutureOr? run() async {
-    final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace);
     loggerDebug('正在初始化iOS Flutter静态库');
     await ProcessRunner().runProcess(
       [

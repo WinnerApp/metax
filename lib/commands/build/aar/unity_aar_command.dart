@@ -15,21 +15,13 @@ class UnityAarCommand extends BuildCacheCommand {
   @override
   String get name => 'unity';
 
-  UnityAarCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'app运行目录，默认使用当前目录',
-      defaultsTo: Directory.current.path,
-    );
-  }
-
-  late String workspace;
-
   @override
   Future<void> run() async {
     await super.run();
-    workspace = argResults?['workspace'] ?? Directory.current.path;
-    final unityDir = Directory(join(workspace, 'android', 'unityLibrary'));
+    final unityDir = Directory(join(
+      appHomeDir.androidDir.path,
+      'unityLibrary',
+    ));
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');
     }
@@ -46,7 +38,7 @@ class UnityAarCommand extends BuildCacheCommand {
       buildLibrary: BuildLibrary.unity,
     );
     final buildCacheDir = join(
-      Directory(workspace).path,
+      appHomeDir.workspace,
       'build',
       'unityLibrary',
       'outputs',
@@ -78,7 +70,10 @@ class UnityAarCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
-    final unityDir = Directory(join(workspace, 'unityLibrary'));
+    final unityDir = Directory(join(
+      appHomeDir.androidDir.path,
+      'unityLibrary',
+    ));
     final localBundleDir = Directory(join(
       unityDir.path,
       'src',
@@ -89,8 +84,13 @@ class UnityAarCommand extends BuildCacheCommand {
     if (localBundleDir.existsSync()) {
       /// cp -rf "$local_bundle_path" "$android_dir/app/src/main/assets"
       await ProcessRunner().runProcess(
-        ['cp', '-rf', localBundleDir.path, "$workspace/app/src/main/assets"],
-        workingDirectory: Directory(workspace),
+        [
+          'cp',
+          '-rf',
+          localBundleDir.path,
+          "${appHomeDir.androidDir.path}/app/src/main/assets"
+        ],
+        workingDirectory: appHomeDir.androidDir,
         printOutput: true,
       );
     }
@@ -98,14 +98,14 @@ class UnityAarCommand extends BuildCacheCommand {
     /// rm -rf "$local_bundle_path"
     await ProcessRunner().runProcess(
       ['rm', '-rf', localBundleDir.path],
-      workingDirectory: Directory(workspace),
+      workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
 
     /// ./gradlew unityLibrary:bundleReleaseAar
     await ProcessRunner().runProcess(
       ['./gradlew', 'unityLibrary:bundleReleaseAar'],
-      workingDirectory: Directory(workspace),
+      workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
   }

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
@@ -13,19 +14,15 @@ class AppEnvironmentCommand extends Command {
   @override
   String get name => 'app_environment';
 
-  AppEnvironmentCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'App工作目录',
-      defaultsTo: Directory.current.path,
-    );
-  }
-
   @override
   FutureOr? run() async {
-    final workspace = argResults?['workspace'] as String;
     Map<String, String> environment = {};
-    final envFile = File(join(workspace, 'jenkins_ci', 'env', 'app.env'));
+    final envFile = File(join(
+      appHomeDir.workspace,
+      'jenkins_ci',
+      'env',
+      'app.env',
+    ));
     if (await envFile.exists()) {
       environment = readEnvironmentFromFile(envFile.path);
     } else {
@@ -88,7 +85,7 @@ class AppEnvironmentCommand extends Command {
     _writeEnvironment(
       environment,
       'APP_STORE_CONNECT_API_KEY_FILEPATH',
-      join(workspace, 'AuthKey_KSVTNYDT6P.p8'),
+      join(appHomeDir.workspace, 'AuthKey_KSVTNYDT6P.p8'),
       envFile,
     );
   }

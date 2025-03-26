@@ -24,11 +24,6 @@ class UseCacheCommand extends Command {
 
   UseCacheCommand() {
     argParser.addOption(
-      'workspace',
-      help: 'App工作区,默认为当前目录',
-      defaultsTo: Directory.current.path,
-    );
-    argParser.addOption(
       'buildPlatform',
       help: '构建平台',
       allowed: BuildPlatform.values.map((e) => e.name),
@@ -64,14 +59,11 @@ class UseCacheCommand extends Command {
   late bool isStore;
   late bool isUseCache;
   late String branch;
-  late AppHomeDir appHomeDir;
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
   late String? commitHash;
   late String? buildId;
   @override
   Future<void> run() async {
-    final workspace = argResults?['workspace'] as String;
-    appHomeDir = AppHomeDir(workspace);
     appwriteCacheEnvironment = AppwriteCacheEnvironment(appHomeDir);
     isUseCache = argResults?['isUseCache'];
     buildPlatform = ArgumentGet(argResults).getString(
@@ -169,7 +161,7 @@ class UseCacheCommand extends Command {
 
           /// 下载网络缓存
           await downloadCacheResource(
-            workspace: workspace,
+            workspace: appHomeDir.workspace,
             buildPlatform: BuildPlatform.values.firstWhere(
               (e) => e.name == buildPlatform,
             ),
@@ -419,13 +411,10 @@ class UseCacheCommand extends Command {
 
   /// 编译Unity
   Future<void> compileUnity() async {
-    late Directory workingDirectory;
     late String buildType;
     if (buildPlatform == BuildPlatform.ios.name) {
-      workingDirectory = appHomeDir.iosDir;
       buildType = BuildType.framework.name;
     } else if (buildPlatform == BuildPlatform.android.name) {
-      workingDirectory = appHomeDir.androidDir;
       buildType = BuildType.aar.name;
     } else {
       throw UnimplementedError();
@@ -437,7 +426,7 @@ class UseCacheCommand extends Command {
         buildType,
         'unity',
       ],
-      workingDirectory: workingDirectory,
+      workingDirectory: Directory(appHomeDir.workspace),
       printOutput: true,
     );
   }

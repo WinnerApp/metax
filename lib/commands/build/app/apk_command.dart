@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -12,19 +13,14 @@ class ApkCommand extends Command {
   @override
   String get name => 'apk';
 
-  ApkCommand() {
-    argParser.addOption('workspace', abbr: 's', help: 'android工程目录，默认使用当前目录');
-  }
-
   @override
   Future<void> run() async {
-    final workspace = argResults?['workspace'] ?? Directory.current.path;
-    final workspaceDir = Directory(workspace);
-    if (!workspaceDir.existsSync()) {
-      throw Exception('workspace目录不存在: $workspace');
+    final androidDir = appHomeDir.androidDir;
+    if (!androidDir.existsSync()) {
+      throw Exception('android目录不存在: ${androidDir.path}');
     }
 
-    final gradlew = File(join(workspaceDir.path, 'gradlew'));
+    final gradlew = File(join(androidDir.path, 'gradlew'));
     if (!gradlew.existsSync()) {
       throw Exception('gradlew文件不存在: ${gradlew.path}');
     }
@@ -32,7 +28,7 @@ class ApkCommand extends Command {
     /// ./gradlew assembleRelease
     await ProcessRunner().runProcess(
       ['./gradlew', 'assembleRelease'],
-      workingDirectory: workspaceDir,
+      workingDirectory: androidDir,
       printOutput: true,
     );
 

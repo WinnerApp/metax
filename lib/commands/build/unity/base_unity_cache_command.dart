@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -13,11 +12,6 @@ import 'package:path/path.dart';
 abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   BaseUnityCacheCommand() {
     argParser.addOption(
-      'workspace',
-      help: 'App工作目录',
-      defaultsTo: Directory.current.path,
-    );
-    argParser.addOption(
       'unityBranch',
       help: 'Unity分支',
     );
@@ -27,8 +21,6 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   @override
   FutureOr? run() async {
     await super.run();
-    final workspace = argResults?['workspace'];
-    final appHomeDir = AppHomeDir(workspace);
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     if (!await isCommandInstall('build_winner_app')) {
       throw '请先通过dart pub global activate build_winner_app 进行安装build_winner_app命令';

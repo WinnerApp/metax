@@ -17,8 +17,6 @@ class FlutterAarCommand extends BuildCacheCommand {
   String get name => 'flutter';
 
   FlutterAarCommand() {
-    argParser.addOption('workspace', abbr: 's', help: 'flutter工程目录，默认使用当前目录');
-
     argParser.addOption(
       'configuration',
       abbr: 'c',
@@ -38,7 +36,6 @@ class FlutterAarCommand extends BuildCacheCommand {
   @override
   Future<void> run() async {
     await super.run();
-    workspace = argResults?['workspace'] ?? Directory.current.path;
     configuration = ArgumentGet(argResults).getString(
       'configuration',
       '请选择Flutter AAR构建配置',
@@ -53,7 +50,7 @@ class FlutterAarCommand extends BuildCacheCommand {
         allowed: ['true', 'false'],
       )).map((e) => e == 'true').defaultValue(false);
     }
-    final workspaceDir = Directory(workspace);
+    final workspaceDir = appHomeDir.flutterDir;
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('${workspaceDir.path} 不是一个Flutter工程');

@@ -18,12 +18,6 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
 
   FlutterFrameworkCommand() {
     argParser.addOption(
-      'workspace',
-      abbr: 's',
-      help: 'flutter工程目录，默认使用当前目录',
-      defaultsTo: Directory.current.path,
-    );
-    argParser.addOption(
       'configuration',
       abbr: 'c',
       help: 'flutter工程配置，debug/release',
@@ -36,13 +30,11 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     );
   }
 
-  late String workspace;
   late String configuration;
   late bool isStore;
   @override
   Future<void> run() async {
     await super.run();
-    workspace = argResults?['workspace'];
     configuration = ArgumentGet(argResults).getString(
       'configuration',
       '请选择Flutter Framework构建配置',
@@ -57,17 +49,18 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         allowed: ['true', 'false'],
       )).map((e) => e == 'true').defaultValue(false);
     }
-    final pubspecFile = File(join(workspace, 'pubspec.yaml'));
+    final flutterDir = appHomeDir.flutterDir;
+    final pubspecFile = File(join(flutterDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
-      throw Exception('$workspace 不是一个Flutter工程');
+      throw Exception('${flutterDir.path} 不是一个Flutter工程');
     }
-    if (!await isGitRepository(workspace)) {
-      throw Exception('当前目录不是git仓库: $workspace');
+    if (!await isGitRepository(flutterDir.path)) {
+      throw Exception('${flutterDir.path} 不是一个git仓库');
     }
 
-    final branch = await getCurrentBranch(workspace);
-    final commitHash = await getCurrentCommitHash(workspace);
-    final commitTime = await getCommitTime(workspace, commitHash);
+    final branch = await getCurrentBranch(flutterDir.path);
+    final commitHash = await getCurrentCommitHash(flutterDir.path);
+    final commitTime = await getCommitTime(flutterDir.path, commitHash);
     BuildConfiguration buildConfiguration;
     if (isStore) {
       buildConfiguration = BuildConfiguration.release;
@@ -84,9 +77,11 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     );
     late String buildCacheDir;
     if (configuration == 'debug') {
-      buildCacheDir = join(workspace, 'build', 'ios', 'framework', 'Debug');
+      buildCacheDir =
+          join(flutterDir.path, 'build', 'ios', 'framework', 'Debug');
     } else {
-      buildCacheDir = join(workspace, 'build', 'ios', 'framework', 'Release');
+      buildCacheDir =
+          join(flutterDir.path, 'build', 'ios', 'framework', 'Release');
     }
     await updateCache(
       cache: flutterCache,
@@ -116,7 +111,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     /// flutter pub get
     await ProcessRunner().runProcess(
       ['flutter', 'pub', 'get'],
-      workingDirectory: Directory(workspace),
+      workingDirectory: appHomeDir.flutterDir,
       printOutput: true,
     );
     if (configuration == 'debug') {
@@ -132,7 +127,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
           '--cocoapods',
           '--verbose'
         ],
-        workingDirectory: Directory(workspace),
+        workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
     } else {
@@ -148,7 +143,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
           '--cocoapods',
           '--verbose'
         ],
-        workingDirectory: Directory(workspace),
+        workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
     }

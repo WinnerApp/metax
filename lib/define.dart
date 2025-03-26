@@ -1,4 +1,5 @@
 import 'package:color_logger/color_logger.dart';
+import 'package:meta_tool/app_home_dir.dart';
 
 final logger = ColorLogger();
 
@@ -42,3 +43,5 @@ enum BuildPublish {
   const BuildPublish(this.value);
   final String value;
 }
+
+late AppHomeDir appHomeDir;

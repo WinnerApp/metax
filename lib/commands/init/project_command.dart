@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
@@ -15,18 +15,8 @@ class ProjectCommand extends Command {
   @override
   String get name => "project";
 
-  ProjectCommand() {
-    argParser.addOption(
-      "workspace",
-      help: "APP工作空间路径，默认为当前路径",
-      defaultsTo: Directory.current.path,
-    );
-  }
-
   @override
   FutureOr? run() async {
-    final workspace = argResults?["workspace"];
-    final appHomeDir = AppHomeDir(workspace);
     final appRunner = await createAppRunner(appHomeDir);
     final isInitIos = prompts.choose(
       '是否需要初始化IOS工程',
@@ -34,7 +24,7 @@ class ProjectCommand extends Command {
     );
     if (isInitIos == '需要') {
       final iosGitUrl = readAppEnv('IOS_GIT_URL', appHomeDir);
-      final iosProjectDir = Directory(join(workspace, 'ios'));
+      final iosProjectDir = appHomeDir.iosDir;
       await _initGitProject(iosProjectDir, iosGitUrl);
       final versionName = prompts.get('请输入版本号，例如1.0.0');
       final generateXcconfigContent = '''
@@ -62,14 +52,14 @@ class ProjectCommand extends Command {
     );
     if (isInitAndroid == '需要') {
       final androidGitUrl = readAppEnv('ANDROID_GIT_URL', appHomeDir);
-      final androidProjectDir = Directory(join(workspace, 'android'));
+      final androidProjectDir = appHomeDir.androidDir;
       await _initGitProject(androidProjectDir, androidGitUrl);
 
       final keyPropertiesContent = '''
 storePassword=winer2023
 keyPassword=winer2023
 keyAlias=upload
-storeFile=$workspace/winner-metaapp-keystore.jks
+storeFile=${appHomeDir.workspace}/winner-metaapp-keystore.jks
 ''';
       final keyPropertiesFile = File(join(
         androidProjectDir.path,
@@ -104,7 +94,7 @@ flutter.minSdkVersion=21
     );
     if (isInitFlutter == '需要') {
       final flutterGitUrl = appRunner.environment['FLUTTER_GIT_URL']!;
-      final flutterProjectDir = Directory(join(workspace, 'metaapp_flutter'));
+      final flutterProjectDir = appHomeDir.flutterDir;
       await _initGitProject(flutterProjectDir, flutterGitUrl);
       await ProcessRunner().runProcess(
         [

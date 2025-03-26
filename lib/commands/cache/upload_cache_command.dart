@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:darty_json_safe/darty_json_safe.dart';
-import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -21,11 +20,6 @@ class UploadCacheCommand extends Command {
   String get description => '上传构建缓存';
 
   UploadCacheCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'app运行目录',
-      defaultsTo: Directory.current.path,
-    );
     argParser.addOption(
       'buildPlatform',
       help: '构建平台',
@@ -79,8 +73,7 @@ class UploadCacheCommand extends Command {
 
   @override
   FutureOr? run() async {
-    final workspace = argResults?['workspace'];
-    appwriteCacheEnvironment = AppwriteCacheEnvironment(AppHomeDir(workspace));
+    appwriteCacheEnvironment = AppwriteCacheEnvironment(appHomeDir);
     String buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
       '请选择构建平台',

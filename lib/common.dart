@@ -260,6 +260,7 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
   await ProcessRunner().runProcess(
     [
       'unzip',
+      '-o',
       zipPath,
       '-d',
       targetDir.parent.path,
@@ -351,6 +352,7 @@ Future<void> uploadCacheResource({
       commitTime.toUtc().toIso8601String(),
     ],
     printOutput: true,
+    workingDirectory: Directory(appHomeDir.workspace),
   );
 }
 

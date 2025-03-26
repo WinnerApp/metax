@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:process_runner/process_runner.dart';
 
 class UploadApkCommand extends Command {
@@ -12,10 +14,6 @@ class UploadApkCommand extends Command {
   String get name => 'apk';
 
   UploadApkCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'android项目目录,默认为当前目录',
-    );
     argParser.addOption(
       'apk',
       help: 'apk文件路径',
@@ -29,7 +27,6 @@ class UploadApkCommand extends Command {
 
   @override
   FutureOr? run() async {
-    String workspace = argResults?['workspace'] ?? Directory.current.path;
     String apk = argResults?['apk'];
     String? log = argResults?['log'];
     if (!File(apk).existsSync()) {
@@ -42,7 +39,7 @@ class UploadApkCommand extends Command {
         'apk:$apk',
         'changelog:\'$log\'',
       ],
-      workingDirectory: Directory(workspace),
+      workingDirectory: appHomeDir.androidDir,
     );
     loggerSuccess('上传成功');
   }

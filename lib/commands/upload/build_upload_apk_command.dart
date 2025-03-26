@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:meta_tool/commands/upload/upload_app_command.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:meta_tool/upload_app_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -48,7 +49,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
   }
 
   String get apkPath => join(
-        workspace,
+        appHomeDir.workspace,
         'build',
         'app',
         'outputs',

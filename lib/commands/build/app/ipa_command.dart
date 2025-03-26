@@ -1,6 +1,8 @@
 import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -11,32 +13,27 @@ class IpaCommand extends Command {
   @override
   String get name => 'ipa';
 
-  IpaCommand() {
-    argParser.addOption('workspace', abbr: 's', help: 'ios工程目录，默认使用当前目录');
-  }
-
   @override
   Future<void> run() async {
-    String workspace = argResults?['workspace'] ?? Directory.current.path;
-    final workspaceDir = Directory(workspace);
-    if (!workspaceDir.existsSync()) {
-      throw Exception('workspace目录不存在: $workspace');
+    final iosDir = appHomeDir.iosDir;
+    if (!iosDir.existsSync()) {
+      throw Exception('ios目录不存在: ${iosDir.path}');
     }
 
-    final podfile = File(join(workspace, 'Podfile'));
+    final podfile = File(join(iosDir.path, 'Podfile'));
     if (!podfile.existsSync()) {
-      throw Exception('Podfile文件不存在: $workspace');
+      throw Exception('Podfile文件不存在: ${podfile.path}');
     }
 
     await ProcessRunner(environment: {
       "CONFIGURATION": "Release",
     }).runProcess(
       ['pod', 'install', '--verbose'],
-      workingDirectory: workspaceDir,
+      workingDirectory: iosDir,
       printOutput: true,
     );
 
-    final xcarchivePath = join(workspace, 'build', 'ios', 'Runner.xcarchive');
+    final xcarchivePath = join(iosDir.path, 'build', 'ios', 'Runner.xcarchive');
     // xcodebuild -workspace Runner.xcworkspace -scheme Runner -archivePath "$xcarchive_path" -configuration Release archive
     await ProcessRunner().runProcess(
       [
@@ -51,7 +48,7 @@ class IpaCommand extends Command {
         'Release',
         'archive'
       ],
-      workingDirectory: workspaceDir,
+      workingDirectory: iosDir,
       printOutput: true,
     );
     // xcodebuild -exportArchive -archivePath "$xcarchive_path" -exportPath ../build/ios/ipa -exportOptionsPlist ExportOptions.plist
@@ -62,11 +59,11 @@ class IpaCommand extends Command {
         '-archivePath',
         xcarchivePath,
         '-exportPath',
-        join(workspace, 'build', 'ios', 'ipa'),
+        join(iosDir.path, 'build', 'ios', 'ipa'),
         '-exportOptionsPlist',
         'ExportOptions.plist'
       ],
-      workingDirectory: workspaceDir,
+      workingDirectory: iosDir,
       printOutput: true,
     );
     loggerSuccess('ipa打包完成');

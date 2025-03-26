@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:meta_tool/get_git_log.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:meta_tool/upload_app_environment.dart';
@@ -18,16 +17,9 @@ abstract class UploadAppCommand extends Command {
   String get platform;
 
   late AppwriteServer appwriteServer;
-  late AppHomeDir appHomeDir;
   late ProcessRunner buildAppRunner;
-  late String workspace;
 
   UploadAppCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'App工作目录',
-      defaultsTo: Directory.current.path,
-    );
     argParser.addOption(
       'flutterBranch',
       help: 'Flutter分支',
@@ -87,8 +79,6 @@ abstract class UploadAppCommand extends Command {
 
   @override
   FutureOr? run() async {
-    workspace = argResults?['workspace'];
-    appHomeDir = AppHomeDir(workspace);
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     final environment = await chooseEnvironment(unityEnvironment);
 
