@@ -24,6 +24,7 @@ Future<void> cloneRepository(String workingDirectory, String url) async {
 }
 
 Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
+  final switchBranch = getBranchName(branch);
   await ProcessRunner().runProcess(
     [
       'git',
@@ -40,11 +41,12 @@ Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
     ],
     workingDirectory: Directory(workingDirectory),
   );
+
   await ProcessRunner().runProcess(
     [
       'git',
       'switch',
-      branch,
+      switchBranch,
     ],
     workingDirectory: Directory(workingDirectory),
   );
@@ -52,14 +54,14 @@ Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
     'git',
     'reset',
     '--hard',
-    'origin/$branch',
+    'origin/$switchBranch',
   ], workingDirectory: Directory(workingDirectory));
   await ProcessRunner().runProcess([
     'git',
     'lfs',
     'pull',
     'origin',
-    branch,
+    switchBranch,
   ], workingDirectory: Directory(workingDirectory));
 }
 
@@ -110,6 +112,9 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
     ['git', 'switch', switchBranch],
     workingDirectory: Directory(workingDirectory),
   );
+  if (await getCurrentBranch(workingDirectory) != switchBranch) {
+    throw '切换分支$switchBranch失败';
+  }
 }
 
 String getBranchName(String branch) {
