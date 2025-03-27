@@ -24,5 +24,13 @@ Future<void> main(List<String> arguments) async {
       appHomeDir = AppHomeDir(value!);
     },
   );
+  runner.argParser.addFlag(
+    'isUseMock',
+    help: '是否使用mock数据，默认不使用',
+    defaultsTo: false,
+    callback: (value) {
+      useMock = value;
+    },
+  );
   await runner.run(arguments);
 }
