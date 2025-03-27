@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:process_runner/process_runner.dart';
 
 class UploadIpaCommand extends Command {
@@ -13,11 +14,6 @@ class UploadIpaCommand extends Command {
   String get name => 'ipa';
 
   UploadIpaCommand() {
-    argParser.addOption(
-      'workspace',
-      help: 'ios项目目录,默认为当前目录',
-    );
-
     argParser.addOption(
       'ipa',
       help: 'ipa文件路径',
@@ -32,7 +28,6 @@ class UploadIpaCommand extends Command {
 
   @override
   Future run() async {
-    String workspace = argResults?['workspace'] ?? Directory.current.path;
     String ipa = argResults?['ipa'];
     String? log = argResults?['log'];
     if (!File(ipa).existsSync()) {
@@ -46,7 +41,8 @@ class UploadIpaCommand extends Command {
         'ipa:$ipa',
         'changelog:\'$log\'',
       ],
-      workingDirectory: Directory(workspace),
+      workingDirectory: appHomeDir.iosDir,
+      printOutput: true,
     );
     loggerSuccess('上传成功');
   }

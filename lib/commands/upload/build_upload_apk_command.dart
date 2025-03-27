@@ -27,8 +27,10 @@ class BuildUploadApkCommand extends UploadAppCommand {
         'build',
         'app',
         'apk',
+        getUseMockCommand(),
       ],
       workingDirectory: appHomeDir.androidDir,
+      printOutput: true,
     );
   }
 
@@ -43,8 +45,10 @@ class BuildUploadApkCommand extends UploadAppCommand {
         apkPath,
         '--log',
         log,
+        getUseMockCommand(),
       ],
-      workingDirectory: appHomeDir.androidDir,
+      workingDirectory: appHomeDir.directory,
+      printOutput: true,
     );
   }
 

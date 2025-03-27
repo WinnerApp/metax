@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:args/command_runner.dart';
+import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
@@ -108,7 +109,7 @@ abstract class UploadAppCommand extends Command {
     String? unityCommitId = config?['unityCommitId'];
 
     /// 上一次编译Unity的Build Version Id
-    int? unityBuildVersionId = config?['build_number'];
+    int? unityBuildVersionId = JSON(config)['build_number'].int;
 
     /// 将Flutter工程切换分支到代码最新
     await pullAndSwitchBranch(
@@ -257,6 +258,7 @@ $changeLog
         buildVersionId.toString(),
         '--unityBranch',
         environment.unityBranchName,
+        getUseMockCommand(),
       ],
       printOutput: true,
     );
@@ -285,6 +287,7 @@ $changeLog
         environment.isStore.toString(),
         '--commitHash',
         commitHash,
+        getUseMockCommand(),
       ],
       printOutput: true,
     );
@@ -405,11 +408,11 @@ $changeLog
       workspace: appHomeDir.workspace,
       buildName: buildName,
       branch: flutterBranch,
-      forceBuild: forceBuild == '是',
+      forceBuild: forceBuild == 'true',
       unityBranchName: unityBranch,
-      upload: upload == '是',
-      sendLog: sendLog == '是',
-      isStore: isStore == '是',
+      upload: upload == 'true',
+      sendLog: sendLog == 'true',
+      isStore: isStore == 'true',
       iosBranch: iosBranch ?? '',
       androidBranch: androidBranch ?? '',
       appHomeDir: appHomeDir,

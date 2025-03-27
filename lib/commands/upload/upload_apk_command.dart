@@ -40,6 +40,7 @@ class UploadApkCommand extends Command {
         'changelog:\'$log\'',
       ],
       workingDirectory: appHomeDir.androidDir,
+      printOutput: true,
     );
     loggerSuccess('上传成功');
   }

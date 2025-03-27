@@ -20,52 +20,61 @@ class IpaCommand extends Command {
       throw Exception('ios目录不存在: ${iosDir.path}');
     }
 
-    final podfile = File(join(iosDir.path, 'Podfile'));
-    if (!podfile.existsSync()) {
-      throw Exception('Podfile文件不存在: ${podfile.path}');
+    if (useMock) {
+      await copyDirToDir(
+        MockType.ipa.mockDir(appHomeDir),
+        MockType.ipa.sourceCacheDir(appHomeDir),
+      );
+    } else {
+      final podfile = File(join(iosDir.path, 'Podfile'));
+      if (!podfile.existsSync()) {
+        throw Exception('Podfile文件不存在: ${podfile.path}');
+      }
+
+      await ProcessRunner(environment: {
+        "CONFIGURATION": "Release",
+      }).runProcess(
+        ['pod', 'install', '--verbose'],
+        workingDirectory: iosDir,
+        printOutput: true,
+      );
+
+      final xcarchivePath =
+          join(iosDir.path, 'build', 'ios', 'Runner.xcarchive');
+      // xcodebuild -workspace Runner.xcworkspace -scheme Runner -archivePath "$xcarchive_path" -configuration Release archive
+      await ProcessRunner().runProcess(
+        [
+          'xcodebuild',
+          '-workspace',
+          'Runner.xcworkspace',
+          '-scheme',
+          'Runner',
+          '-archivePath',
+          xcarchivePath,
+          '-configuration',
+          'Release',
+          'archive'
+        ],
+        workingDirectory: iosDir,
+        printOutput: true,
+      );
+      // xcodebuild -exportArchive -archivePath "$xcarchive_path" -exportPath ../build/ios/ipa -exportOptionsPlist ExportOptions.plist
+      await ProcessRunner().runProcess(
+        [
+          'xcodebuild',
+          '-exportArchive',
+          '-archivePath',
+          xcarchivePath,
+          '-exportPath',
+          join(iosDir.path, 'build', 'ios', 'ipa'),
+          '-exportOptionsPlist',
+          'ExportOptions.plist'
+        ],
+        workingDirectory: iosDir,
+        printOutput: true,
+      );
     }
 
-    await ProcessRunner(environment: {
-      "CONFIGURATION": "Release",
-    }).runProcess(
-      ['pod', 'install', '--verbose'],
-      workingDirectory: iosDir,
-      printOutput: true,
-    );
-
-    final xcarchivePath = join(iosDir.path, 'build', 'ios', 'Runner.xcarchive');
-    // xcodebuild -workspace Runner.xcworkspace -scheme Runner -archivePath "$xcarchive_path" -configuration Release archive
-    await ProcessRunner().runProcess(
-      [
-        'xcodebuild',
-        '-workspace',
-        'Runner.xcworkspace',
-        '-scheme',
-        'Runner',
-        '-archivePath',
-        xcarchivePath,
-        '-configuration',
-        'Release',
-        'archive'
-      ],
-      workingDirectory: iosDir,
-      printOutput: true,
-    );
-    // xcodebuild -exportArchive -archivePath "$xcarchive_path" -exportPath ../build/ios/ipa -exportOptionsPlist ExportOptions.plist
-    await ProcessRunner().runProcess(
-      [
-        'xcodebuild',
-        '-exportArchive',
-        '-archivePath',
-        xcarchivePath,
-        '-exportPath',
-        join(iosDir.path, 'build', 'ios', 'ipa'),
-        '-exportOptionsPlist',
-        'ExportOptions.plist'
-      ],
-      workingDirectory: iosDir,
-      printOutput: true,
-    );
     loggerSuccess('ipa打包完成');
   }
 }

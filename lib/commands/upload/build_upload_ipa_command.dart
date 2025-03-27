@@ -28,8 +28,10 @@ class BuildUploadIpaCommand extends UploadAppCommand {
         'build',
         'app',
         'ipa',
+        getUseMockCommand(),
       ],
-      workingDirectory: appHomeDir.iosDir,
+      workingDirectory: appHomeDir.directory,
+      printOutput: true,
     );
   }
 
@@ -44,13 +46,15 @@ class BuildUploadIpaCommand extends UploadAppCommand {
         ipaPath,
         '--log',
         log,
+        getUseMockCommand(),
       ],
-      workingDirectory: appHomeDir.iosDir,
+      workingDirectory: appHomeDir.directory,
+      printOutput: true,
     );
   }
 
   String get ipaPath => join(
-        appHomeDir.workspace,
+        appHomeDir.iosDir.path,
         'build',
         'ios',
         'ipa',

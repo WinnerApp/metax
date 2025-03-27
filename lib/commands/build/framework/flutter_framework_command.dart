@@ -35,6 +35,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
   @override
   Future<void> run() async {
     await super.run();
+
     isStore = Unwrap(ArgumentGet(argResults).getString(
       'isStore',
       '是否应用市场的Flutter Framework',
@@ -89,6 +90,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
+      forceUpdate: useMock,
     );
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {
@@ -108,44 +110,76 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
-    /// flutter pub get
-    await ProcessRunner().runProcess(
-      ['flutter', 'pub', 'get'],
-      workingDirectory: appHomeDir.flutterDir,
-      printOutput: true,
-    );
-    if (configuration == 'debug') {
-      /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
-      await ProcessRunner().runProcess(
-        [
-          'flutter',
-          'build',
-          'ios-framework',
-          '--no-profile',
-          '--no-release',
-          '--xcframework',
-          '--cocoapods',
-          '--verbose'
-        ],
-        workingDirectory: appHomeDir.flutterDir,
-        printOutput: true,
+    if (useMock) {
+      await copyDirToDir(
+        MockType.flutterFramework.mockDir(appHomeDir),
+        MockType.flutterFramework.sourceCacheDir(appHomeDir),
       );
     } else {
-      /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
+      /// flutter pub get
       await ProcessRunner().runProcess(
-        [
-          'flutter',
-          'build',
-          'ios-framework',
-          '--no-debug',
-          '--no-profile',
-          '--xcframework',
-          '--cocoapods',
-          '--verbose'
-        ],
+        ['flutter', 'pub', 'get'],
         workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
+      if (configuration == 'debug') {
+        /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
+        await ProcessRunner().runProcess(
+          [
+            'flutter',
+            'build',
+            'ios-framework',
+            '--no-profile',
+            '--no-release',
+            '--xcframework',
+            '--cocoapods',
+            '--verbose'
+          ],
+          workingDirectory: appHomeDir.flutterDir,
+          printOutput: true,
+        );
+      } else {
+        /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
+        await ProcessRunner().runProcess(
+          [
+            'flutter',
+            'build',
+            'ios-framework',
+            '--no-debug',
+            '--no-profile',
+            '--xcframework',
+            '--cocoapods',
+            '--verbose'
+          ],
+          workingDirectory: appHomeDir.flutterDir,
+          printOutput: true,
+        );
+      }
     }
+    final configurationDirName = switch (configuration) {
+      'debug' => 'Debug',
+      'release' => 'Release',
+      _ => throw Exception('不支持的配置: $configuration'),
+    };
+    await ProcessRunner().runProcess(
+      // jenkins_ci/setup_ios_framework_podspec.sh
+      [
+        'bash',
+        join(
+          'jenkins_ci',
+          'setup_ios_framework_podspec.sh',
+        ),
+        configurationDirName,
+        join(
+          appHomeDir.flutterDir.path,
+          'build',
+          'ios',
+          'framework',
+          configurationDirName,
+        ),
+      ],
+      workingDirectory: appHomeDir.directory,
+      printOutput: true,
+    );
   }
 }

@@ -10,6 +10,7 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -138,14 +139,37 @@ class UseCacheCommand extends Command {
     }
 
     if (buildLibrary == BuildLibrary.unity.name) {
+      final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+      final platform = BuildPlatform.values.firstWhere(
+        (e) => e.name == buildPlatform,
+      );
+      final unityProjectDir = Directory(
+        switch (platform) {
+          BuildPlatform.ios => unityEnvironment.iosUnityWorkspace,
+          BuildPlatform.android => unityEnvironment.androidUnityWorkspace,
+        },
+      );
+      if (!unityProjectDir.existsSync()) {
+        throw Exception('Unity项目目录不存在: ${unityProjectDir.path}');
+      }
+      final branchs = await getLatestBranchList(unityProjectDir.path).then(
+        (e) => e.map((e) => getBranchName(e)).toList(),
+      );
       branch = ArgumentGet(argResults).getString(
         'unityBranch',
         '请输入Unity分支',
+        allowed: branchs,
       );
     } else if (buildLibrary == BuildLibrary.flutter.name) {
+      final flutterBranchs =
+          await getLatestBranchList(appHomeDir.flutterDir.path).then(
+        (e) => e.map((e) => getBranchName(e)).toList(),
+      );
+      loggerDebug('flutterBranchs: $flutterBranchs');
       branch = ArgumentGet(argResults).getString(
         'branch',
         '请输入分支',
+        allowed: flutterBranchs,
       );
     }
 
@@ -161,14 +185,16 @@ class UseCacheCommand extends Command {
 
     CacheModel? useCacheModel;
     if (isUseCache) {
-      /// 查询是否存在本地缓存
+      loggerDebug('正在查询本地缓存...');
       final localCacheModel = await queryLocalCache();
       if (localCacheModel != null) {
+        loggerDebug('查询到本地缓存: ${localCacheModel.commitHash}');
         useCacheModel = localCacheModel;
       } else {
-        /// 查询是否存在网络缓存
+        loggerDebug('本地缓存不存在,正在查询网络缓存...');
         final networkCacheModel = await queryNetworkCache();
         if (networkCacheModel != null) {
+          loggerDebug('查询到网络缓存: ${networkCacheModel.commitHash}');
           useCacheModel = networkCacheModel;
 
           /// 下载网络缓存
@@ -210,6 +236,7 @@ class UseCacheCommand extends Command {
     /// 获取当前分支的最新缓存
     final cacheModel = findCacheInList(localCacheModels);
     if (cacheModel == null) return null;
+    loggerDebug('查询到本地缓存: ${cacheModel.commitHash}');
     final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
     if (!await metaxCache.isCacheExists(cacheModel.commitHash)) return null;
     return cacheModel;
@@ -325,6 +352,11 @@ class UseCacheCommand extends Command {
 
   /// 从一组缓存中查找适合的缓存
   CacheModel? findCacheInList(List<CacheModel> cacheModels) {
+    loggerDebug('cacheModels: ${cacheModels.map((e) => e.toJson()).toList()}');
+    loggerDebug(
+      'buildPlatform: $buildPlatform isStore: $isStore buildConfiguration: $buildConfiguration buildLibrary: $buildLibrary buildType: $buildType branch: $branch',
+    );
+
     /// 查询本地是否存在缓存
     cacheModels = cacheModels
         .where((e) => e.buildPlatform == buildPlatform)
@@ -335,6 +367,7 @@ class UseCacheCommand extends Command {
         .where((e) => e.branch == branch)
         .toList();
 
+    loggerDebug('commitHash: $commitHash buildId: $buildId');
     if (commitHash != null) {
       cacheModels =
           cacheModels.where((e) => e.commitHash == commitHash).toList();
@@ -366,7 +399,7 @@ class UseCacheCommand extends Command {
 
   /// 编译缓存
   Future<CacheModel?> compileCache() async {
-    loggerDebug('buildType: $buildType');
+    loggerDebug('缓存不存在,正在编译...');
     if (buildType == BuildType.library.name) {
       await compileUnityLibrary();
     } else {
@@ -388,6 +421,8 @@ class UseCacheCommand extends Command {
           '--unityBranch',
           branch,
           '--isStore',
+          'true',
+          getUseMockCommand(),
         ];
         if (buildId != null) {
           commandLine.add('--buildId');
@@ -416,6 +451,7 @@ class UseCacheCommand extends Command {
         buildPlatform,
         '--unityBranch',
         branch,
+        getUseMockCommand(),
       ],
       printOutput: true,
     );
@@ -437,6 +473,7 @@ class UseCacheCommand extends Command {
         'build',
         buildType,
         'unity',
+        getUseMockCommand(),
       ],
       workingDirectory: Directory(appHomeDir.workspace),
       printOutput: true,
@@ -463,6 +500,7 @@ class UseCacheCommand extends Command {
         buildConfiguration,
         '--isStore',
         isStore.toString(),
+        getUseMockCommand(),
       ],
       workingDirectory: appHomeDir.directory,
       printOutput: true,

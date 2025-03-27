@@ -32,6 +32,7 @@ abstract class BuildCacheCommand extends Command {
     required String buildCacheDir,
     required DateTime commitTime,
     required String cacheId,
+    bool forceUpdate = false,
   }) async {
     final cacheModel = await cache.getCacheModelFromCacheId(cacheId);
     final startTime = DateTime.now();
@@ -48,10 +49,12 @@ abstract class BuildCacheCommand extends Command {
     );
 
     if (cacheModel != null &&
-        await cache.isCacheExists(cacheModel.commitHash)) {
+        await cache.isCacheExists(cacheModel.commitHash) &&
+        !forceUpdate) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
       commitHash = cacheModel.commitHash;
-    } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir)) {
+    } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir) &&
+        !forceUpdate) {
       loggerInfo('🔍 当前编译已经是最新的,正在复制到本地缓存目录......');
 
       await writeToCacheSystem(
@@ -62,6 +65,9 @@ abstract class BuildCacheCommand extends Command {
       );
     } else {
       await buildCache();
+      if (!Directory(buildCacheDir).existsSync()) {
+        throw Exception('编译缓存目录不存在: $buildCacheDir');
+      }
       await BuildCacheManager(buildCacheDir).write([
         CacheModel(
           buildPlatform: cache.buildPlatform.value,
@@ -94,7 +100,7 @@ abstract class BuildCacheCommand extends Command {
     required DateTime commitTime,
   }) async {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
-    final cacheBaseName = basename(buildCacheDir);
+    // final cacheBaseName = basename(buildCacheDir);
 
     String cacheId = commitHash;
 
@@ -103,10 +109,10 @@ abstract class BuildCacheCommand extends Command {
       [
         'zip',
         "-r",
-        '$cacheId.zip',
-        cacheBaseName,
+        join(buildCacheParentDir.path, '$cacheId.zip'),
+        './',
       ],
-      workingDirectory: buildCacheParentDir,
+      workingDirectory: Directory(buildCacheDir),
       printOutput: true,
     );
 

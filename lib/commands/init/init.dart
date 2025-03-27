@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/init/app_environment_command.dart';
 import 'package:meta_tool/commands/init/branch.dart';
 import 'package:meta_tool/commands/init/init_cache.dart';
+import 'package:meta_tool/commands/init/mock_command.dart';
 import 'package:meta_tool/commands/init/project_command.dart';
 
 class InitCommand extends Command {
@@ -16,5 +17,6 @@ class InitCommand extends Command {
     addSubcommand(BranchCommand());
     addSubcommand(InitCacheCommand());
     addSubcommand(AppEnvironmentCommand());
+    addSubcommand(MockCommand());
   }
 }

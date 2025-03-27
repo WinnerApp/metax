@@ -95,7 +95,8 @@ Future<List<String>> getLatestBranchList(String workingDirectory) async {
   final commands = ['git', 'branch', '-r'];
   return ProcessRunner(defaultWorkingDirectory: Directory(workingDirectory))
       .runProcess(commands, printOutput: true)
-      .then((result) => result.stdout.trim().split('\n'));
+      .then((result) => result.stdout.trim().split('\n'))
+      .then((e) => e.map((e) => getBranchName(e)).toList());
 }
 
 /// 切换分支
@@ -262,13 +263,14 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
   if (await targetDir.exists()) {
     await targetDir.delete(recursive: true);
   }
+  await targetDir.create(recursive: true);
   await ProcessRunner().runProcess(
     [
       'unzip',
       '-o',
       zipPath,
       '-d',
-      targetDir.parent.path,
+      targetDir.path,
     ],
     printOutput: true,
   );
@@ -598,4 +600,28 @@ Future<void> checkAndroidNDK(AppHomeDir appHomeDir) async {
   if (!ndkBuild.existsSync()) {
     throw 'ndk.dir路径错误，请检查是否正确！';
   }
+}
+
+/// 复制目录到指定目录
+Future<void> copyDirToDir(Directory sourceDir, Directory targetDir) async {
+  if (await targetDir.exists()) {
+    await targetDir.delete(recursive: true);
+  }
+  final targetParentDir = targetDir.parent;
+  if (!await targetParentDir.exists()) {
+    await targetParentDir.create(recursive: true);
+  }
+  await ProcessRunner().runProcess(
+    [
+      'cp',
+      '-rf',
+      sourceDir.path,
+      targetDir.path,
+    ],
+    printOutput: true,
+  );
+}
+
+String getUseMockCommand() {
+  return useMock ? '--isUseMock' : '--no-isUseMock';
 }

@@ -25,6 +25,14 @@ class UnityAarCommand extends BuildCacheCommand {
     if (!unityDir.existsSync()) {
       throw Exception('unityLibrary目录不存在: ${unityDir.path}');
     }
+    if (useMock) {
+      await copyDirToDir(
+        MockType.unityAar.mockDir(appHomeDir),
+        MockType.unityAar.sourceCacheDir(appHomeDir),
+      );
+      loggerSuccess('打包Unity AAR完成!');
+      return;
+    }
     final cacheManager = BuildCacheManager(unityDir.path);
     final models = await cacheManager.read();
     final cache = models.first;
