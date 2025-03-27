@@ -36,7 +36,8 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       buildLibrary: BuildLibrary.unity,
     );
     final buildCacheDir = join(
-      appHomeDir.workspace,
+      appHomeDir.iosDir.path,
+      'UnityLibrary',
       'build',
       'Release-iphoneos',
     );
@@ -46,6 +47,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: cache.commitTime,
       cacheId: cache.buildId.toString(),
+      forceUpdate: useMock,
     );
     loggerSuccess('导出Unity Framework完成!');
     if (isUpload) {
@@ -65,25 +67,69 @@ class UnityFrameworkCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
-    await ProcessRunner().runProcess(
-      [
-        'xcodebuild',
-        '-project',
-        'Unity-iPhone.xcodeproj',
-        '-scheme',
-        'UnityFramework',
-        '-configuration',
-        'Release',
-        '-sdk',
-        'iphoneos',
-        'BUILD_DIR=./build',
-        'BUILD_ROOT=./build',
-        'DEBUG_INFORMATION_FORMAT=dwarf-with-dsym',
-        'clean',
-        'build'
-      ],
-      workingDirectory: Directory(join(appHomeDir.iosDir.path, 'UnityLibrary')),
-      printOutput: true,
-    );
+    if (useMock) {
+      await copyDirToDir(
+        MockType.unityFramework.mockDir(appHomeDir),
+        MockType.unityFramework.sourceCacheDir(appHomeDir),
+      );
+    } else {
+      await ProcessRunner().runProcess(
+        [
+          'xcodebuild',
+          '-project',
+          'Unity-iPhone.xcodeproj',
+          '-scheme',
+          'UnityFramework',
+          '-configuration',
+          'Release',
+          '-sdk',
+          'iphoneos',
+          'BUILD_DIR=./build',
+          'BUILD_ROOT=./build',
+          'DEBUG_INFORMATION_FORMAT=dwarf-with-dsym',
+          'clean',
+          'build'
+        ],
+        workingDirectory:
+            Directory(join(appHomeDir.iosDir.path, 'UnityLibrary')),
+        printOutput: true,
+      );
+      loggerSuccess('打包Unity Framework完成!');
+      loggerDebug('正在生成UnityFramework.xcframework...');
+      final frameworkDir = join(
+        appHomeDir.iosDir.path,
+        'UnityLibrary',
+        'build',
+        'Release-iphoneos',
+        'UnityFramework.framework',
+      );
+      final dSYMDir = join(
+        appHomeDir.iosDir.path,
+        'UnityLibrary',
+        'build',
+        'Release-iphoneos',
+        'UnityFramework.framework.dSYM',
+      );
+      await ProcessRunner().runProcess(
+        [
+          'xcodebuild',
+          '-create-xcframework',
+          '-framework',
+          frameworkDir,
+          '-debug-symbols',
+          dSYMDir,
+          '-output',
+          join(
+            appHomeDir.iosDir.path,
+            'UnityLibrary',
+            'build',
+            'Release-iphoneos',
+            'UnityFramework.xcframework',
+          ),
+        ],
+      );
+      await Directory(dSYMDir).delete(recursive: true);
+      await Directory(frameworkDir).delete(recursive: true);
+    }
   }
 }

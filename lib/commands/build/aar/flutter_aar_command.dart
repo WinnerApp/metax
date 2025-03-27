@@ -35,6 +35,14 @@ class FlutterAarCommand extends BuildCacheCommand {
   @override
   Future<void> run() async {
     await super.run();
+    if (useMock) {
+      await copyDirToDir(
+        MockType.flutterAar.mockDir(appHomeDir),
+        MockType.flutterAar.sourceCacheDir(appHomeDir),
+      );
+      loggerSuccess('打包Flutter AAR完成!');
+      return;
+    }
     isStore = Unwrap(ArgumentGet(argResults).getString(
       'isStore',
       '是否应用市场的Flutter AAR',
@@ -134,7 +142,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           '--no-profile',
           '--no-release',
           '--target-platform=android-arm64',
-          '--verbose'
+          '--verbose',
         ],
         workingDirectory: appHomeDir.flutterDir,
         printOutput: true,

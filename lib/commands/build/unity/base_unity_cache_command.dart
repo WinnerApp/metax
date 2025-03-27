@@ -41,44 +41,59 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       unityCacheDir = join(appWorkspace, 'unityLibrary');
     }
 
-    /// 当前分支列表
-    final branchList = await getLatestBranchList(workspaceDirectory);
-    final chooseBranch = ArgumentGet(argResults).getString(
-      'unityBranch',
-      '请选择Unity分支',
-      allowed: branchList,
-    );
-    await switchBranch(workspaceDirectory, chooseBranch);
-    final branch = await getCurrentBranch(workspaceDirectory);
-    final commitHash = await getCurrentCommitHash(workspaceDirectory);
-    final commitTime = await getCommitTime(workspaceDirectory, commitHash);
-    final buildId = await getUnityBuildVersion(workspaceDirectory);
-    final unityCache = UnityCache(
-      buildPlatform: platform,
-      branch: branch,
-      buildId: buildId,
-    );
-
-    await updateCache(
-      cache: unityCache,
-      commitHash: commitHash,
-      buildCacheDir: unityCacheDir,
-      commitTime: commitTime,
-      cacheId: buildId.toString(),
-    );
-    loggerSuccess('导出Unity代码完成');
-    if (isUpload) {
-      loggerDebug('上传缓存...');
-      await uploadCacheResource(
-        buildPlatform: platform,
-        buildLibrary: BuildLibrary.unity,
-        buildConfiguration: BuildConfiguration.release,
-        buildType: BuildType.library,
-        isStore: true,
-        branch: branch,
-        commitHash: commitHash,
-        commitTime: commitTime,
+    if (useMock) {
+      if (platform == BuildPlatform.ios) {
+        await copyDirToDir(
+          MockType.iosUnityLibrary.mockDir(appHomeDir),
+          MockType.iosUnityLibrary.sourceCacheDir(appHomeDir),
+        );
+      } else if (platform == BuildPlatform.android) {
+        await copyDirToDir(
+          MockType.androidUnityLibrary.mockDir(appHomeDir),
+          MockType.androidUnityLibrary.sourceCacheDir(appHomeDir),
+        );
+      }
+      loggerSuccess('导出Unity代码完成');
+    } else {
+      /// 当前分支列表
+      final branchList = await getLatestBranchList(workspaceDirectory);
+      final chooseBranch = ArgumentGet(argResults).getString(
+        'unityBranch',
+        '请选择Unity分支',
+        allowed: branchList,
       );
+      await switchBranch(workspaceDirectory, chooseBranch);
+      final branch = await getCurrentBranch(workspaceDirectory);
+      final commitHash = await getCurrentCommitHash(workspaceDirectory);
+      final commitTime = await getCommitTime(workspaceDirectory, commitHash);
+      final buildId = await getUnityBuildVersion(workspaceDirectory);
+      final unityCache = UnityCache(
+        buildPlatform: platform,
+        branch: branch,
+        buildId: buildId,
+      );
+
+      await updateCache(
+        cache: unityCache,
+        commitHash: commitHash,
+        buildCacheDir: unityCacheDir,
+        commitTime: commitTime,
+        cacheId: buildId.toString(),
+      );
+      loggerSuccess('导出Unity代码完成');
+      if (isUpload) {
+        loggerDebug('上传缓存...');
+        await uploadCacheResource(
+          buildPlatform: platform,
+          buildLibrary: BuildLibrary.unity,
+          buildConfiguration: BuildConfiguration.release,
+          buildType: BuildType.library,
+          isStore: true,
+          branch: branch,
+          commitHash: commitHash,
+          commitTime: commitTime,
+        );
+      }
     }
   }
 
