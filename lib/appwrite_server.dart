@@ -52,7 +52,7 @@ class AppwriteServer {
   }
 
   /// 更新打包版本配置
-  Future<bool> updateBuildConfig({
+  Future<void> updateBuildConfig({
     required String databaseId,
     required String collectionId,
     required String platform,
@@ -63,7 +63,7 @@ class AppwriteServer {
     required String unityCommitId,
     required int buildNumber,
   }) async {
-    return databases.createDocument(
+    await databases.createDocument(
       databaseId: databaseId,
       collectionId: collectionId,
       documentId: ID.unique(),
@@ -74,14 +74,9 @@ class AppwriteServer {
         'build_name': buildName,
         'flutter_commit_id': flutterCommitId,
         'unity_commit_id': unityCommitId,
-        'build_number': buildNumber,
+        'build_number': buildNumber.toString(),
       },
-    ).then((e) {
-      return true;
-    }).catchError((e) {
-      loggerError(e.toString());
-      return false;
-    });
+    );
   }
 
   /// 查询缓存列表
