@@ -16,7 +16,7 @@ class ArgumentGet {
       if (allowed.isNotEmpty) {
         value = prompts.choose(
           description,
-          allowed,
+          allowed.toSet(),
         );
       }
       value ??= prompts.get(description, validate: validate);
