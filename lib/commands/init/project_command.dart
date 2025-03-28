@@ -28,11 +28,11 @@ class ProjectCommand extends Command {
       await _initGitProject(iosProjectDir, iosGitUrl);
       final versionName = prompts.get('请输入版本号，例如1.0.0');
       final generateXcconfigContent = '''
-# COCOAPODS_PARALLEL_CODE_SIGN=true
-# FLUTTER_BUILD_NAME=$versionName
-# FLUTTER_BUILD_NUMBER=${getCurrentTimestamp()}
-# EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386
-# EXCLUDED_ARCHS[sdk=iphoneos*]=armv7
+COCOAPODS_PARALLEL_CODE_SIGN=true
+FLUTTER_BUILD_NAME=$versionName
+FLUTTER_BUILD_NUMBER=${getCurrentTimestamp()}
+EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386
+EXCLUDED_ARCHS[sdk=iphoneos*]=armv7
 ''';
 
       final localGeneratedXcconfigFile = File(join(
