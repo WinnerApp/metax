@@ -32,6 +32,7 @@ Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
       '--hard',
     ],
     workingDirectory: Directory(workingDirectory),
+    printOutput: true,
   );
   await ProcessRunner().runProcess(
     [
@@ -40,6 +41,7 @@ Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
       'origin',
     ],
     workingDirectory: Directory(workingDirectory),
+    printOutput: true,
   );
 
   await ProcessRunner().runProcess(
@@ -49,20 +51,29 @@ Future<void> pullAndSwitchBranch(String workingDirectory, String branch) async {
       switchBranch,
     ],
     workingDirectory: Directory(workingDirectory),
+    printOutput: true,
   );
-  await ProcessRunner().runProcess([
-    'git',
-    'reset',
-    '--hard',
-    'origin/$switchBranch',
-  ], workingDirectory: Directory(workingDirectory));
-  await ProcessRunner().runProcess([
-    'git',
-    'lfs',
-    'pull',
-    'origin',
-    switchBranch,
-  ], workingDirectory: Directory(workingDirectory));
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'reset',
+      '--hard',
+      'origin/$switchBranch',
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'lfs',
+      'pull',
+      'origin',
+      switchBranch,
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
 }
 
 /// 获取当前的分支名称
@@ -74,7 +85,7 @@ Future<String> getCurrentBranch(String workingDirectory) async {
 }
 
 /// 获取最新分支列表
-Future<List<String>> getLatestBranchList(String workingDirectory) async {
+Future<Set<String>> getLatestBranchList(String workingDirectory) async {
   await ProcessRunner().runProcess(
     [
       'git',
@@ -82,6 +93,7 @@ Future<List<String>> getLatestBranchList(String workingDirectory) async {
       'origin',
     ],
     workingDirectory: Directory(workingDirectory),
+    printOutput: true,
   );
   await ProcessRunner().runProcess(
     [
@@ -91,25 +103,55 @@ Future<List<String>> getLatestBranchList(String workingDirectory) async {
       'origin',
     ],
     workingDirectory: Directory(workingDirectory),
+    printOutput: true,
   );
   final commands = ['git', 'branch', '-r'];
   return ProcessRunner(defaultWorkingDirectory: Directory(workingDirectory))
       .runProcess(commands, printOutput: true)
       .then((result) => result.stdout.trim().split('\n'))
-      .then((e) => e.map((e) => getBranchName(e)).toList());
+      .then((e) => e.map((e) => getBranchName(e)).toSet());
 }
 
 /// 切换分支
 Future<void> switchBranch(String workingDirectory, String branch) async {
   final switchBranch = getBranchName(branch);
-  await ProcessRunner().runProcess([
-    'git',
-    'fetch',
-    'origin',
-  ], workingDirectory: Directory(workingDirectory));
   await ProcessRunner().runProcess(
-    ['git', 'reset', '--hard', 'origin/$switchBranch'],
+    [
+      'git',
+      'fetch',
+      'origin',
+    ],
     workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'reset',
+      '--hard',
+      'origin/$switchBranch',
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'switch',
+      switchBranch,
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'pull',
+      'origin',
+      switchBranch,
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
   );
   if (await getCurrentBranch(workingDirectory) != switchBranch) {
     throw '切换分支$switchBranch失败';

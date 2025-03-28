@@ -8,7 +8,7 @@ class ArgumentGet {
   String getString(
     String name,
     String description, {
-    List<String> allowed = const [],
+    Iterable<String> allowed = const [],
     bool Function(String)? validate,
   }) {
     String? value = argResults?[name];
