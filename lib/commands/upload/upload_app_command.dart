@@ -112,7 +112,7 @@ abstract class UploadAppCommand extends Command {
     int? unityBuildVersionId = JSON(config)['build_number'].int;
 
     /// 将Flutter工程切换分支到代码最新
-    await pullAndSwitchBranch(
+    await switchBranch(
       appHomeDir.flutterDir.path,
       environment.branch,
     );
@@ -128,7 +128,7 @@ abstract class UploadAppCommand extends Command {
     }
 
     /// 将Unity工程切换分支到代码最新
-    await pullAndSwitchBranch(
+    await switchBranch(
       unityProjectWorkspace,
       environment.unityBranchName,
     );
