@@ -32,5 +32,12 @@ Future<void> main(List<String> arguments) async {
       useMock = value;
     },
   );
+  runner.argParser.addOption(
+    'unityPath',
+    help: '自定义当前环境的Unity版本路径',
+    callback: (p0) {
+      customUnityPath = p0;
+    },
+  );
   await runner.run(arguments);
 }
