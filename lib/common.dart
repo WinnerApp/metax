@@ -102,15 +102,13 @@ Future<List<String>> getLatestBranchList(String workingDirectory) async {
 /// 切换分支
 Future<void> switchBranch(String workingDirectory, String branch) async {
   final switchBranch = getBranchName(branch);
-  final currentBranch = await getCurrentBranch(workingDirectory);
   await ProcessRunner().runProcess([
     'git',
-    'reset',
-    '--hard',
-    'origin/$currentBranch',
+    'fetch',
+    'origin',
   ], workingDirectory: Directory(workingDirectory));
   await ProcessRunner().runProcess(
-    ['git', 'switch', switchBranch],
+    ['git', 'reset', '--hard', 'origin/$switchBranch'],
     workingDirectory: Directory(workingDirectory),
   );
   if (await getCurrentBranch(workingDirectory) != switchBranch) {
@@ -502,7 +500,8 @@ Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
     appHomeDir.workspace,
     'jenkins_ci',
     'env',
-    'app.env',
+    'app',
+    '.env',
   ));
   if (!appEnvFile.existsSync()) {
     throw '请使用metax init app_environment 初始化环境变量';
@@ -519,6 +518,18 @@ Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
     throw '${appWriteEnvFile.path}文件不存在';
   }
   environment.addAll(readEnvironmentFromFile(appWriteEnvFile.path));
+  if (customUnityPath != null) {
+    if (Platform.isMacOS) {
+      environment['UNITY_ENGINE_PATH'] = join(
+        customUnityPath!,
+        'Contents',
+        'MacOS',
+        'Unity',
+      );
+    } else {
+      throw UnimplementedError('暂未支持非MacOS环境');
+    }
+  }
   return environment;
 }
 
