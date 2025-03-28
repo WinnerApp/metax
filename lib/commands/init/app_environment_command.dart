@@ -50,12 +50,12 @@ class AppEnvironmentCommand extends Command {
       'UNITY_WORKSPACE',
       '请输入包含Unity工程的APP主目录',
       readValueHandler: () async {
-        return isUnityWorkspace ? join(Directory.current.path, 'unity') : null;
+        return isUnityWorkspace ? Directory.current.path : null;
       },
     );
 
     final unityProjectDirs =
-        await _findUnityProjectDirs(Directory(unityWorkspace));
+        await _findUnityProjectDirs(Directory(join(unityWorkspace, 'unity')));
 
     /// 从列表选择对应Unity项目
     String? chooseUnityProject(String prompt) {
