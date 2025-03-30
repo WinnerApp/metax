@@ -62,7 +62,11 @@ class AppEnvironmentCommand extends Command {
       if (unityProjectDirs.isEmpty) {
         return null;
       }
-      return join(unityWorkspace, prompts.choose(prompt, unityProjectDirs));
+      return join(
+        unityWorkspace,
+        'unity',
+        prompts.choose(prompt, unityProjectDirs),
+      );
     }
 
     await _writeEnvironmentWithPrompt(
