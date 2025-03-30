@@ -29,7 +29,7 @@ class BuildUploadApkCommand extends UploadAppCommand {
         'apk',
         getUseMockCommand(),
       ],
-      workingDirectory: appHomeDir.androidDir,
+      workingDirectory: appHomeDir.directory,
       printOutput: true,
     );
   }
