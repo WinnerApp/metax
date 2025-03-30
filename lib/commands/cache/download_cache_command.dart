@@ -62,9 +62,6 @@ class DownloadCacheCommand extends Command {
     );
   }
   late AppwriteCacheEnvironment appwriteEnvironment;
-  late String databaseId;
-  late String collectionId;
-  late String bucketId;
 
   @override
   FutureOr? run() async {
@@ -113,8 +110,8 @@ class DownloadCacheCommand extends Command {
     );
     List<Map<String, dynamic>> cacheDocuments =
         await appwriteServer.queryZipCacheList(
-      databaseId: databaseId,
-      collectionId: collectionId,
+      databaseId: appwriteEnvironment.databaseId,
+      collectionId: appwriteEnvironment.collectionId,
       platform: buildPlatform,
       isStore: isStore,
       buildConfiguration: buildConfiguration,
@@ -204,7 +201,7 @@ class DownloadCacheCommand extends Command {
     if (!await metaxCache.isCacheExists(commitHash)) {
       loggerDebug('下载缓存到本地中，请稍等......');
       final data = await appwriteServer.downloadFile(
-        bucketId: bucketId,
+        bucketId: appwriteEnvironment.bucketId,
         fileId: fileId,
       );
       final file = File(cacheFile);
