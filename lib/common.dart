@@ -678,3 +678,12 @@ Future<void> copyDirToDir(Directory sourceDir, Directory targetDir) async {
 String getUseMockCommand() {
   return useMock ? '--isUseMock' : '--no-isUseMock';
 }
+
+/// 获取Flutter命令路径
+Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
+  final flutterBinPath = await ProcessRunner().runProcess(
+    ['which', 'flutter'],
+    printOutput: true,
+  ).then((e) => e.output.split('\n').first.trim());
+  return File(flutterBinPath).parent.parent.path;
+}
