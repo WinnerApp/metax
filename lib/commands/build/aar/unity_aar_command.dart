@@ -18,6 +18,7 @@ class UnityAarCommand extends BuildCacheCommand {
   @override
   Future<void> run() async {
     await super.run();
+
     final unityDir = Directory(join(
       appHomeDir.androidDir.path,
       'unityLibrary',
@@ -82,33 +83,48 @@ class UnityAarCommand extends BuildCacheCommand {
       appHomeDir.androidDir.path,
       'unityLibrary',
     ));
-    final localBundleDir = Directory(join(
+    final archihiveName = 'Android_achieve.zip';
+    // android/unityLibrary/src/main/assets/LocalBundle/Zips/Android_achieve.zip
+    final unityArchieveFile = File(join(
       unityDir.path,
       'src',
       'main',
       'assets',
-      'LocalBundles',
+      'LocalBundle',
+      'Zips',
+      archihiveName,
     ));
-    if (localBundleDir.existsSync()) {
+    final androidArchieveFile = File(join(
+      appHomeDir.androidDir.path,
+      'app',
+      'src',
+      'main',
+      'assets',
+      'LocalBundle',
+      'Zips',
+      archihiveName,
+    ));
+    final buildAarArchiveFile = File(join(
+      appHomeDir.workspace,
+      'build',
+      'unityLibrary',
+      'outputs',
+      'aar',
+      archihiveName,
+    ));
+    if (unityArchieveFile.existsSync()) {
+      loggerDebug('复制Android_archieve.zip到build/unityLibrary/outputs/aar目录下');
+
       /// cp -rf "$local_bundle_path" "$android_dir/app/src/main/assets"
-      await ProcessRunner().runProcess(
-        [
-          'cp',
-          '-rf',
-          localBundleDir.path,
-          "${appHomeDir.androidDir.path}/app/src/main/assets"
-        ],
-        workingDirectory: appHomeDir.androidDir,
-        printOutput: true,
+      await copyFile(
+        unityArchieveFile,
+        androidArchieveFile,
       );
+      await unityArchieveFile.delete();
     }
 
-    /// rm -rf "$local_bundle_path"
-    await ProcessRunner().runProcess(
-      ['rm', '-rf', localBundleDir.path],
-      workingDirectory: appHomeDir.androidDir,
-      printOutput: true,
-    );
+    /// 修复unityLibrary 存在ndk.path 导致gradle构建失败的问题
+    await fixUnityBuildGradleFile();
 
     /// ./gradlew unityLibrary:bundleReleaseAar
     await ProcessRunner().runProcess(
@@ -116,5 +132,56 @@ class UnityAarCommand extends BuildCacheCommand {
       workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
+
+    if (androidArchieveFile.existsSync()) {
+      loggerDebug('复制Android_archieve.zip到build/unityLibrary/outputs/aar目录下');
+
+      await copyFile(
+        androidArchieveFile,
+        buildAarArchiveFile,
+      );
+      await androidArchieveFile.delete();
+    }
+  }
+
+  Future<void> fixUnityBuildGradleFile() async {
+    final unityBuildGradleFile = File(join(
+      appHomeDir.androidDir.path,
+      'unityLibrary',
+      'build.gradle',
+    ));
+    if (!unityBuildGradleFile.existsSync()) {
+      throw Exception('unityBuildGradleFile不存在: ${unityBuildGradleFile.path}');
+    }
+    final lines = await unityBuildGradleFile.readAsLines();
+    final ndkVersion = await getNdkVersion();
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.contains('ndkPath')) {
+        loggerDebug('修复ndkPath: $line');
+        lines[i] = '	ndkVersion "$ndkVersion"';
+      }
+    }
+    await unityBuildGradleFile.writeAsString(lines.join('\n'));
+    loggerSuccess('修复unityBuildGradleFile完成!');
+  }
+
+  /// 获取ndk版本
+  Future<String> getNdkVersion() async {
+    final ndkDir = readAppEnv('NDK_DIR', appHomeDir);
+    if (ndkDir.isEmpty) {
+      throw Exception('NDK_DIR环境变量不存在');
+    }
+    final sourcePropertiesFile = File(join(ndkDir, 'source.properties'));
+    if (!sourcePropertiesFile.existsSync()) {
+      throw Exception('sourcePropertiesFile不存在: ${sourcePropertiesFile.path}');
+    }
+    final lines = await sourcePropertiesFile.readAsLines();
+    for (var line in lines) {
+      if (line.startsWith('Pkg.Revision')) {
+        return line.split('=')[1].trim();
+      }
+    }
+    throw Exception('sourcePropertiesFile中没有找到Pkg.Revision');
   }
 }
