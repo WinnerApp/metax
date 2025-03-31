@@ -469,7 +469,6 @@ Future<void> downloadCacheResource({
       buildConfiguration.name,
       '--buildType',
       buildType.name,
-      '--branch',
       '--isStore',
       isStore.toString(),
       '--branch',
