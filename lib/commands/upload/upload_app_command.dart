@@ -139,6 +139,12 @@ abstract class UploadAppCommand extends Command {
 
     final buildVersionId = await getUnityBuildVersion(unityProjectWorkspace);
 
+    if (platform == 'ios') {
+      await switchBranch(appHomeDir.iosDir.path, environment.iosBranch);
+    } else {
+      await switchBranch(appHomeDir.androidDir.path, environment.androidBranch);
+    }
+
     loggerDebug('正在获取当前Flutter变更日志');
     final flutterChangeLog = await GetGitLog(
       root: appHomeDir.flutterDir.path,
@@ -200,7 +206,7 @@ $changeLog
       loggerDebug('开始上传ipa/apk......');
       final uploadLog =
           '[Tag:${environment.tag}][Flutter(${environment.branch})][Unity(${environment.unityBranchName})]  新版本发布了，请下载体验!';
-      await uploadApp(log: uploadLog);
+      await uploadApp(log: uploadLog, environment: environment);
     }
 
     if (environment.sendLog) {
@@ -297,7 +303,10 @@ $changeLog
   Future<void> buildApp();
 
   /// 上传ipa/apk
-  Future<void> uploadApp({required String log});
+  Future<void> uploadApp({
+    required String log,
+    required UploadAppEnvironment environment,
+  });
 
   /// 复制ipa/apk到指定位置
   Future<void> copyIpaOrApkToBuildDir(UploadAppEnvironment environment);
@@ -366,10 +375,7 @@ $changeLog
     );
 
     loggerDebug('环境变量:${environmentMap.toString()}');
-    String zealotChannelKey = readBuildAppEnv(
-      'TEST_ZEALOT_CHANNEL_KEY',
-      appHomeDir,
-    );
+    String zealotChannelKey = readBuildAppEnv('ZEALOT_CHANNEL_KEY', appHomeDir);
     if (platform == 'android') {
       if (isStore == '是') {
         final zealotChannel = ArgumentGet(argResults).getString(

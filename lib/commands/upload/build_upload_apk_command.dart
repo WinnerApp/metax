@@ -35,7 +35,10 @@ class BuildUploadApkCommand extends UploadAppCommand {
   }
 
   @override
-  Future<void> uploadApp({required String log}) async {
+  Future<void> uploadApp(
+      {required String log, required UploadAppEnvironment environment}) async {
+    buildAppRunner.environment['ZEALOT_CHANNEL_KEY'] =
+        environment.zealotChannelKey;
     await buildAppRunner.runProcess(
       [
         'metax',
