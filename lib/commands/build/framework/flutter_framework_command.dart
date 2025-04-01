@@ -28,6 +28,10 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       help: '是否发布包',
       allowed: ['true', 'false'],
     );
+    argParser.addOption(
+      'branch',
+      help: '分支名称,指定分支则进行切换到对应分支',
+    );
   }
 
   late String configuration;
@@ -57,6 +61,11 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     }
     if (!await isGitRepository(flutterDir.path)) {
       throw Exception('${flutterDir.path} 不是一个git仓库');
+    }
+
+    final argBranch = argResults?['branch'];
+    if (argBranch != null) {
+      await switchBranch(flutterDir.path, argBranch);
     }
 
     final branch = await getCurrentBranch(flutterDir.path);

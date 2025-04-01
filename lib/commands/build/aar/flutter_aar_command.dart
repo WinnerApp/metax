@@ -28,6 +28,10 @@ class FlutterAarCommand extends BuildCacheCommand {
       help: '是否发布包',
       allowed: ['true', 'false'],
     );
+    argParser.addOption(
+      'branch',
+      help: '分支名称,指定分支则进行切换到对应分支',
+    );
   }
 
   late String configuration;
@@ -61,6 +65,10 @@ class FlutterAarCommand extends BuildCacheCommand {
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
       throw Exception('${workspaceDir.path} 不是一个Flutter工程');
+    }
+    final argBranch = argResults?['branch'];
+    if (argBranch != null) {
+      await switchBranch(workspaceDir.path, argBranch);
     }
     final branch = await getCurrentBranch(workspaceDir.path);
     final commitHash = await getCurrentCommitHash(workspaceDir.path);
