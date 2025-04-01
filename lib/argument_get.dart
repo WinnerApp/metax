@@ -8,6 +8,7 @@ class ArgumentGet {
   String getString(
     String name,
     String description, {
+    String? defaultValue,
     Iterable<String> allowed = const [],
     bool Function(String)? validate,
   }) {
@@ -17,16 +18,25 @@ class ArgumentGet {
         value = prompts.choose(
           description,
           allowed.toSet(),
+          defaultsTo: defaultValue,
         );
       }
-      value ??= prompts.get(description, validate: validate);
+      value ??= prompts.get(
+        description,
+        validate: validate,
+        defaultsTo: defaultValue,
+      );
     }
     return value;
   }
 
-  bool getBool(String name, String description) {
+  bool getBool(
+    String name,
+    String description, {
+    bool defaultValue = false,
+  }) {
     bool? value = argResults?[name];
-    value ??= prompts.getBool(description);
+    value ??= prompts.getBool(description, defaultsTo: defaultValue);
     return value;
   }
 
