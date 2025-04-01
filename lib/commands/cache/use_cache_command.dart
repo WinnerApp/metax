@@ -326,6 +326,30 @@ class UseCacheCommand extends Command {
     final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
     final zipPath = metaxCache.getZipCachePath(cacheModel.commitHash);
     await copyZipToDir(zipPath, targetDir);
+
+    /// 如果当前是iOS 并且是Flutter则需要复制隐私文件到对应目录
+    if (buildPlatform == BuildPlatform.ios.name &&
+        buildLibrary == BuildLibrary.flutter.name &&
+        buildType == BuildType.framework.name) {
+      final privacyDir = Directory(join(
+        appHomeDir.iosDir.path,
+        'frameworks',
+        'Privacys',
+      ));
+      final targetPrivacyDir = Directory(join(
+        appHomeDir.iosDir.path,
+        'frameworks',
+        'flutter',
+        buildConfiguration == BuildConfiguration.release.name
+            ? 'Release'
+            : 'Debug',
+        'Privacys',
+      ));
+      if (await targetPrivacyDir.exists()) {
+        await targetPrivacyDir.delete(recursive: true);
+      }
+      await copyDirToDir(privacyDir, targetPrivacyDir);
+    }
   }
 
   /// 查询网络是否存在缓存
