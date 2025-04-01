@@ -7,7 +7,6 @@ class UnityCache extends MetaxCache {
     required super.branch,
     required super.buildId,
   }) : super(
-          isStore: true,
           buildConfiguration: BuildConfiguration.release,
           buildLibrary: BuildLibrary.unity,
           buildType: BuildType.library,
@@ -19,7 +18,6 @@ class UnityCache extends MetaxCache {
       return e
           .where((e) =>
               e.buildPlatform == buildPlatform.name &&
-              e.isStore == isStore &&
               e.configuration == BuildConfiguration.release.name &&
               e.buildLibrary == BuildLibrary.unity.name &&
               e.buildType == BuildType.library.name &&

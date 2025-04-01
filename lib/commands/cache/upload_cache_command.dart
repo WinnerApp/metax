@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:dart_appwrite/dart_appwrite.dart';
-import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -39,12 +38,6 @@ class UploadCacheCommand extends Command {
       'buildType',
       help: '构建类型',
       allowed: BuildType.values.map((e) => e.name),
-    );
-
-    argParser.addOption(
-      'isStore',
-      help: '是否发布版本',
-      allowed: ['true', 'false'],
     );
 
     argParser.addOption(
@@ -100,11 +93,7 @@ class UploadCacheCommand extends Command {
       '请选择构建类型',
       allowed: BuildType.values.map((e) => e.name).toList(),
     );
-    bool isStore = Unwrap(ArgumentGet(argResults).getString(
-      'isStore',
-      '是否应用市场的Flutter AAR',
-      allowed: ['true', 'false'],
-    )).map((e) => e == 'true').defaultValue(false);
+
     String branch = ArgumentGet(argResults).getString(
       'branch',
       '请选择分支',
@@ -127,7 +116,6 @@ class UploadCacheCommand extends Command {
     final metaxCache = MetaxCache(
       buildPlatform:
           BuildPlatform.values.firstWhere((e) => e.name == buildPlatform),
-      isStore: isStore,
       buildConfiguration: BuildConfiguration.values
           .firstWhere((e) => e.name == buildConfiguration),
       buildLibrary:
@@ -152,7 +140,7 @@ class UploadCacheCommand extends Command {
           configuration: buildConfiguration,
           commitHash: commitHash,
           buildId: buildId.toString(),
-          isStore: isStore,
+          isStore: false,
           commitTime: DateTime.parse(commitTime),
         ),
       ];
@@ -186,7 +174,6 @@ class UploadCacheCommand extends Command {
       databaseId: appwriteCacheEnvironment.databaseId,
       collectionId: appwriteCacheEnvironment.collectionId,
       platform: metaxCache.buildPlatform.name,
-      isStore: metaxCache.isStore,
       branch: metaxCache.branch,
       buildConfiguration: metaxCache.buildConfiguration.name,
       buildLibrary: metaxCache.buildLibrary.name,
@@ -205,7 +192,6 @@ class UploadCacheCommand extends Command {
       collectionId: appwriteCacheEnvironment.collectionId,
       bucketId: appwriteCacheEnvironment.bucketId,
       platform: metaxCache.buildPlatform.name,
-      isStore: metaxCache.isStore,
       branch: metaxCache.branch,
       buildConfiguration: metaxCache.buildConfiguration.name,
       buildLibrary: metaxCache.buildLibrary.name,

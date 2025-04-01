@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
@@ -24,18 +23,12 @@ class FlutterAarCommand extends BuildCacheCommand {
       allowed: BuildConfiguration.values.map((e) => e.name).toList(),
     );
     argParser.addOption(
-      'isStore',
-      help: '是否发布包',
-      allowed: ['true', 'false'],
-    );
-    argParser.addOption(
       'branch',
       help: '分支名称,指定分支则进行切换到对应分支',
     );
   }
 
   late String configuration;
-  late bool isStore;
   @override
   Future<void> run() async {
     await super.run();
@@ -47,20 +40,11 @@ class FlutterAarCommand extends BuildCacheCommand {
       loggerSuccess('打包Flutter AAR完成!');
       return;
     }
-    isStore = Unwrap(ArgumentGet(argResults).getString(
-      'isStore',
-      '是否应用市场的Flutter AAR',
-      allowed: ['true', 'false'],
-    )).map((e) => e == 'true').defaultValue(false);
-    if (isStore) {
-      configuration = 'release';
-    } else {
-      configuration = ArgumentGet(argResults).getString(
-        'configuration',
-        '请选择Flutter AAR构建配置',
-        allowed: BuildConfiguration.values.map((e) => e.name).toList(),
-      );
-    }
+    configuration = ArgumentGet(argResults).getString(
+      'configuration',
+      '请选择Flutter AAR构建配置',
+      allowed: BuildConfiguration.values.map((e) => e.name).toList(),
+    );
     final workspaceDir = appHomeDir.flutterDir;
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
@@ -74,15 +58,10 @@ class FlutterAarCommand extends BuildCacheCommand {
     final commitHash = await getCurrentCommitHash(workspaceDir.path);
     final commitTime = await getCommitTime(workspaceDir.path, commitHash);
     BuildConfiguration buildConfiguration;
-    if (isStore) {
-      buildConfiguration = BuildConfiguration.release;
-    } else {
-      buildConfiguration = BuildConfiguration.values.firstWhere(
-        (e) => e.name == configuration,
-      );
-    }
+    buildConfiguration = BuildConfiguration.values.firstWhere(
+      (e) => e.name == configuration,
+    );
     final flutterCache = AarCache(
-      isStore: isStore,
       branch: branch,
       buildConfiguration: buildConfiguration,
       buildLibrary: BuildLibrary.flutter,
@@ -103,7 +82,6 @@ class FlutterAarCommand extends BuildCacheCommand {
         buildLibrary: BuildLibrary.flutter,
         buildConfiguration: buildConfiguration,
         buildType: BuildType.aar,
-        isStore: isStore,
         branch: branch,
         commitHash: commitHash,
         commitTime: commitTime,

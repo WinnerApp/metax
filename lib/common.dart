@@ -371,7 +371,6 @@ Future<void> uploadCacheResource({
   required BuildLibrary buildLibrary,
   required BuildConfiguration buildConfiguration,
   required BuildType buildType,
-  required bool isStore,
   required String branch,
   required String commitHash,
   required DateTime commitTime,
@@ -389,8 +388,6 @@ Future<void> uploadCacheResource({
       buildConfiguration.name,
       '--buildType',
       buildType.name,
-      '--isStore',
-      isStore.toString(),
       '--branch',
       branch,
       '--commitHash',
@@ -410,7 +407,6 @@ Future<void> useCache({
   required BuildLibrary buildLibrary,
   required BuildConfiguration buildConfiguration,
   required BuildType buildType,
-  required bool isStore,
   required String branch,
   required String commitHash,
   int buildId = 0,
@@ -432,8 +428,6 @@ Future<void> useCache({
       buildType.name,
       '--branch',
       branch,
-      '--isStore',
-      isStore.toString(),
       '--commitHash',
       commitHash,
       '--buildId',
@@ -450,7 +444,6 @@ Future<void> downloadCacheResource({
   required BuildLibrary buildLibrary,
   required BuildConfiguration buildConfiguration,
   required BuildType buildType,
-  required bool isStore,
   required String branch,
   required String commitHash,
   int buildId = 0,
@@ -469,8 +462,6 @@ Future<void> downloadCacheResource({
       buildConfiguration.name,
       '--buildType',
       buildType.name,
-      '--isStore',
-      isStore.toString(),
       '--branch',
       branch,
       '--buildId',
@@ -685,4 +676,31 @@ Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
     printOutput: true,
   ).then((e) => e.output.split('\n').first.trim());
   return File(flutterBinPath).parent.parent.path;
+}
+
+/// 初始化Flutter环境
+Future<void> initFlutterEnvironment({
+  required AppHomeDir appHomeDir,
+  required String buildType,
+  required String configuration,
+  required bool isStore,
+  String androidChannel = 'Winner',
+}) async {
+  await ProcessRunner().runProcess(
+    [
+      'metax',
+      'init',
+      'flutter_environment',
+      '--buildType',
+      buildType,
+      '--configuration',
+      configuration,
+      '--isStore',
+      isStore.toString(),
+      '--androidChannel',
+      androidChannel,
+    ],
+    workingDirectory: appHomeDir.directory,
+    printOutput: true,
+  );
 }

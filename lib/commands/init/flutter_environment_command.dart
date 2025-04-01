@@ -243,6 +243,11 @@ class FlutterEnvironmentCommand extends Command {
     json['enableFlutterError'] = enableFlutterError;
     json['enableUnityOpenTime'] = enableUnityOpenTime;
     json['enableSensorsLog'] = enableSensorsLog;
+
+    loggerDebug('当前最新的Flutter环境配置:');
+    for (var key in json.mapValue.keys) {
+      loggerDebug('$key: ${json.mapValue[key]}');
+    }
     await dartDefineJsonFile
         .writeAsString(JsonEncoder.withIndent('  ').convert(json.mapValue));
   }

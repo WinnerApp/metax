@@ -44,7 +44,6 @@ class UseCacheCommand extends Command {
       allowed: BuildType.values.map((e) => e.name),
     );
     argParser.addOption('branch', help: '分支');
-    argParser.addOption('isStore', help: '是否发布包缓存', allowed: ['true', 'false']);
     argParser.addOption('commitHash', help: 'Git Hash');
     argParser.addOption('buildId', help: '构建ID');
     argParser.addOption(
@@ -60,7 +59,6 @@ class UseCacheCommand extends Command {
   late String buildLibrary;
   late String buildConfiguration;
   late String buildType;
-  late bool isStore;
   late bool isUseCache;
   late String branch;
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
@@ -125,17 +123,6 @@ class UseCacheCommand extends Command {
           ],
         );
       }
-    }
-
-    if (buildLibrary == BuildLibrary.flutter.name) {
-      isStore = ArgumentGet(argResults).getString(
-            'isStore',
-            '是否使用发布包缓存',
-            allowed: ['true', 'false'],
-          ) ==
-          'true';
-    } else {
-      isStore = true;
     }
 
     if (buildLibrary == BuildLibrary.unity.name) {
@@ -212,7 +199,6 @@ class UseCacheCommand extends Command {
             buildType: BuildType.values.firstWhere(
               (e) => e.name == buildType,
             ),
-            isStore: isStore,
             branch: branch,
             commitHash: networkCacheModel.commitHash,
             buildId: int.parse(networkCacheModel.buildId),
@@ -248,7 +234,6 @@ class UseCacheCommand extends Command {
       buildPlatform: BuildPlatform.values.firstWhere(
         (e) => e.name == buildPlatform,
       ),
-      isStore: isStore,
       buildConfiguration: BuildConfiguration.values.firstWhere(
         (e) => e.name == buildConfiguration,
       ),
@@ -364,7 +349,7 @@ class UseCacheCommand extends Command {
       databaseId: appwriteCacheEnvironment.databaseId,
       collectionId: appwriteCacheEnvironment.collectionId,
       platform: buildPlatform,
-      isStore: isStore,
+      isStore: false,
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
@@ -376,15 +361,10 @@ class UseCacheCommand extends Command {
 
   /// 从一组缓存中查找适合的缓存
   CacheModel? findCacheInList(List<CacheModel> cacheModels) {
-    loggerDebug('cacheModels: ${cacheModels.map((e) => e.toJson()).toList()}');
-    loggerDebug(
-      'buildPlatform: $buildPlatform isStore: $isStore buildConfiguration: $buildConfiguration buildLibrary: $buildLibrary buildType: $buildType branch: $branch',
-    );
-
     /// 查询本地是否存在缓存
     cacheModels = cacheModels
         .where((e) => e.buildPlatform == buildPlatform)
-        .where((e) => e.isStore == isStore)
+        .where((e) => e.isStore == false)
         .where((e) => e.configuration == buildConfiguration)
         .where((e) => e.buildLibrary == buildLibrary)
         .where((e) => e.buildType == buildType)
@@ -522,8 +502,6 @@ class UseCacheCommand extends Command {
         'flutter',
         '--configuration',
         buildConfiguration,
-        '--isStore',
-        isStore.toString(),
         getUseMockCommand(),
       ],
       workingDirectory: appHomeDir.directory,

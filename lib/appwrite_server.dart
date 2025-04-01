@@ -112,7 +112,6 @@ class AppwriteServer {
     required String databaseId,
     required String collectionId,
     required String platform,
-    required bool isStore,
     required String branch,
     required String buildConfiguration,
     required String buildLibrary,
@@ -125,7 +124,7 @@ class AppwriteServer {
       collectionId: collectionId,
       queries: [
         Query.equal('platform', platform),
-        Query.equal('is_store', isStore),
+        Query.equal('is_store', 'false'),
         Query.equal('configuration', buildConfiguration),
         Query.equal('library', buildLibrary),
         Query.equal('type', buildType),
@@ -147,7 +146,6 @@ class AppwriteServer {
     required String collectionId,
     required String bucketId,
     required String platform,
-    required bool isStore,
     required String branch,
     required String buildConfiguration,
     required String buildLibrary,
@@ -182,7 +180,7 @@ class AppwriteServer {
       documentId: ID.unique(),
       data: {
         'platform': platform,
-        'is_store': isStore,
+        'is_store': false,
         'configuration': buildConfiguration,
         'library': buildLibrary,
         'type': buildType,

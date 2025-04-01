@@ -41,7 +41,6 @@ class UnityAarCommand extends BuildCacheCommand {
     final commitHash = cache.commitHash;
     final commitTime = cache.commitTime;
     final unityCache = AarCache(
-      isStore: true,
       branch: branch,
       buildConfiguration: BuildConfiguration.release,
       buildLibrary: BuildLibrary.unity,
@@ -69,7 +68,6 @@ class UnityAarCommand extends BuildCacheCommand {
         buildLibrary: BuildLibrary.unity,
         buildConfiguration: BuildConfiguration.release,
         buildType: BuildType.aar,
-        isStore: true,
         branch: branch,
         commitHash: commitHash,
         commitTime: commitTime,

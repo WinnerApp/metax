@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -38,12 +37,6 @@ class DownloadCacheCommand extends Command {
       'buildType',
       help: '构建类型',
       allowed: BuildType.values.map((e) => e.name),
-    );
-
-    argParser.addOption(
-      'isStore',
-      help: '是否发布版本',
-      allowed: ['true', 'false'],
     );
 
     argParser.addOption(
@@ -93,16 +86,6 @@ class DownloadCacheCommand extends Command {
       );
     }
 
-    bool isStore;
-    if (buildLibrary == BuildLibrary.flutter.name) {
-      isStore = Unwrap(ArgumentGet(argResults).getString(
-        'isStore',
-        '是否应用市场的Flutter AAR',
-        allowed: ['true', 'false'],
-      )).map((e) => e == 'true').defaultValue(false);
-    } else {
-      isStore = true;
-    }
     final appwriteServer = AppwriteServer(
       endpoint: appwriteEnvironment.endpoint,
       projectId: appwriteEnvironment.projectId,
@@ -113,7 +96,7 @@ class DownloadCacheCommand extends Command {
       databaseId: appwriteEnvironment.databaseId,
       collectionId: appwriteEnvironment.collectionId,
       platform: buildPlatform,
-      isStore: isStore,
+      isStore: false,
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
@@ -166,7 +149,6 @@ class DownloadCacheCommand extends Command {
     final metaxCache = MetaxCache(
       buildPlatform:
           BuildPlatform.values.firstWhere((e) => e.name == buildPlatform),
-      isStore: isStore,
       buildConfiguration: BuildConfiguration.values
           .firstWhere((e) => e.name == buildConfiguration),
       buildLibrary:
@@ -192,7 +174,7 @@ class DownloadCacheCommand extends Command {
           configuration: buildConfiguration,
           commitHash: commitHash,
           buildId: buildId,
-          isStore: isStore,
+          isStore: false,
           commitTime: DateTime.parse(cacheDocument['commit_time'].toString()),
         ),
       );

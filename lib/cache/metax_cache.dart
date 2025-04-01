@@ -7,7 +7,6 @@ import 'package:path/path.dart';
 
 class MetaxCache extends Cache {
   final BuildPlatform buildPlatform;
-  final bool isStore;
   final BuildConfiguration buildConfiguration;
   final BuildLibrary buildLibrary;
   final BuildType buildType;
@@ -15,7 +14,6 @@ class MetaxCache extends Cache {
   final int buildId;
   MetaxCache({
     required this.buildPlatform,
-    required this.isStore,
     required this.buildConfiguration,
     required this.buildLibrary,
     required this.buildType,
@@ -26,7 +24,7 @@ class MetaxCache extends Cache {
             readEnv('HOME'),
             '.metax',
             buildPlatform.name,
-            isStore ? 'store' : 'test',
+            'test',
             buildConfiguration.name,
             buildLibrary.name,
             buildType.name,
@@ -48,7 +46,6 @@ class MetaxCache extends Cache {
           .where((e) => e.branch == branch)
           .where((e) => e.buildId == buildId.toString())
           .where((e) => e.configuration == buildConfiguration.name)
-          .where((e) => e.isStore == isStore)
           .where((e) => e.commitHash == commitHash)
           .toList();
     });

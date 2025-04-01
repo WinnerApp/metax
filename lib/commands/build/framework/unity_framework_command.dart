@@ -30,7 +30,6 @@ class UnityFrameworkCommand extends BuildCacheCommand {
     }
     final cache = models.first;
     final unityCache = FrameworkCache(
-      isStore: true,
       branch: cache.branch,
       buildConfiguration: BuildConfiguration.release,
       buildLibrary: BuildLibrary.unity,
@@ -57,7 +56,6 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         buildLibrary: BuildLibrary.unity,
         buildConfiguration: BuildConfiguration.release,
         buildType: BuildType.framework,
-        isStore: true,
         branch: cache.branch,
         commitHash: cache.commitHash,
         commitTime: cache.commitTime,

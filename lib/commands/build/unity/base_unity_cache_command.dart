@@ -88,7 +88,6 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
           buildLibrary: BuildLibrary.unity,
           buildConfiguration: BuildConfiguration.release,
           buildType: BuildType.library,
-          isStore: true,
           branch: branch,
           commitHash: commitHash,
           commitTime: commitTime,

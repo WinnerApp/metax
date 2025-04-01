@@ -44,8 +44,8 @@ abstract class BuildCacheCommand extends Command {
       configuration: cache.buildConfiguration.value,
       commitHash: commitHash,
       buildId: cache.buildId.toString(),
-      isStore: cache.isStore,
       commitTime: commitTime,
+      isStore: false,
     );
 
     if (cacheModel != null &&
@@ -77,7 +77,7 @@ abstract class BuildCacheCommand extends Command {
           configuration: cache.buildConfiguration.value,
           commitHash: commitHash,
           buildId: cache.buildId.toString(),
-          isStore: cache.isStore,
+          isStore: false,
           commitTime: commitTime,
         ),
       ]);
@@ -123,12 +123,12 @@ abstract class BuildCacheCommand extends Command {
         branch: cache.branch,
         commitHash: commitHash,
         buildId: cache.buildId.toString(),
-        isStore: cache.isStore,
         configuration: cache.buildConfiguration.value,
         buildPlatform: cache.buildPlatform.value,
         buildLibrary: cache.buildLibrary.value,
         buildType: cache.buildType.value,
         commitTime: commitTime,
+        isStore: false,
       ),
     );
     await zipFile.delete();
