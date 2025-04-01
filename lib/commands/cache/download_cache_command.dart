@@ -156,6 +156,7 @@ class DownloadCacheCommand extends Command {
       buildType: BuildType.values.firstWhere((e) => e.name == buildType),
       branch: branch,
       buildId: int.parse(buildId),
+      isStore: buildLibrary == BuildLibrary.unity.name ? true : false,
     );
     final cacheModel =
         await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
@@ -174,7 +175,7 @@ class DownloadCacheCommand extends Command {
           configuration: buildConfiguration,
           commitHash: commitHash,
           buildId: buildId,
-          isStore: false,
+          isStore: metaxCache.isStore,
           commitTime: DateTime.parse(cacheDocument['commit_time'].toString()),
         ),
       );

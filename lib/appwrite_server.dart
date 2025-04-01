@@ -118,13 +118,14 @@ class AppwriteServer {
     required String buildType,
     required String commitHash,
     required int buildId,
+    required bool isStore,
   }) async {
     return databases.listDocuments(
       databaseId: databaseId,
       collectionId: collectionId,
       queries: [
         Query.equal('platform', platform),
-        Query.equal('is_store', 'false'),
+        Query.equal('is_store', isStore),
         Query.equal('configuration', buildConfiguration),
         Query.equal('library', buildLibrary),
         Query.equal('type', buildType),

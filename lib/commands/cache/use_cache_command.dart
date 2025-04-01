@@ -424,8 +424,6 @@ class UseCacheCommand extends Command {
           'library',
           '--unityBranch',
           branch,
-          '--isStore',
-          'true',
           getUseMockCommand(),
         ];
         if (buildId != null) {
