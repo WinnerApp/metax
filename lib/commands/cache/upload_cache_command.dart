@@ -123,7 +123,6 @@ class UploadCacheCommand extends Command {
       buildType: BuildType.values.firstWhere((e) => e.name == buildType),
       branch: branch,
       buildId: buildId,
-      isStore: buildLibrary == BuildLibrary.unity.name ? true : false,
     );
     final cacheModels = await metaxCache.cacheManager.read();
     if (cacheModels.isEmpty) {
@@ -141,7 +140,6 @@ class UploadCacheCommand extends Command {
           configuration: buildConfiguration,
           commitHash: commitHash,
           buildId: buildId.toString(),
-          isStore: metaxCache.isStore,
           commitTime: DateTime.parse(commitTime),
         ),
       ];
@@ -181,7 +179,6 @@ class UploadCacheCommand extends Command {
       buildType: metaxCache.buildType.name,
       buildId: metaxCache.buildId,
       commitHash: model.commitHash,
-      isStore: model.isStore,
     );
     if (isAlreadyUploaded) {
       loggerInfo('缓存已存在: ${model.commitHash}');

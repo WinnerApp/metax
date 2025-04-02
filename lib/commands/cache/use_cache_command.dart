@@ -364,7 +364,6 @@ class UseCacheCommand extends Command {
     /// 查询本地是否存在缓存
     cacheModels = cacheModels
         .where((e) => e.buildPlatform == buildPlatform)
-        .where((e) => e.isStore == false)
         .where((e) => e.configuration == buildConfiguration)
         .where((e) => e.buildLibrary == buildLibrary)
         .where((e) => e.buildType == buildType)

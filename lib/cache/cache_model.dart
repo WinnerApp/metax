@@ -8,7 +8,6 @@ class CacheModel {
   final String configuration;
   final String commitHash;
   final String buildId;
-  final bool isStore;
   final DateTime commitTime;
 
   CacheModel({
@@ -19,7 +18,6 @@ class CacheModel {
     required this.configuration,
     required this.commitHash,
     required this.buildId,
-    required this.isStore,
     required this.commitTime,
   });
 
@@ -33,7 +31,6 @@ class CacheModel {
       configuration: json['configuration'].stringValue,
       commitHash: json['commitHash'].stringValue,
       buildId: json['buildId'].stringValue,
-      isStore: json['isStore'].boolValue,
       commitTime: DateTime.parse(json['commitTime'].stringValue),
     );
   }
@@ -44,7 +41,6 @@ class CacheModel {
       'configuration': configuration,
       'commitHash': commitHash,
       'buildId': buildId,
-      'isStore': isStore,
       'buildPlatform': buildPlatform,
       'buildLibrary': buildLibrary,
       'buildType': buildType,
@@ -59,7 +55,6 @@ class CacheModel {
         configuration == other.configuration &&
         commitHash == other.commitHash &&
         buildId == other.buildId &&
-        isStore == other.isStore &&
         buildPlatform == other.buildPlatform &&
         buildLibrary == other.buildLibrary &&
         buildType == other.buildType;
@@ -71,7 +66,6 @@ class CacheModel {
         configuration,
         commitHash,
         buildId,
-        isStore,
         buildPlatform,
         buildLibrary,
         buildType,
@@ -90,7 +84,6 @@ class ServerCacheModel extends CacheModel {
     required super.configuration,
     required super.commitHash,
     required super.buildId,
-    required super.isStore,
     required super.commitTime,
   });
 
@@ -105,7 +98,6 @@ class ServerCacheModel extends CacheModel {
       configuration: json['configuration'].stringValue,
       commitHash: json['commit_hash'].stringValue,
       buildId: json['build_id'].stringValue,
-      isStore: json['is_store'].boolValue,
       commitTime: DateTime.parse(json['commit_time'].stringValue),
     );
   }

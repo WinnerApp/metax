@@ -10,7 +10,6 @@ class UnityCache extends MetaxCache {
           buildConfiguration: BuildConfiguration.release,
           buildLibrary: BuildLibrary.unity,
           buildType: BuildType.library,
-          isStore: true,
         );
 
   @override

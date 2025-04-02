@@ -12,7 +12,6 @@ class MetaxCache extends Cache {
   final BuildType buildType;
   final String branch;
   final int buildId;
-  final bool isStore;
   MetaxCache({
     required this.buildPlatform,
     required this.buildConfiguration,
@@ -20,13 +19,11 @@ class MetaxCache extends Cache {
     required this.buildType,
     required this.branch,
     this.buildId = 0,
-    this.isStore = false,
   }) : super(
           join(
             readEnv('HOME'),
             '.metax',
             buildPlatform.name,
-            'test',
             buildConfiguration.name,
             buildLibrary.name,
             buildType.name,
