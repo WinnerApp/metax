@@ -76,6 +76,12 @@ abstract class UploadAppCommand extends Command {
         'Samsung'
       ],
     );
+    argParser.addOption(
+      'initFlutterEnvironment',
+      help: '是否初始化Flutter环境',
+      allowed: ['true', 'false'],
+      defaultsTo: 'true',
+    );
   }
 
   @override
@@ -196,13 +202,17 @@ $changeLog
     loggerDebug('开始复制Flutter静态库到指定位置');
     await copyFlutterStaticLibrary(flutterCurrentCommitId, environment);
 
-    /// 开始初始化Flutter环境
-    await initFlutterEnvironment(
-      appHomeDir: appHomeDir,
-      buildType: buildType,
-      configuration: 'release',
-      isStore: environment.isStore,
-    );
+    final isInitFlutterEnvironment =
+        argResults?['initFlutterEnvironment'] == 'true';
+    if (isInitFlutterEnvironment) {
+      /// 开始初始化Flutter环境
+      await initFlutterEnvironment(
+        appHomeDir: appHomeDir,
+        buildType: buildType,
+        configuration: 'release',
+        isStore: environment.isStore,
+      );
+    }
 
     loggerDebug('开始进行打包......');
     await buildApp();
