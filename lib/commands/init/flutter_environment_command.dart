@@ -21,23 +21,19 @@ class FlutterEnvironmentCommand extends Command {
       'buildType',
       help: '构建类型,可选值:framework/aar',
       allowed: ['framework', 'aar'],
-      defaultsTo: 'framework',
     );
     argParser.addOption(
       'configuration',
       help: '构建配置,可选值:debug/release',
       allowed: ['debug', 'release'],
-      defaultsTo: 'release',
     );
     argParser.addFlag(
       'isStore',
       help: '是否是发布配置',
-      defaultsTo: false,
     );
     argParser.addOption(
       'androidChannel',
       help: 'Android渠道',
-      defaultsTo: 'Winner',
       allowed: [
         'Winner',
         'Tencent',
@@ -191,19 +187,50 @@ class FlutterEnvironmentCommand extends Command {
       androidChannel: androidChannel,
     );
 
-    /// 删除aar文件
-    aarFile.deleteSync();
+    // jar cvf flutter_release-1.0.aar -c flutter_release-1.0 .
+    await ProcessRunner().runProcess(
+      [
+        'jar',
+        'cvf',
+        aarName,
+        '-C',
+        flutterName,
+        '.',
+      ],
+      workingDirectory: aarParentDir,
+      printOutput: true,
+    );
+
+    /// zip -r flutter_release-1.0.aar .
     await ProcessRunner().runProcess(
       [
         'zip',
         '-r',
         aarName,
-        flutterName,
+        '.',
+      ],
+      workingDirectory: flutterNameDir,
+      printOutput: true,
+    );
+    await ProcessRunner().runProcess(
+      [
+        'cp',
+        '-rf',
+        aarName,
+        aarFile.path,
+      ],
+      workingDirectory: flutterNameDir,
+      printOutput: true,
+    );
+    await ProcessRunner().runProcess(
+      [
+        'rm',
+        '-rf',
+        flutterNameDir.path,
       ],
       workingDirectory: aarParentDir,
       printOutput: true,
     );
-    flutterNameDir.deleteSync(recursive: true);
     loggerSuccess('初始化Flutter环境完成');
   }
 
