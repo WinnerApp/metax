@@ -1,6 +1,7 @@
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/init/app_environment_command.dart';
 import 'package:meta_tool/commands/init/branch.dart';
+import 'package:meta_tool/commands/init/build_name_number_command.dart';
 import 'package:meta_tool/commands/init/flutter_environment_command.dart';
 import 'package:meta_tool/commands/init/init_cache.dart';
 import 'package:meta_tool/commands/init/mock_command.dart';
@@ -20,5 +21,6 @@ class InitCommand extends Command {
     addSubcommand(AppEnvironmentCommand());
     addSubcommand(MockCommand());
     addSubcommand(FlutterEnvironmentCommand());
+    addSubcommand(BuildNameNumberCommand());
   }
 }
