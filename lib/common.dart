@@ -703,3 +703,26 @@ Future<void> initFlutterEnvironment({
     printOutput: true,
   );
 }
+
+/// 设置版本号
+Future<void> setVersionNumber({
+  required String buildName,
+  required String buildNumber,
+  required String platform,
+}) async {
+  await ProcessRunner().runProcess(
+    [
+      'metax',
+      'init',
+      'build_name_number',
+      '--platform',
+      platform,
+      '--buildName',
+      buildName,
+      '--buildNumber',
+      buildNumber,
+    ],
+    workingDirectory: appHomeDir.directory,
+    printOutput: true,
+  );
+}

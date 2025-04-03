@@ -214,6 +214,12 @@ $changeLog
       );
     }
 
+    await setVersionNumber(
+      buildName: environment.buildName,
+      buildNumber: environment.buildNumber,
+      platform: environment.platform,
+    );
+
     loggerDebug('开始进行打包......');
     await buildApp();
 
