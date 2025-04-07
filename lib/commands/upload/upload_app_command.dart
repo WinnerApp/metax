@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:darty_json_safe/darty_json_safe.dart';
@@ -10,6 +11,7 @@ import 'package:meta_tool/get_git_log.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:meta_tool/upload_app_environment.dart';
 import 'package:meta_tool/upload_sentry.dart';
+import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
 abstract class UploadAppCommand extends Command {
@@ -269,6 +271,17 @@ $changeLog
   Future<void> copyUnityStaticLibrary(
       int buildVersionId, UploadAppEnvironment environment) async {
     final appRunner = await createAppRunner(appHomeDir);
+
+    /// 删除之前的缓存
+    final cacheDir = switch (environment.platform) {
+      'ios' => Directory(join(appHomeDir.iosDir.path, 'frameworks', 'unity')),
+      'android' => Directory(join(appHomeDir.androidDir.path, 'aar', 'unity')),
+      _ => throw Exception('不支持的平台:${environment.platform}')
+    };
+    if (cacheDir.existsSync()) {
+      cacheDir.deleteSync(recursive: true);
+    }
+
     await appRunner.runProcess(
       [
         'metax',
@@ -296,6 +309,22 @@ $changeLog
     String commitHash,
     UploadAppEnvironment environment,
   ) async {
+    final cacheDir = switch (environment.platform) {
+      'ios' => Directory(join(
+          appHomeDir.iosDir.path,
+          'frameworks',
+          'flutter',
+        )),
+      'android' => Directory(join(
+          appHomeDir.androidDir.path,
+          'aar',
+          'flutter',
+        )),
+      _ => throw Exception('不支持的平台:${environment.platform}')
+    };
+    if (cacheDir.existsSync()) {
+      cacheDir.deleteSync(recursive: true);
+    }
     await ProcessRunner().runProcess(
       [
         'metax',
