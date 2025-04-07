@@ -132,7 +132,7 @@ String _autoTag(bool isStore) {
 }
 
 String _autoBuildNumber() {
-  String? buildNumber = Platform.environment['BUILD_NUMBER'];
+  String? buildNumber = Platform.environment['BUILD_VERSION_NUMBER'];
   buildNumber ??= getCurrentTimestamp().toString();
   return buildNumber;
 }
