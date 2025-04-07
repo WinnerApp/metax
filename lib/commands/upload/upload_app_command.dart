@@ -232,7 +232,13 @@ $changeLog
       loggerDebug('开始上传ipa/apk......');
       final uploadLog =
           '[Tag:${environment.tag}][Flutter(${environment.branch})][Unity(${environment.unityBranchName})]  新版本发布了，请下载体验!';
-      await uploadApp(log: uploadLog, environment: environment);
+      String platformBranch = switch (environment.platform) {
+        'ios' => '[IOS:${environment.iosBranch}]',
+        'android' => '[Android:${environment.androidBranch}]',
+        _ => '',
+      };
+      await uploadApp(
+          log: '$uploadLog $platformBranch', environment: environment);
     }
 
     if (environment.sendLog) {
