@@ -39,5 +39,13 @@ Future<void> main(List<String> arguments) async {
       customUnityPath = p0;
     },
   );
+  runner.argParser.addFlag(
+    'isUseCache',
+    help: '是否使用缓存',
+    defaultsTo: true,
+    callback: (value) {
+      isUseCache = value;
+    },
+  );
   await runner.run(arguments);
 }

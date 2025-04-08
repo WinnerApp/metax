@@ -308,6 +308,7 @@ $changeLog
         '--unityBranch',
         environment.unityBranchName,
         getUseMockCommand(),
+        isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
       printOutput: true,
     );
@@ -351,6 +352,7 @@ $changeLog
         '--commitHash',
         commitHash,
         getUseMockCommand(),
+        isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
       printOutput: true,
     );

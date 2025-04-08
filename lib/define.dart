@@ -138,3 +138,4 @@ enum MockType {
 late AppHomeDir appHomeDir;
 late bool useMock;
 late String? customUnityPath;
+late bool isUseCache;

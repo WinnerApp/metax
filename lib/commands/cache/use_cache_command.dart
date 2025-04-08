@@ -46,12 +46,6 @@ class UseCacheCommand extends Command {
     argParser.addOption('branch', help: '分支');
     argParser.addOption('commitHash', help: 'Git Hash');
     argParser.addOption('buildId', help: '构建ID');
-    argParser.addOption(
-      'isUseCache',
-      help: '是否使用缓存',
-      allowed: ['true', 'false'],
-      defaultsTo: 'true',
-    );
     argParser.addOption('unityBranch', help: 'Unity分支');
   }
 
@@ -59,7 +53,6 @@ class UseCacheCommand extends Command {
   late String buildLibrary;
   late String buildConfiguration;
   late String buildType;
-  late bool isUseCache;
   late String branch;
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
   late String? commitHash;
@@ -67,7 +60,6 @@ class UseCacheCommand extends Command {
   @override
   Future<void> run() async {
     appwriteCacheEnvironment = AppwriteCacheEnvironment(appHomeDir);
-
     buildPlatform = ArgumentGet(argResults).getString(
       'buildPlatform',
       '请选择构建平台',
@@ -159,13 +151,6 @@ class UseCacheCommand extends Command {
         allowed: flutterBranchs,
       );
     }
-
-    isUseCache = ArgumentGet(argResults).getString(
-          'isUseCache',
-          '是否使用缓存',
-          allowed: ['true', 'false'],
-        ) ==
-        'true';
 
     commitHash = argResults?['commitHash'] as String?;
     buildId = argResults?['buildId'] as String?;
@@ -424,6 +409,7 @@ class UseCacheCommand extends Command {
           '--unityBranch',
           branch,
           getUseMockCommand(),
+          isUseCache ? '--isUseCache' : '--no-isUseCache',
         ];
         if (buildId != null) {
           commandLine.add('--buildId');
