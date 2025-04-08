@@ -65,6 +65,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       branch: branch,
       buildConfiguration: buildConfiguration,
       buildLibrary: BuildLibrary.flutter,
+      buildId: 0,
     );
     final buildCacheDir = join(workspaceDir.path, 'build', 'host');
     await updateCache(

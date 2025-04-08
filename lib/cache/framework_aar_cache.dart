@@ -6,6 +6,7 @@ class FrameworkCache extends MetaxCache {
     required super.branch,
     required super.buildConfiguration,
     required super.buildLibrary,
+    required super.buildId,
   }) : super(
           buildType: BuildType.framework,
           buildPlatform: BuildPlatform.ios,
@@ -17,6 +18,7 @@ class AarCache extends MetaxCache {
     required super.branch,
     required super.buildConfiguration,
     required super.buildLibrary,
+    required super.buildId,
   }) : super(
           buildType: BuildType.aar,
           buildPlatform: BuildPlatform.android,

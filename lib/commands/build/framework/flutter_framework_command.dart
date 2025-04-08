@@ -63,6 +63,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildConfiguration: buildConfiguration,
       buildLibrary: BuildLibrary.flutter,
       branch: branch,
+      buildId: 0,
     );
     late String buildCacheDir;
     if (configuration == 'debug') {

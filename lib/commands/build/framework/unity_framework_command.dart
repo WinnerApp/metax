@@ -34,6 +34,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       branch: cache.branch,
       buildConfiguration: BuildConfiguration.release,
       buildLibrary: BuildLibrary.unity,
+      buildId: buildId,
     );
     final buildCacheDir = join(
       appHomeDir.iosDir.path,

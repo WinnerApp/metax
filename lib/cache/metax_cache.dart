@@ -18,7 +18,7 @@ class MetaxCache extends Cache {
     required this.buildLibrary,
     required this.buildType,
     required this.branch,
-    this.buildId = 0,
+    required this.buildId,
   }) : super(
           join(
             readEnv('HOME'),

@@ -45,6 +45,7 @@ class UnityAarCommand extends BuildCacheCommand {
       branch: branch,
       buildConfiguration: BuildConfiguration.release,
       buildLibrary: BuildLibrary.unity,
+      buildId: int.parse(buildId),
     );
     final buildCacheDir = join(
       appHomeDir.workspace,
