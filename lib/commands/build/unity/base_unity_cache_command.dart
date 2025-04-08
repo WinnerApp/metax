@@ -91,6 +91,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
           branch: branch,
           commitHash: commitHash,
           commitTime: commitTime,
+          buildId: buildId,
         );
       }
     }

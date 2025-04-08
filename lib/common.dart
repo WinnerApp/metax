@@ -386,6 +386,7 @@ Future<void> uploadCacheResource({
   required String branch,
   required String commitHash,
   required DateTime commitTime,
+  required int buildId,
 }) async {
   await ProcessRunner().runProcess(
     [
@@ -406,6 +407,8 @@ Future<void> uploadCacheResource({
       commitHash,
       '--commitTime',
       commitTime.toUtc().toIso8601String(),
+      '--buildId',
+      buildId.toString(),
     ],
     printOutput: true,
     workingDirectory: Directory(appHomeDir.workspace),

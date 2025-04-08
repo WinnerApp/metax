@@ -29,6 +29,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
       throw '$unityLibraryDir 目录下缓存信息不存在!请先运行[metax build unity_cache ios]';
     }
     final cache = models.first;
+    final buildId = int.parse(cache.buildId);
     final unityCache = FrameworkCache(
       branch: cache.branch,
       buildConfiguration: BuildConfiguration.release,
@@ -59,6 +60,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         branch: cache.branch,
         commitHash: cache.commitHash,
         commitTime: cache.commitTime,
+        buildId: buildId,
       );
     }
   }

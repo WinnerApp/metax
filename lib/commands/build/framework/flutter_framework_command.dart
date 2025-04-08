@@ -91,6 +91,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         branch: branch,
         commitHash: commitHash,
         commitTime: commitTime,
+        buildId: 0,
       );
     }
   }

@@ -40,6 +40,7 @@ class UnityAarCommand extends BuildCacheCommand {
     final branch = cache.branch;
     final commitHash = cache.commitHash;
     final commitTime = cache.commitTime;
+    final buildId = cache.buildId;
     final unityCache = AarCache(
       branch: branch,
       buildConfiguration: BuildConfiguration.release,
@@ -71,6 +72,7 @@ class UnityAarCommand extends BuildCacheCommand {
         branch: branch,
         commitHash: commitHash,
         commitTime: commitTime,
+        buildId: int.parse(buildId),
       );
     }
   }
