@@ -439,6 +439,7 @@ class UseCacheCommand extends Command {
         '--unityBranch',
         branch,
         getUseMockCommand(),
+        isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
       printOutput: true,
     );
@@ -461,6 +462,7 @@ class UseCacheCommand extends Command {
         buildType,
         'unity',
         getUseMockCommand(),
+        isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
       workingDirectory: Directory(appHomeDir.workspace),
       printOutput: true,
@@ -486,6 +488,7 @@ class UseCacheCommand extends Command {
         '--configuration',
         buildConfiguration,
         getUseMockCommand(),
+        isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
       workingDirectory: appHomeDir.directory,
       printOutput: true,

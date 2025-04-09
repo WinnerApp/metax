@@ -32,7 +32,7 @@ abstract class BuildCacheCommand extends Command {
     required String buildCacheDir,
     required DateTime commitTime,
     required String cacheId,
-    bool forceUpdate = false,
+    required bool forceUpdate,
   }) async {
     final cacheModel = await cache.getCacheModelFromCacheId(cacheId);
     final startTime = DateTime.now();

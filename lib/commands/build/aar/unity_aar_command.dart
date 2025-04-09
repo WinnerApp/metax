@@ -60,6 +60,7 @@ class UnityAarCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: cache.buildId.toString(),
+      forceUpdate: !isUseCache,
     );
 
     loggerSuccess('打包Unity AAR完成!');

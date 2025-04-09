@@ -74,6 +74,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
+      forceUpdate: !isUseCache,
     );
     loggerSuccess('导出Flutter AAR完成!');
     if (isUpload) {

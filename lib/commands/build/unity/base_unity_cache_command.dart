@@ -79,6 +79,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         buildCacheDir: unityCacheDir,
         commitTime: commitTime,
         cacheId: buildId.toString(),
+        forceUpdate: !isUseCache,
       );
       loggerSuccess('导出Unity代码完成');
       if (isUpload) {
