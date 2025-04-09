@@ -89,7 +89,61 @@ abstract class UploadAppCommand extends Command {
   @override
   FutureOr? run() async {
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
-    final environment = await chooseEnvironment(unityEnvironment);
+    UploadAppEnvironment environment =
+        await chooseEnvironment(unityEnvironment);
+
+    loggerDebug('platform:${environment.platform}');
+    loggerDebug('workspace:${environment.workspace}');
+    loggerDebug('buildName:${environment.buildName}');
+    loggerDebug('branch:${environment.branch}');
+    loggerDebug('forceBuild:${environment.forceBuild}');
+    loggerDebug('unityBranchName:${environment.unityBranchName}');
+    loggerDebug('upload:${environment.upload}');
+    loggerDebug('sendLog:${environment.sendLog}');
+    loggerDebug('isStore:${environment.isStore}');
+    loggerDebug('buildNumber:${environment.buildNumber}');
+    loggerDebug('iosBranch:${environment.iosBranch}');
+    loggerDebug('androidBranch:${environment.androidBranch}');
+
+    loggerDebug('unityWorkspace:${unityEnvironment.unityWorkspace}');
+    loggerDebug('iosUnityPath:${unityEnvironment.iosUnityPath}');
+    loggerDebug('androidUnityPath:${unityEnvironment.androidUnityPath}');
+    loggerDebug('unityEnginePath:${unityEnvironment.unityEnginePath}');
+
+    loggerDebug('iosHookUrl:${environment.iosHookUrl}');
+    loggerDebug('androidHookUrl:${environment.androidHookUrl}');
+
+    loggerDebug(
+        'appStoreConnectApiKeyFilepath:${environment.appStoreConnectApiKeyFilepath}');
+    loggerDebug(
+        'appStoreConnectApiKeyId:${environment.appStoreConnectApiKeyId}');
+    loggerDebug(
+        'appStoreConnectApiIssuerId:${environment.appStoreConnectApiIssuerId}');
+    loggerDebug('appIdentifier:${environment.appIdentifier}');
+    loggerDebug('appId:${environment.appId}');
+
+    loggerDebug(
+        'databaseId:${environment.appwriteBuildEnvironment.databaseId}');
+    loggerDebug(
+        'collectionId:${environment.appwriteBuildEnvironment.collectionId}');
+    loggerDebug('endpoint:${environment.appwriteBuildEnvironment.endpoint}');
+    loggerDebug('projectId:${environment.appwriteBuildEnvironment.projectId}');
+    loggerDebug('apiKey:${environment.appwriteBuildEnvironment.apiKey}');
+
+    loggerDebug('zealotEndpoint:${environment.zealotEndpoint}');
+    loggerDebug('zealotToken:${environment.zealotToken}');
+    loggerDebug('zealotChannelKey:${environment.zealotChannelKey}');
+
+    loggerDebug('umengAppKey:${environment.umengAppKey}');
+    loggerDebug('umengMessageSecret:${environment.umengMessageSecret}');
+    loggerDebug('umengChannel:${environment.umengChannel}');
+
+    loggerDebug('sentryProject:${environment.sentryProject}');
+    loggerDebug('sentryUrl:${environment.sentryUrl}');
+    loggerDebug('sentryAuthToken:${environment.sentryAuthToken}');
+    loggerDebug('sentryOrg:${environment.sentryOrg}');
+    loggerDebug('sentryDist:${environment.sentryDist}');
+    loggerDebug('tag:${environment.tag}');
 
     buildAppRunner =
         await createBuildAppRunner(appHomeDir, environment.isStore);

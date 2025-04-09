@@ -196,15 +196,18 @@ String readEnv(
   Map<String, String>? environment,
   String? throwMessage,
 }) {
-  environment ??= Platform.environment;
-  if (!environment.keys.contains(envName)) {
+  final readEnv = Platform.environment;
+  if (environment != null) {
+    environment.addAll(readEnv);
+  }
+  if (!readEnv.keys.contains(envName)) {
     String message = "请设置环境变量 【$envName】";
     if (throwMessage != null) {
       message += " $throwMessage";
     }
     throw message;
   }
-  return environment[envName]!;
+  return readEnv[envName]!;
 }
 
 String readAppEnv(String envName, AppHomeDir appHomeDir) {
@@ -227,8 +230,11 @@ String readBuildAppEnv(String envName, AppHomeDir appHomeDir,
 }
 
 void checkEnv(String envName, {Map<String, String>? environment}) {
-  environment ??= Platform.environment;
-  if (!environment.keys.contains(envName)) {
+  final readEnv = Platform.environment;
+  if (environment != null) {
+    environment.addAll(readEnv);
+  }
+  if (!readEnv.keys.contains(envName)) {
     throw "请设置环境变量 【$envName】";
   }
 }
