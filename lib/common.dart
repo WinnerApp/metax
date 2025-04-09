@@ -198,7 +198,7 @@ String readEnv(
 }) {
   final readEnv = Platform.environment;
   if (environment != null) {
-    environment.addAll(readEnv);
+    readEnv.addAll(environment);
   }
   if (!readEnv.keys.contains(envName)) {
     String message = "请设置环境变量 【$envName】";
@@ -232,7 +232,7 @@ String readBuildAppEnv(String envName, AppHomeDir appHomeDir,
 void checkEnv(String envName, {Map<String, String>? environment}) {
   final readEnv = Platform.environment;
   if (environment != null) {
-    environment.addAll(readEnv);
+    readEnv.addAll(environment);
   }
   if (!readEnv.keys.contains(envName)) {
     throw "请设置环境变量 【$envName】";
