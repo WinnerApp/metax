@@ -196,7 +196,7 @@ String readEnv(
   Map<String, String>? environment,
   String? throwMessage,
 }) {
-  final readEnv = Platform.environment;
+  Map<String, String> readEnv = {...Platform.environment};
   if (environment != null) {
     readEnv.addAll(environment);
   }
@@ -230,7 +230,7 @@ String readBuildAppEnv(String envName, AppHomeDir appHomeDir,
 }
 
 void checkEnv(String envName, {Map<String, String>? environment}) {
-  final readEnv = Platform.environment;
+  Map<String, String> readEnv = {...Platform.environment};
   if (environment != null) {
     readEnv.addAll(environment);
   }
