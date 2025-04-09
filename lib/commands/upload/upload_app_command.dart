@@ -267,6 +267,7 @@ $changeLog
         buildType: buildType,
         configuration: 'release',
         isStore: environment.isStore,
+        androidChannel: environment.androidChannel,
       );
     }
 
@@ -488,9 +489,10 @@ $changeLog
     );
 
     loggerDebug('环境变量:${environmentMap.toString()}');
+    String androidChannel = 'Winner';
     String zealotChannelKey = readBuildAppEnv('ZEALOT_CHANNEL_KEY', appHomeDir);
     if (platform == 'android') {
-      if (isStore == '是') {
+      if (isStore == 'true') {
         final zealotChannel = ArgumentGet(argResults).getString(
           'zealotChannel',
           '请选择Zealot渠道',
@@ -506,6 +508,7 @@ $changeLog
             'Samsung',
           ],
         );
+        androidChannel = zealotChannel;
         final keys = {
           'Winner': environmentMap['WINNER_ZEALOT_CHANNEL_KEY']!,
           'Tencent': environmentMap['TENCENT_ZEALOT_CHANNEL_KEY']!,
@@ -537,6 +540,7 @@ $changeLog
       appHomeDir: appHomeDir,
       unityEnvironment: unityEnvironment,
       zealotChannelKey: zealotChannelKey,
+      androidChannel: androidChannel,
     );
   }
 }

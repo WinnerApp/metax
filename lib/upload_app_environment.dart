@@ -18,6 +18,7 @@ class UploadAppEnvironment {
   final String buildNumber;
   final String iosBranch;
   final String androidBranch;
+  final String androidChannel;
 
   final UnityEnvironment unityEnvironment;
 
@@ -64,6 +65,7 @@ class UploadAppEnvironment {
     required this.iosBranch,
     required this.androidBranch,
     required this.zealotChannelKey,
+    required this.androidChannel,
     required AppHomeDir appHomeDir,
   })  : iosHookUrl = readBuildAppEnv('IOS_HOOK_URL', appHomeDir),
         androidHookUrl = readBuildAppEnv('ANDROID_HOOK_URL', appHomeDir),
@@ -103,6 +105,7 @@ class UploadAppEnvironment {
     required AppHomeDir appHomeDir,
     required UnityEnvironment unityEnvironment,
     required String zealotChannelKey,
+    required String androidChannel,
   }) {
     return UploadAppEnvironment(
       platform: platform,
@@ -121,6 +124,7 @@ class UploadAppEnvironment {
       appHomeDir: appHomeDir,
       unityEnvironment: unityEnvironment,
       zealotChannelKey: zealotChannelKey,
+      androidChannel: androidChannel,
     );
   }
 }

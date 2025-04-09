@@ -705,7 +705,7 @@ Future<void> initFlutterEnvironment({
   required String buildType,
   required String configuration,
   required bool isStore,
-  String androidChannel = 'Winner',
+  required String androidChannel,
 }) async {
   await ProcessRunner().runProcess(
     [
