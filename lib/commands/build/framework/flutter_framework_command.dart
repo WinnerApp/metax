@@ -79,7 +79,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
-      forceUpdate: useMock,
+      forceUpdate: !isUseCache,
     );
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {
