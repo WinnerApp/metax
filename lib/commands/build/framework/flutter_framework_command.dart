@@ -136,11 +136,11 @@ project 'Runner', {
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure "flutter pub get" is executed first"
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure \"flutter pub get\" is executed first"
   end
 
   File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT=(.*)/)
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
     return matches[1].strip if matches
   end
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
@@ -227,6 +227,18 @@ post_install do |installer|
   end
 end
 ''');
+      await ProcessRunner().runProcess(
+        [
+          'pod',
+          'install',
+          '--verbose',
+        ],
+        workingDirectory: Directory(join(
+          appHomeDir.flutterDir.path,
+          '.ios',
+        )),
+        printOutput: true,
+      );
       if (configuration == 'debug') {
         /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
         await ProcessRunner().runProcess(
