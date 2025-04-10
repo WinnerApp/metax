@@ -114,9 +114,10 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
 
       loggerDebug('正在修复修复iOS权限错误......');
       final iosPodFile = File(join(
-          appHomeDir.flutterDir.path,
-          '.ios'
-          'Podfile'));
+        appHomeDir.flutterDir.path,
+        '.ios',
+        'Podfile',
+      ));
       if (!iosPodFile.existsSync()) {
         throw Exception('$iosPodFile文件不存在');
       }
