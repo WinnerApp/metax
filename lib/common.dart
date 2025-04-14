@@ -119,27 +119,35 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
   await ProcessRunner().runProcess(
     [
       'git',
-      'fetch',
-      'origin',
-    ],
-    workingDirectory: Directory(workingDirectory),
-    printOutput: true,
-  );
-  await ProcessRunner().runProcess(
-    [
-      'git',
-      'clean',
-      '-df',
-    ],
-    workingDirectory: Directory(workingDirectory),
-    printOutput: true,
-  );
-  await ProcessRunner().runProcess(
-    [
-      'git',
       'reset',
       '--hard',
-      'origin/$switchBranch',
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+  final result = await ProcessRunner().runProcess(
+    [
+      'git',
+      'status',
+      '--porcelain',
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+  final changedPaths =
+      result.stdout.trim().split('\n').map((e) => e.split(' ').last).toList();
+  for (var path in changedPaths) {
+    final file = File(join(workingDirectory, path));
+    if (!file.existsSync()) {
+      throw '文件不存在: ${file.path}';
+    }
+    await file.delete(recursive: true);
+  }
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'fetch',
+      'origin',
     ],
     workingDirectory: Directory(workingDirectory),
     printOutput: true,
