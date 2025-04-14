@@ -137,11 +137,11 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
   final changedPaths =
       result.stdout.trim().split('\n').map((e) => e.split(' ').last).toList();
   for (var path in changedPaths) {
-    final file = File(join(workingDirectory, path));
-    if (!file.existsSync()) {
-      throw '文件不存在: ${file.path}';
+    final filePath = join(workingDirectory, path);
+    if (await FileSystemEntity.isFile(filePath) &&
+        File(filePath).existsSync()) {
+      await File(filePath).delete(recursive: true);
     }
-    await file.delete(recursive: true);
   }
   await ProcessRunner().runProcess(
     [
