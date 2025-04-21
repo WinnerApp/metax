@@ -327,7 +327,9 @@ $changeLog
       org: environment.sentryOrg,
       dist: environment.sentryDist,
       release: environment.buildName,
-    ).run();
+    ).run().catchError((e) {
+      loggerError('上传sentry符号失败:${e.toString()}');
+    });
   }
 
   /// 复制Unity静态库到指定位置
