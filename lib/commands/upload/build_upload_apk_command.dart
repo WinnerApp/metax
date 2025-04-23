@@ -66,23 +66,27 @@ class BuildUploadApkCommand extends UploadAppCommand {
       );
 
   @override
-  Future<void> copyIpaOrApkToBuildDir(UploadAppEnvironment environment) async {
-    final channel = 'AppStore';
+  Future<void> copyIpaOrApkToBuildDir(
+    UploadAppEnvironment environment,
+    String? copyDir,
+  ) async {
+    final channel = environment.androidChannel;
     final buildName = environment.buildName;
     final buildNumber = environment.buildNumber.toString();
-    final copyDir = Directory(join(
-      environment.workspace,
-      'ignore_dir',
-      'android',
-      'apk',
-    ));
+    copyDir = copyDir ??
+        join(
+          environment.workspace,
+          'ignore_dir',
+          'android',
+          'apk',
+        );
 
-    if (!await copyDir.exists()) {
-      await copyDir.create(recursive: true);
+    if (!await Directory(copyDir).exists()) {
+      await Directory(copyDir).create(recursive: true);
     }
     await copyFile(
       File(apkPath),
-      File(join(copyDir.path, '${channel}_${buildName}_$buildNumber.apk')),
+      File(join(copyDir, '${channel}_${buildName}_$buildNumber.apk')),
     );
   }
 

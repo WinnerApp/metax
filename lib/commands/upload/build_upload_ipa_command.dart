@@ -67,22 +67,24 @@ class BuildUploadIpaCommand extends UploadAppCommand {
   @override
   Future<void> copyIpaOrApkToBuildDir(
     UploadAppEnvironment environment,
+    String? copyDir,
   ) async {
     final channel = 'AppStore';
     final buildName = environment.buildName;
     final buildNumber = environment.buildNumber.toString();
-    final copyDir = Directory(join(
-      environment.workspace,
-      'ignore_dir',
-      'ios',
-      'ipa',
-    ));
-    if (!await copyDir.exists()) {
-      await copyDir.create(recursive: true);
+    copyDir = copyDir ??
+        join(
+          environment.workspace,
+          'ignore_dir',
+          'ios',
+          'ipa',
+        );
+    if (!await Directory(copyDir).exists()) {
+      await Directory(copyDir).create(recursive: true);
     }
     await copyFile(
       File(ipaPath),
-      File(join(copyDir.path, '${channel}_${buildName}_$buildNumber.ipa')),
+      File(join(copyDir, '${channel}_${buildName}_$buildNumber.ipa')),
     );
   }
 

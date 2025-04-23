@@ -84,10 +84,16 @@ abstract class UploadAppCommand extends Command {
       allowed: ['true', 'false'],
       defaultsTo: 'true',
     );
+    argParser.addOption(
+      'copyIpaOrApkToBuildDir',
+      help: '复制ipa/apk到指定位置',
+    );
   }
 
   @override
   FutureOr? run() async {
+    String? copyDir = argResults?['copyIpaOrApkToBuildDir'];
+
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     UploadAppEnvironment environment =
         await chooseEnvironment(unityEnvironment);
@@ -281,7 +287,7 @@ $changeLog
     await buildApp();
 
     loggerDebug('开始复制ipa/apk到指定位置');
-    await copyIpaOrApkToBuildDir(environment);
+    await copyIpaOrApkToBuildDir(environment, copyDir);
 
     if (environment.upload) {
       loggerDebug('开始上传ipa/apk......');
@@ -425,7 +431,10 @@ $changeLog
   });
 
   /// 复制ipa/apk到指定位置
-  Future<void> copyIpaOrApkToBuildDir(UploadAppEnvironment environment);
+  Future<void> copyIpaOrApkToBuildDir(
+    UploadAppEnvironment environment,
+    String? copyDir,
+  );
 
   /// 发送日志
   Future<void> sendLog({
