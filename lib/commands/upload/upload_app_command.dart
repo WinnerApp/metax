@@ -69,10 +69,10 @@ abstract class UploadAppCommand extends Command {
       allowed: [
         'Winner',
         'Tencent',
-        'HuaWei',
-        'XiaoMi',
+        'Huawei',
+        'Xiaomi',
         'Oppo',
-        'MeiZu',
+        'Meizu',
         'Vivo',
         'Honor',
         'Samsung'
