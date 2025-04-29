@@ -130,8 +130,10 @@ class UploadAppEnvironment {
 }
 
 String _autoTag(bool isStore) {
-  String? tag = Platform.environment['TAG'];
-  tag ??= isStore ? '[市场包]' : '[测试包]';
+  String? tag = isStore ? '[市场包]' : '[测试包]';
+  if (Platform.environment['TAG'] != null) {
+    tag += '[${Platform.environment['TAG']}]';
+  }
   return tag;
 }
 
