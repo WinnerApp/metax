@@ -206,11 +206,13 @@ abstract class UploadAppCommand extends Command {
         await getCurrentCommitHash(unityProjectWorkspace);
 
     final buildVersionId = await getUnityBuildVersion(unityProjectWorkspace);
-
+    late String appCommitId;
     if (platform == 'ios') {
       await switchBranch(appHomeDir.iosDir.path, environment.iosBranch);
+      appCommitId = await getCurrentCommitHash(appHomeDir.iosDir.path);
     } else {
       await switchBranch(appHomeDir.androidDir.path, environment.androidBranch);
+      appCommitId = await getCurrentCommitHash(appHomeDir.androidDir.path);
     }
 
     loggerDebug('正在获取当前Flutter变更日志');
@@ -238,8 +240,7 @@ $unityChangeLog
     final changeLog = '''
 [Flutter]: ${environment.branch}
 [Unity]: ${environment.unityBranchName}
-[IOS]: ${environment.iosBranch}
-[Android]: ${environment.androidBranch}
+[${environment.platform}]: ${environment.platform == 'ios' ? environment.iosBranch : environment.androidBranch}($appCommitId)
 [Tag]: ${environment.tag}
 [version]: ${environment.buildName}(${environment.buildNumber})
 -----------------------
