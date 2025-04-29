@@ -174,7 +174,7 @@ abstract class UploadAppCommand extends Command {
     String? flutterCommitId = config?['flutter_commit_id'];
 
     /// 上一次Unity打包Commit id
-    String? unityCommitId = config?['unityCommitId'];
+    String? unityCommitId = config?['unity_commit_id'];
 
     /// 上一次编译Unity的Build Version Id
     int? unityBuildVersionId = JSON(config)['build_number'].int;
