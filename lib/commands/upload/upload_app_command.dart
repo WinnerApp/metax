@@ -214,17 +214,27 @@ abstract class UploadAppCommand extends Command {
       await switchBranch(appHomeDir.androidDir.path, environment.androidBranch);
       appCommitId = await getCurrentCommitHash(appHomeDir.androidDir.path);
     }
+    String unityBuildCommitId = unityCurrentCommitId;
+
+    /// 如果最新Unity代码的Build Version ID和上次一样 则使用上次Commit id
+    if (unityBuildVersionId == buildVersionId &&
+        unityCommitId != null &&
+        !environment.forceBuild) {
+      unityBuildCommitId = unityCommitId;
+    }
 
     loggerDebug('正在获取当前Flutter变更日志');
     final flutterChangeLog = await GetGitLog(
       root: appHomeDir.flutterDir.path,
-      beforeCommitId: flutterCommitId,
+      beforeCommitId: flutterCommitId ?? flutterCurrentCommitId,
+      afterCommitId: flutterCurrentCommitId,
     ).get();
 
     loggerDebug('正在获取当前Unity变更日志');
     final unityChangeLog = await GetGitLog(
       root: unityProjectWorkspace,
-      beforeCommitId: unityCommitId,
+      beforeCommitId: unityCommitId ?? unityBuildCommitId,
+      afterCommitId: unityBuildCommitId,
     ).get();
 
     final formatChangeLog = formatGitLog(
@@ -233,13 +243,13 @@ Flutter更新日志:$flutterCurrentCommitId
 $flutterChangeLog
 ''',
       '''
-Unity更新日志:$unityCurrentCommitId
+Unity更新日志:$unityBuildCommitId
 $unityChangeLog
 ''',
     );
     final changeLog = '''
-[Flutter]: ${environment.branch}
-[Unity]: ${environment.unityBranchName}
+[Flutter]: ${environment.branch}($flutterCurrentCommitId)
+[Unity]: ${environment.unityBranchName}($unityBuildCommitId)
 [${environment.platform}]: ${environment.platform == 'ios' ? environment.iosBranch : environment.androidBranch}($appCommitId)
 [Tag]: ${environment.tag}
 [version]: ${environment.buildName}(${environment.buildNumber})
@@ -321,7 +331,7 @@ $changeLog
       unityBranch: environment.unityBranchName,
       buildName: environment.buildName,
       flutterCommitId: flutterCurrentCommitId,
-      unityCommitId: unityCurrentCommitId,
+      unityCommitId: unityBuildCommitId,
       buildNumber: buildVersionId,
     );
 

@@ -1,31 +1,24 @@
 import 'dart:io';
 
-import 'package:meta_tool/common.dart';
 import 'package:process_runner/process_runner.dart';
 
 class GetGitLog {
   final String root;
-  final String? beforeCommitId;
+  final String beforeCommitId;
+  final String afterCommitId;
 
   GetGitLog({
     required this.root,
-    this.beforeCommitId,
+    required this.beforeCommitId,
+    required this.afterCommitId,
   });
 
   Future<String?> get() async {
     late String result;
-    if (beforeCommitId == null) {
-      result = await ProcessRunner().runProcess(
-        ['git', 'log', '-30'],
-        workingDirectory: Directory(root),
-      ).then((value) => value.output);
-    } else {
-      final currentCommitId = await getCurrentCommitHash(root);
-      result = await ProcessRunner().runProcess(
-        ['git', 'log', '$beforeCommitId..$currentCommitId'],
-        workingDirectory: Directory(root),
-      ).then((value) => value.output);
-    }
+    result = await ProcessRunner().runProcess(
+      ['git', 'log', '$beforeCommitId^..$afterCommitId'],
+      workingDirectory: Directory(root),
+    ).then((value) => value.output);
     final messages = <String>[];
     for (var element in result.split('\n')) {
       /// 删除日志左右的空格
