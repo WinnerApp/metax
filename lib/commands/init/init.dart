@@ -3,9 +3,11 @@ import 'package:meta_tool/commands/init/app_environment_command.dart';
 import 'package:meta_tool/commands/init/branch.dart';
 import 'package:meta_tool/commands/init/build_name_number_command.dart';
 import 'package:meta_tool/commands/init/flutter_environment_command.dart';
+import 'package:meta_tool/commands/init/generate_podfile.dart';
 import 'package:meta_tool/commands/init/init_cache.dart';
 import 'package:meta_tool/commands/init/mock_command.dart';
 import 'package:meta_tool/commands/init/project_command.dart';
+import 'package:meta_tool/commands/init/verify_podfile.dart';
 
 class InitCommand extends Command {
   @override
@@ -22,5 +24,7 @@ class InitCommand extends Command {
     addSubcommand(MockCommand());
     addSubcommand(FlutterEnvironmentCommand());
     addSubcommand(BuildNameNumberCommand());
+    addSubcommand(GeneratePodfileCommand());
+    addSubcommand(VerifyPodfileCommand());
   }
 }
