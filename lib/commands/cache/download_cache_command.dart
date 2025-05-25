@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:dart_appwrite/dart_appwrite.dart';
+import 'package:dio/dio.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
@@ -164,32 +166,39 @@ class DownloadCacheCommand extends Command {
     if (!cacheHomeDir.existsSync()) {
       cacheHomeDir.createSync(recursive: true);
     }
-    if (cacheModel == null) {
-      await metaxCache.cacheManager.appendCache(
-        CacheModel(
-          buildPlatform: buildPlatform,
-          buildLibrary: buildLibrary,
-          buildType: buildType,
-          branch: branch,
-          configuration: buildConfiguration,
-          commitHash: commitHash,
-          buildId: buildId,
-          commitTime: DateTime.parse(cacheDocument['commit_time'].toString()),
-        ),
-      );
-      loggerDebug('写入配置到本地!');
-    }
+    await metaxCache.cacheManager.appendCache(
+      CacheModel(
+        buildPlatform: buildPlatform,
+        buildLibrary: buildLibrary,
+        buildType: buildType,
+        branch: branch,
+        configuration: buildConfiguration,
+        commitHash: commitHash,
+        buildId: buildId,
+        commitTime: DateTime.parse(cacheDocument['commit_time'].toString()),
+      ),
+    );
+    loggerDebug('写入配置到本地!');
     if (!await metaxCache.isCacheExists(commitHash)) {
       loggerDebug('下载缓存到本地中，请稍等......');
-      final data = await appwriteServer.downloadFile(
+      final downloadUrl =
+          '${appwriteEnvironment.endpoint}/storage/buckets/${appwriteEnvironment.bucketId}/files/$fileId/view?project=${appwriteEnvironment.projectId}&project=${appwriteEnvironment.projectId}&mode=admin';
+      final fileInfo = await Storage(appwriteServer.client).getFile(
         bucketId: appwriteEnvironment.bucketId,
         fileId: fileId,
       );
-      final file = File(cacheFile);
-      if (!file.existsSync()) {
-        await file.create(recursive: true);
-      }
-      await file.writeAsBytes(data);
+
+      await Dio().download(
+        downloadUrl,
+        cacheFile,
+        onReceiveProgress: (int count, int total) {
+          loggerDebug(
+              '下载缓存中，已下载: ${(count / fileInfo.sizeOriginal * 100).toStringAsFixed(2)}%');
+        },
+      ).catchError((e) {
+        loggerError('下载缓存失败，${e.toString()}');
+        throw e;
+      });
     }
     loggerSuccess('下载缓存成功!');
   }
