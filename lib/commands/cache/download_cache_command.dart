@@ -159,8 +159,8 @@ class DownloadCacheCommand extends Command {
       branch: branch,
       buildId: int.parse(buildId),
     );
-    final cacheModel =
-        await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
+    // final cacheModel =
+    //     await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
     final cacheFile = metaxCache.getZipCachePath(commitHash);
     final cacheHomeDir = Directory(metaxCache.cacheHomeDir);
     if (!cacheHomeDir.existsSync()) {

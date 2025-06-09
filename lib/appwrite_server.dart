@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dart_appwrite/dart_appwrite.dart';
+import 'package:dart_appwrite/models.dart';
 import 'package:meta_tool/common.dart';
 
 class AppwriteServer {
@@ -20,20 +21,20 @@ class AppwriteServer {
   }
 
   /// 获取当前最新分支打包版本配置
-  Future<Map<String, dynamic>?> getCurrentBranchBuildConfig({
+  Future<Document?> getCurrentBranchBuildConfig({
     required String databaseId,
-    required String collectionId,
+    required String buildConfigCollectionId,
     required String platform,
-    required String branch,
+    required String melosBranch,
     required String unityBranch,
     required String buildName,
   }) async {
-    final result = await databases.listDocuments(
+    return databases.listDocuments(
       databaseId: databaseId,
-      collectionId: collectionId,
+      collectionId: buildConfigCollectionId,
       queries: [
         Query.equal('platform', platform),
-        Query.equal('branch', branch),
+        Query.equal('melos_branch', melosBranch),
         Query.equal('unity_branch', unityBranch),
         Query.equal('build_name', buildName),
         Query.orderDesc('\$createdAt'),
@@ -48,35 +49,77 @@ class AppwriteServer {
       loggerError(e.toString());
       return null;
     });
-    return result?.data;
+  }
+
+  /// 查询最新打包相关分支配置
+  Future<DocumentList?> queryBuildBranchConfig({
+    required String databaseId,
+    required String buildBranchConfigCollectionId,
+    required String buildId,
+  }) async {
+    return databases
+        .listDocuments(
+          databaseId: databaseId,
+          collectionId: buildBranchConfigCollectionId,
+          queries: [
+            Query.equal('melos_build_id', buildId),
+            Query.orderDesc('\$createdAt'),
+          ],
+        )
+        .then<DocumentList?>((e) => e)
+        .catchError((e) async {
+          loggerError(e.toString());
+          return null;
+        });
   }
 
   /// 更新打包版本配置
   Future<void> updateBuildConfig({
     required String databaseId,
-    required String collectionId,
+    required String buildConfigCollectionId,
+    required String buildBranchConfigCollectionId,
     required String platform,
-    required String branch,
+    required String melosBranch,
     required String unityBranch,
     required String buildName,
-    required String flutterCommitId,
+    required String unityBuilderVersion,
     required String unityCommitId,
     required int buildNumber,
+    required List<AppwriteBuildBranchConfig> buildBranchConfigs,
   }) async {
-    await databases.createDocument(
+    final document = await databases.createDocument(
       databaseId: databaseId,
-      collectionId: collectionId,
+      collectionId: buildConfigCollectionId,
       documentId: ID.unique(),
       data: {
         'platform': platform,
-        'branch': branch,
+        'melos_branch': melosBranch,
         'unity_branch': unityBranch,
         'build_name': buildName,
-        'flutter_commit_id': flutterCommitId,
+        'unity_build_version': unityBuilderVersion,
         'unity_commit_id': unityCommitId,
         'build_number': buildNumber.toString(),
       },
-    );
+    ).catchError((e) {
+      loggerError(e.toString());
+      throw e;
+    });
+    for (final config in buildBranchConfigs) {
+      await databases.createDocument(
+        databaseId: databaseId,
+        collectionId: buildBranchConfigCollectionId,
+        documentId: ID.unique(),
+        data: {
+          "melos_build_id": document.$id,
+          "path": config.path,
+          "branch": config.branch,
+          "commit_id": config.commitHash,
+        },
+      ).catchError((e) {
+        loggerError(e.toString());
+        throw e;
+      });
+    }
   }
 
   /// 查询缓存列表
@@ -209,4 +252,16 @@ class AppwriteServer {
         await storage.getFileDownload(bucketId: bucketId, fileId: fileId);
     return data;
   }
+}
+
+class AppwriteBuildBranchConfig {
+  final String path;
+  final String branch;
+  final String commitHash;
+
+  AppwriteBuildBranchConfig({
+    required this.path,
+    required this.branch,
+    required this.commitHash,
+  });
 }

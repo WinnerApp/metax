@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:darty_json_safe/darty_json_safe.dart';
+import 'package:dart_appwrite/models.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/get_git_log.dart';
+import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:meta_tool/upload_app_environment.dart';
 import 'package:meta_tool/upload_sentry.dart';
@@ -24,8 +25,8 @@ abstract class UploadAppCommand extends Command {
 
   UploadAppCommand() {
     argParser.addOption(
-      'flutterBranch',
-      help: 'Flutter分支',
+      'branch',
+      help: 'melos分支',
     );
     argParser.addOption(
       'unityBranch',
@@ -34,14 +35,6 @@ abstract class UploadAppCommand extends Command {
     argParser.addOption(
       'buildName',
       help: '打包版本号',
-    );
-    argParser.addOption(
-      'iosBranch',
-      help: 'IOS分支',
-    );
-    argParser.addOption(
-      'androidBranch',
-      help: 'Android分支',
     );
     argParser.addOption(
       'forceBuild',
@@ -101,24 +94,19 @@ abstract class UploadAppCommand extends Command {
     loggerDebug('platform:${environment.platform}');
     loggerDebug('workspace:${environment.workspace}');
     loggerDebug('buildName:${environment.buildName}');
-    loggerDebug('branch:${environment.branch}');
     loggerDebug('forceBuild:${environment.forceBuild}');
+    loggerDebug('melosBranch:${environment.melosBranch}');
     loggerDebug('unityBranchName:${environment.unityBranchName}');
     loggerDebug('upload:${environment.upload}');
     loggerDebug('sendLog:${environment.sendLog}');
     loggerDebug('isStore:${environment.isStore}');
     loggerDebug('buildNumber:${environment.buildNumber}');
-    loggerDebug('iosBranch:${environment.iosBranch}');
-    loggerDebug('androidBranch:${environment.androidBranch}');
-
     loggerDebug('unityWorkspace:${unityEnvironment.unityWorkspace}');
     loggerDebug('iosUnityPath:${unityEnvironment.iosUnityPath}');
     loggerDebug('androidUnityPath:${unityEnvironment.androidUnityPath}');
     loggerDebug('unityEnginePath:${unityEnvironment.unityEnginePath}');
-
     loggerDebug('iosHookUrl:${environment.iosHookUrl}');
     loggerDebug('androidHookUrl:${environment.androidHookUrl}');
-
     loggerDebug(
         'appStoreConnectApiKeyFilepath:${environment.appStoreConnectApiKeyFilepath}');
     loggerDebug(
@@ -127,23 +115,19 @@ abstract class UploadAppCommand extends Command {
         'appStoreConnectApiIssuerId:${environment.appStoreConnectApiIssuerId}');
     loggerDebug('appIdentifier:${environment.appIdentifier}');
     loggerDebug('appId:${environment.appId}');
-
     loggerDebug(
         'databaseId:${environment.appwriteBuildEnvironment.databaseId}');
     loggerDebug(
-        'collectionId:${environment.appwriteBuildEnvironment.collectionId}');
+        'collectionId:${environment.appwriteBuildEnvironment.buildConfigCollectionId}');
     loggerDebug('endpoint:${environment.appwriteBuildEnvironment.endpoint}');
     loggerDebug('projectId:${environment.appwriteBuildEnvironment.projectId}');
     loggerDebug('apiKey:${environment.appwriteBuildEnvironment.apiKey}');
-
     loggerDebug('zealotEndpoint:${environment.zealotEndpoint}');
     loggerDebug('zealotToken:${environment.zealotToken}');
     loggerDebug('zealotChannelKey:${environment.zealotChannelKey}');
-
     loggerDebug('umengAppKey:${environment.umengAppKey}');
     loggerDebug('umengMessageSecret:${environment.umengMessageSecret}');
     loggerDebug('umengChannel:${environment.umengChannel}');
-
     loggerDebug('sentryProject:${environment.sentryProject}');
     loggerDebug('sentryUrl:${environment.sentryUrl}');
     loggerDebug('sentryAuthToken:${environment.sentryAuthToken}');
@@ -151,8 +135,16 @@ abstract class UploadAppCommand extends Command {
     loggerDebug('sentryDist:${environment.sentryDist}');
     loggerDebug('tag:${environment.tag}');
 
-    buildAppRunner =
-        await createBuildAppRunner(appHomeDir, environment.isStore);
+    /// Flutter是否需要打包
+    bool isFlutterBuild = false;
+
+    /// Unity是否需要打包
+    bool isUnityBuild = false;
+
+    buildAppRunner = await createBuildAppRunner(
+      appHomeDir,
+      environment.isStore,
+    );
 
     appwriteServer = AppwriteServer(
       endpoint: environment.appwriteBuildEnvironment.endpoint,
@@ -160,97 +152,165 @@ abstract class UploadAppCommand extends Command {
       apiKey: environment.appwriteBuildEnvironment.apiKey,
     );
 
+    await switchBranch(appHomeDir.workspace, environment.melosBranch);
+
+    /// 将当前项目进行初始化
+    /// 1. 更新最新的Git submodule
+    await buildAppRunner.runProcess(
+      [
+        'bash',
+        "init_git_submodule.sh",
+      ],
+      workingDirectory: Directory(environment.workspace),
+      printOutput: true,
+    );
+
+    /// 2 分析出当前项目的submodule
+    final gitSubmodulePath = join(environment.workspace, '.gitmodules');
+    final gitSubmodules = await parseGitmodulesFile(gitSubmodulePath);
+
+    /// 得到最新melos工程的分支
+    final melosBranch = await getCurrentBranch(environment.workspace);
+
+    /// 查询最新的打包配置
     /// 查询最新的打包版本配置
     final config = await appwriteServer.getCurrentBranchBuildConfig(
       databaseId: environment.appwriteBuildEnvironment.databaseId,
-      collectionId: environment.appwriteBuildEnvironment.collectionId,
+      buildConfigCollectionId:
+          environment.appwriteBuildEnvironment.buildConfigCollectionId,
       platform: environment.platform,
-      branch: environment.branch,
-      unityBranch: environment.unityBranchName,
       buildName: environment.buildName,
+      melosBranch: melosBranch,
+      unityBranch: environment.unityBranchName,
     );
 
-    /// 上一次Flutter打包Commit id
-    String? flutterCommitId = config?['flutter_commit_id'];
+    /// 上一次打包Unity工程的Commit id
+    String? buildUnityCommitId = config?.data['unity_commit_id'];
 
-    /// 上一次Unity打包Commit id
-    String? unityCommitId = config?['unity_commit_id'];
+    /// 上一次打包Unity工程的Build Version Id
+    String? buildUnityBuildVersionId = config?.data['unity_build_version'];
 
-    /// 上一次编译Unity的Build Version Id
-    int? unityBuildVersionId = JSON(config)['build_number'].int;
+    /// 本地打包的Flutter Git更新日志
+    StringBuffer flutterLogBuffer = StringBuffer();
 
-    /// 将Flutter工程切换分支到代码最新
-    await switchBranch(
-      appHomeDir.flutterDir.path,
-      environment.branch,
-    );
+    /// 本地打包的Unity Git更新日志
+    StringBuffer unityLogBuffer = StringBuffer();
 
-    /// 获取当前Flutter工程的Commit id
-    final flutterCurrentCommitId =
-        await getCurrentCommitHash(appHomeDir.flutterDir.path);
-    late String unityProjectWorkspace;
-    if (platform == 'ios') {
-      unityProjectWorkspace = unityEnvironment.iosUnityWorkspace;
-    } else {
-      unityProjectWorkspace = unityEnvironment.androidUnityWorkspace;
-    }
+    /// 更新Unity工程并且获取Unity的更新日志
+    String unityWorkspace = switch (environment.platform) {
+      'ios' => unityEnvironment.iosUnityWorkspace,
+      'android' => unityEnvironment.androidUnityWorkspace,
+      _ => throw Exception('不支持的平台'),
+    };
 
-    /// 将Unity工程切换分支到代码最新
-    await switchBranch(
-      unityProjectWorkspace,
-      environment.unityBranchName,
-    );
+    /// 切换Unity为对应分支
+    await switchBranch(unityWorkspace, environment.unityBranchName);
 
     /// 获取当前Unity工程的Commit id
-    final unityCurrentCommitId =
-        await getCurrentCommitHash(unityProjectWorkspace);
+    final currentUnityCommitId = await getCurrentCommitHash(unityWorkspace);
 
-    final buildVersionId = await getUnityBuildVersion(unityProjectWorkspace);
-    late String appCommitId;
-    if (platform == 'ios') {
-      await switchBranch(appHomeDir.iosDir.path, environment.iosBranch);
-      appCommitId = await getCurrentCommitHash(appHomeDir.iosDir.path);
+    /// 获取当前的Build Version Id
+    final currentUnityBuildVersionId =
+        await getUnityBuildVersion(unityWorkspace);
+
+    /// 最新打包Unity工程的Commit id
+    String afterCommitId = currentUnityCommitId;
+
+    /// 如果build version没有发生变化 则使用之前的commit id
+    if (buildUnityBuildVersionId == "$currentUnityBuildVersionId") {
+      afterCommitId = buildUnityCommitId ?? currentUnityCommitId;
     } else {
-      await switchBranch(appHomeDir.androidDir.path, environment.androidBranch);
-      appCommitId = await getCurrentCommitHash(appHomeDir.androidDir.path);
-    }
-    String unityBuildCommitId = unityCurrentCommitId;
-
-    /// 如果最新Unity代码的Build Version ID和上次一样 则使用上次Commit id
-    if (unityBuildVersionId == buildVersionId &&
-        unityCommitId != null &&
-        !environment.forceBuild) {
-      unityBuildCommitId = unityCommitId;
+      isUnityBuild = true;
     }
 
-    loggerDebug('正在获取当前Flutter变更日志');
-    final flutterChangeLog = await GetGitLog(
-      root: appHomeDir.flutterDir.path,
-      beforeCommitId: flutterCommitId ?? flutterCurrentCommitId,
-      afterCommitId: flutterCurrentCommitId,
-    ).get();
-
-    loggerDebug('正在获取当前Unity变更日志');
+    /// 获取当前Unity工程的变更日志
     final unityChangeLog = await GetGitLog(
-      root: unityProjectWorkspace,
-      beforeCommitId: unityCommitId ?? unityBuildCommitId,
-      afterCommitId: unityBuildCommitId,
+      root: unityWorkspace,
+      beforeCommitId: buildUnityCommitId ?? currentUnityCommitId,
+      afterCommitId: afterCommitId,
     ).get();
+
+    unityLogBuffer.writeln('''
+[Unity][${environment.unityBranchName}][$currentUnityCommitId]:
+$unityChangeLog
+
+''');
+
+    /// 上一次打包Flutter模块的分支和节点配置
+    DocumentList? buildBranchConfig;
+
+    if (config != null) {
+      buildBranchConfig = await appwriteServer.queryBuildBranchConfig(
+        databaseId: environment.appwriteBuildEnvironment.databaseId,
+        buildBranchConfigCollectionId:
+            environment.appwriteBuildEnvironment.buildBranchConfigCollectionId,
+        buildId: config.$id,
+      );
+    }
+
+    /// 将submodule代码切换到对应的分支（可能存在多余）
+    for (var submodule in gitSubmodules) {
+      final branch = submodule.branch;
+      final path = submodule.path;
+      final name = submodule.name;
+      if (name == null) {
+        throw Exception("submodule name is null");
+      }
+      if (branch == null) {
+        throw Exception("[${submodule.name}]submodule branch is null");
+      }
+      if (path == null) {
+        throw Exception("[${submodule.name}]submodule path is null");
+      }
+      final submodulePath = join(environment.workspace, path);
+      await switchBranch(submodulePath, branch);
+
+      /// 获取之前打包的Commit id
+      String? buildCommitId;
+      if (buildBranchConfig != null) {
+        final buildBranchConfigData = buildBranchConfig.documents
+            .where((element) => element.data['path'] == path)
+            .where((element) => element.data['branch'] == branch)
+            .lastOrNull;
+        buildCommitId = buildBranchConfigData?.data['commit_id'];
+      }
+
+      /// 获取当前submodule的Commit id
+      final currentCommitId = await getCurrentCommitHash(submodulePath);
+
+      /// 获取当前submodule的变更日志
+      final changeLog = await GetGitLog(
+        root: submodulePath,
+        beforeCommitId: buildCommitId ?? currentCommitId,
+        afterCommitId: currentCommitId,
+      ).get();
+
+      flutterLogBuffer.writeln('''
+[$name][$branch][$currentCommitId]:
+$changeLog
+
+''');
+
+      if (buildCommitId != currentCommitId) {
+        isFlutterBuild = true;
+      }
+    }
+
+    /// 执行melos bootstrap
+    await buildAppRunner.runProcess(
+      [
+        'melos',
+        "bootstrap",
+      ],
+      workingDirectory: Directory(environment.workspace),
+      printOutput: true,
+    );
 
     final formatChangeLog = formatGitLog(
-      '''
-Flutter更新日志:$flutterCurrentCommitId
-$flutterChangeLog
-''',
-      '''
-Unity更新日志:$unityBuildCommitId
-$unityChangeLog
-''',
+      flutterLogBuffer.toString(),
+      unityLogBuffer.toString(),
     );
     final changeLog = '''
-[Flutter]: ${environment.branch}($flutterCurrentCommitId)
-[Unity]: ${environment.unityBranchName}($unityBuildCommitId)
-[${environment.platform}]: ${environment.platform == 'ios' ? environment.iosBranch : environment.androidBranch}($appCommitId)
 [Tag]: ${environment.tag}
 [version]: ${environment.buildName}(${environment.buildNumber})
 -----------------------
@@ -262,18 +322,24 @@ $formatChangeLog
 $changeLog
 ''');
 
-    if (flutterCommitId == flutterCurrentCommitId &&
-        unityBuildVersionId == buildVersionId &&
-        !environment.forceBuild) {
+    if (!isFlutterBuild && isUnityBuild && !environment.forceBuild) {
       loggerSuccess('检测当前打包版本和上次打包版本一致，不需要进行打包！如果强制打包请设置FORCE_BUILD=true');
       return;
     }
 
     loggerDebug('开始复制Unity静态库到指定位置');
-    await copyUnityStaticLibrary(buildVersionId, environment);
+    await copyUnityStaticLibrary(currentUnityBuildVersionId, environment);
+
+    final flutterCurrentCommitId = await getCurrentCommitHash(
+      join(environment.workspace, 'metaapp_flutter'),
+    );
+    final flutterBranch = await getCurrentBranch(
+      join(environment.workspace, 'metaapp_flutter'),
+    );
 
     loggerDebug('开始复制Flutter静态库到指定位置');
-    await copyFlutterStaticLibrary(flutterCurrentCommitId, environment);
+    await copyFlutterStaticLibrary(
+        flutterCurrentCommitId, environment, isFlutterBuild, flutterBranch);
 
     final isInitFlutterEnvironment =
         argResults?['initFlutterEnvironment'] == 'true';
@@ -303,14 +369,9 @@ $changeLog
     if (environment.upload) {
       loggerDebug('开始上传ipa/apk......');
       final uploadLog =
-          '[Tag:${environment.tag}][Flutter(${environment.branch})][Unity(${environment.unityBranchName})] ';
-      String platformBranch = switch (environment.platform) {
-        'ios' => '[IOS:${environment.iosBranch}]',
-        'android' => '[Android:${environment.androidBranch}]',
-        _ => '',
-      };
+          '[Tag:${environment.tag}][Flutter($melosBranch)][Unity(${environment.unityBranchName})] ';
       await uploadApp(
-        log: '$uploadLog $platformBranch 新版本发布了，请下载体验!',
+        log: '$uploadLog 新版本发布了，请下载体验!',
         environment: environment,
       );
     }
@@ -325,14 +386,18 @@ $changeLog
     /// 更新配置
     await appwriteServer.updateBuildConfig(
       databaseId: environment.appwriteBuildEnvironment.databaseId,
-      collectionId: environment.appwriteBuildEnvironment.collectionId,
+      buildConfigCollectionId:
+          environment.appwriteBuildEnvironment.buildConfigCollectionId,
+      buildBranchConfigCollectionId:
+          environment.appwriteBuildEnvironment.buildBranchConfigCollectionId,
       platform: environment.platform,
-      branch: environment.branch,
-      unityBranch: environment.unityBranchName,
       buildName: environment.buildName,
-      flutterCommitId: flutterCurrentCommitId,
-      unityCommitId: unityBuildCommitId,
-      buildNumber: buildVersionId,
+      melosBranch: melosBranch,
+      unityBranch: environment.unityBranchName,
+      unityCommitId: afterCommitId,
+      buildNumber: int.parse(environment.buildNumber),
+      unityBuilderVersion: '',
+      buildBranchConfigs: [],
     );
 
     /// 上传sentry符号
@@ -391,6 +456,8 @@ $changeLog
   Future<void> copyFlutterStaticLibrary(
     String commitHash,
     UploadAppEnvironment environment,
+    bool needUpdateCache,
+    String flutterBranch,
   ) async {
     final cacheDir = switch (environment.platform) {
       'ios' => Directory(join(
@@ -422,11 +489,11 @@ $changeLog
         '--buildType',
         buildType,
         '--branch',
-        environment.branch,
+        flutterBranch,
         '--commitHash',
         commitHash,
         getUseMockCommand(),
-        isUseCache ? '--isUseCache' : '--no-isUseCache',
+        isUseCache && !needUpdateCache ? '--isUseCache' : '--no-isUseCache',
       ],
       printOutput: true,
     );
@@ -456,12 +523,12 @@ $changeLog
   /// 通过交互获取环境变量
   Future<UploadAppEnvironment> chooseEnvironment(
       UnityEnvironment unityEnvironment) async {
-    final buildName = ArgumentGet(argResults).getString('buildName', '请输入版本号');
-    final flutterBranch = ArgumentGet(argResults).getString(
-      'flutterBranch',
-      '请输入Flutter分支',
-      allowed: await getLatestBranchList(appHomeDir.flutterDir.path),
+    final melosBranch = ArgumentGet(argResults).getString(
+      'branch',
+      '请选择Melos分支',
+      allowed: await getLatestBranchList(appHomeDir.workspace),
     );
+    final buildName = ArgumentGet(argResults).getString('buildName', '请输入版本号');
     final unityBranch = ArgumentGet(argResults).getString(
       'unityBranch',
       '请选择Unity分支',
@@ -469,21 +536,6 @@ $changeLog
         unityEnvironment.getPlatfromUnityWorkspace(platform),
       ),
     );
-    String? iosBranch;
-    String? androidBranch;
-    if (platform == 'ios') {
-      iosBranch = ArgumentGet(argResults).getString(
-        'iosBranch',
-        '请选择IOS分支',
-        allowed: await getLatestBranchList(appHomeDir.iosDir.path),
-      );
-    } else {
-      androidBranch = ArgumentGet(argResults).getString(
-        'androidBranch',
-        '请选择Android分支',
-        allowed: await getLatestBranchList(appHomeDir.androidDir.path),
-      );
-    }
     final forceBuild = ArgumentGet(argResults).getString(
       'forceBuild',
       '是否强制打包?',
@@ -551,14 +603,12 @@ $changeLog
       platform: platform,
       workspace: appHomeDir.workspace,
       buildName: buildName,
-      branch: flutterBranch,
       forceBuild: forceBuild == 'true',
+      melosBranch: melosBranch,
       unityBranchName: unityBranch,
       upload: upload == 'true',
       sendLog: sendLog == 'true',
       isStore: isStore == 'true',
-      iosBranch: iosBranch ?? '',
-      androidBranch: androidBranch ?? '',
       appHomeDir: appHomeDir,
       unityEnvironment: unityEnvironment,
       zealotChannelKey: zealotChannelKey,

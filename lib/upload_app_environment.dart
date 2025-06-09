@@ -9,44 +9,34 @@ class UploadAppEnvironment {
   final String platform;
   final String workspace;
   final String buildName;
-  final String branch;
   final bool forceBuild;
+  final String melosBranch;
   final String unityBranchName;
   final bool upload;
   final bool sendLog;
   final bool isStore;
   final String buildNumber;
-  final String iosBranch;
-  final String androidBranch;
   final String androidChannel;
-
   final UnityEnvironment unityEnvironment;
-
   final String iosHookUrl;
   final String androidHookUrl;
-
   final String appStoreConnectApiKeyFilepath;
   final String appStoreConnectApiKeyId;
   final String appStoreConnectApiIssuerId;
   final String appIdentifier;
   final String appId;
-
   final AppwriteBuildEnvironment appwriteBuildEnvironment;
-
   final String sentryUrl;
   final String sentryAuthToken;
   final String sentryOrg;
   final String sentryProject;
   final String sentryDist;
-
   final String zealotEndpoint;
   final String zealotToken;
   final String zealotChannelKey;
-
   final String umengAppKey;
   final String umengMessageSecret;
   final String umengChannel;
-
   final String tag;
 
   UploadAppEnvironment({
@@ -54,16 +44,14 @@ class UploadAppEnvironment {
     required this.platform,
     required this.workspace,
     required this.buildName,
-    required this.branch,
     required this.forceBuild,
+    required this.melosBranch,
     required this.unityBranchName,
     required this.upload,
     required this.sendLog,
     required this.isStore,
     required this.tag,
     required this.buildNumber,
-    required this.iosBranch,
-    required this.androidBranch,
     required this.zealotChannelKey,
     required this.androidChannel,
     required AppHomeDir appHomeDir,
@@ -94,10 +82,8 @@ class UploadAppEnvironment {
     required String platform,
     required String workspace,
     required String buildName,
-    required String branch,
-    required String iosBranch,
-    required String androidBranch,
     required bool forceBuild,
+    required String melosBranch,
     required String unityBranchName,
     required bool upload,
     required bool sendLog,
@@ -111,16 +97,14 @@ class UploadAppEnvironment {
       platform: platform,
       workspace: workspace,
       buildName: buildName,
-      branch: branch,
       forceBuild: forceBuild,
+      melosBranch: melosBranch,
       unityBranchName: unityBranchName,
       upload: upload,
       sendLog: sendLog,
       isStore: isStore,
       tag: _autoTag(isStore),
       buildNumber: _autoBuildNumber(),
-      iosBranch: iosBranch,
-      androidBranch: androidBranch,
       appHomeDir: appHomeDir,
       unityEnvironment: unityEnvironment,
       zealotChannelKey: zealotChannelKey,

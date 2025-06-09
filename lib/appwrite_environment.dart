@@ -29,10 +29,18 @@ class AppwriteCacheEnvironment extends AppwriteEnvironment {
 
 class AppwriteBuildEnvironment extends AppwriteEnvironment {
   late String databaseId;
-  late String collectionId;
+  late String buildConfigCollectionId;
+  late String buildBranchConfigCollectionId;
 
   AppwriteBuildEnvironment(super.appHomeDir) {
     databaseId = readAppEnv('APPWRITE_BUILD_DATABASE_ID', appHomeDir);
-    collectionId = readAppEnv('APPWRITE_BUILD_COLLECTION_ID', appHomeDir);
+    buildConfigCollectionId = readAppEnv(
+      'APPWRITE_BUILD_COLLECTION_ID',
+      appHomeDir,
+    );
+    buildBranchConfigCollectionId = readAppEnv(
+      'APPWRITE_BUILD_BRANCH_COLLECTION_ID',
+      appHomeDir,
+    );
   }
 }
