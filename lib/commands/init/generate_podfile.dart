@@ -56,17 +56,17 @@ class GeneratePodfileCommand extends Command {
     }
 
     List<String> newFlutterPodsTexts = [
-      '  # [flutter_pod_gen_start]',
-      "  flutter_build_mode = ENV['CONFIGURATION'] || 'Debug'",
-      '  flutter_path = "./frameworks/flutter/#{flutter_build_mode}"',
-      '  puts "当前依赖Flutter模块静态库路径#{flutter_path}"',
+      '    # [flutter_pod_gen_start]',
+      "    flutter_build_mode = ENV['CONFIGURATION'] || 'Debug'",
+      '    flutter_path = "./frameworks/flutter/#{flutter_build_mode}"',
+      '    puts "当前依赖Flutter模块静态库路径#{flutter_path}"',
       ...podNames.map((e) {
         if (e == 'Flutter') {
-          return "  pod '$e', :podspec => \"#{flutter_path}\"";
+          return "    pod '$e', :podspec => \"#{flutter_path}\"";
         }
-        return "  pod '$e', :path => \"#{flutter_path}\"";
+        return "    pod '$e', :path => \"#{flutter_path}\"";
       }),
-      '  # [flutter_pod_gen_end]',
+      '    # [flutter_pod_gen_end]',
     ];
     final lines = [
       ...startTexts,

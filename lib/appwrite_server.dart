@@ -98,6 +98,7 @@ class AppwriteServer {
         Query.equal('configuration', buildConfiguration),
         Query.equal('library', buildLibrary),
         Query.equal('type', buildType),
+        Query.orderDesc('\$createdAt'),
       ],
     ).then((e) {
       return e.documents.map((e) => e.data).toList();
