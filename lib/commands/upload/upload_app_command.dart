@@ -234,7 +234,6 @@ abstract class UploadAppCommand extends Command {
     unityLogBuffer.writeln('''
 [Unity][${environment.unityBranchName}][$currentUnityCommitId]:
 $unityChangeLog
-
 ''');
 
     /// 上一次打包Flutter模块的分支和节点配置
@@ -289,7 +288,6 @@ $unityChangeLog
       flutterLogBuffer.writeln('''
 [$name][$branch][$currentCommitId]:
 $changeLog
-
 ''');
 
       if (buildCommitId != currentCommitId) {
