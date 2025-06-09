@@ -140,6 +140,7 @@ abstract class UploadAppCommand extends Command {
 
     /// Unity是否需要打包
     bool isUnityBuild = false;
+    List<AppwriteBuildBranchConfig> buildBranchConfigs = [];
 
     buildAppRunner = await createBuildAppRunner(
       appHomeDir,
@@ -294,6 +295,12 @@ $changeLog
       if (buildCommitId != currentCommitId) {
         isFlutterBuild = true;
       }
+
+      buildBranchConfigs.add(AppwriteBuildBranchConfig(
+        path: path,
+        branch: branch,
+        commitHash: currentCommitId,
+      ));
     }
 
     /// 执行melos bootstrap
@@ -322,7 +329,9 @@ $formatChangeLog
 $changeLog
 ''');
 
-    if (!isFlutterBuild && isUnityBuild && !environment.forceBuild) {
+    loggerDebug(
+        '[isFlutterBuild:$isFlutterBuild][isUnityBuild:$isUnityBuild][forceBuild:${environment.forceBuild}]');
+    if (!isFlutterBuild && !isUnityBuild && !environment.forceBuild) {
       loggerSuccess('检测当前打包版本和上次打包版本一致，不需要进行打包！如果强制打包请设置FORCE_BUILD=true');
       return;
     }
@@ -396,8 +405,8 @@ $changeLog
       unityBranch: environment.unityBranchName,
       unityCommitId: afterCommitId,
       buildNumber: int.parse(environment.buildNumber),
-      unityBuilderVersion: '',
-      buildBranchConfigs: [],
+      unityBuilderVersion: currentUnityBuildVersionId.toString(),
+      buildBranchConfigs: buildBranchConfigs,
     );
 
     /// 上传sentry符号

@@ -26,7 +26,7 @@ class VerifyPodfileCommand extends Command {
       enviroment,
     ));
     if (!frameworksDir.existsSync()) {
-      throw Exception('Flutter 框架目录不存在');
+      throw Exception("${frameworksDir.path} 不存在");
     }
     List<String> podNames = [];
     for (final file in frameworksDir.listSync()) {
