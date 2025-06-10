@@ -342,7 +342,6 @@ $formatChangeLog
 当前的打包更新日志为:
 $changeLog
 ''');
-    return;
 
     loggerDebug(
         '[isFlutterBuild:$isFlutterBuild][isUnityBuild:$isUnityBuild][forceBuild:${environment.forceBuild}]');
