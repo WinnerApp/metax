@@ -227,7 +227,7 @@ abstract class UploadAppCommand extends Command {
     /// 获取当前Unity工程的变更日志
     final unityChangeLog = await GetGitLog(
       root: unityWorkspace,
-      beforeCommitId: buildUnityCommitId ?? currentUnityCommitId,
+      beforeCommitId: buildUnityCommitId,
       afterCommitId: afterCommitId,
     ).get();
 
@@ -281,7 +281,7 @@ $unityChangeLog
       /// 获取当前submodule的变更日志
       final changeLog = await GetGitLog(
         root: submodulePath,
-        beforeCommitId: buildCommitId ?? currentCommitId,
+        beforeCommitId: buildCommitId,
         afterCommitId: currentCommitId,
       ).get();
 
