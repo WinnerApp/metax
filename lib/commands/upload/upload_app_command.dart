@@ -185,6 +185,8 @@ abstract class UploadAppCommand extends Command {
       unityBranch: environment.unityBranchName,
     );
 
+    loggerDebug('config:${config?.data}');
+
     /// 上一次打包Unity工程的Commit id
     String? buildUnityCommitId = config?.data['unity_commit_id'];
 
@@ -231,9 +233,17 @@ abstract class UploadAppCommand extends Command {
       afterCommitId: afterCommitId,
     ).get();
 
+    String lineText = "----------------------------------------";
+
     unityLogBuffer.writeln('''
-[Unity][${environment.unityBranchName}][$currentUnityCommitId]:
-$unityChangeLog
+$lineText
+[Unity][${environment.unityBranchName}][$currentUnityCommitId]
+''');
+    if (unityChangeLog != null) {
+      unityLogBuffer.writeln(unityChangeLog);
+    }
+    unityLogBuffer.writeln('''
+$lineText
 ''');
 
     /// 上一次打包Flutter模块的分支和节点配置
@@ -246,6 +256,8 @@ $unityChangeLog
             environment.appwriteBuildEnvironment.buildBranchConfigCollectionId,
         buildId: config.$id,
       );
+      loggerDebug(
+          'buildBranchConfig:${buildBranchConfig?.documents.map((e) => e.data)}');
     }
 
     /// 将submodule代码切换到对应的分支（可能存在多余）
@@ -286,8 +298,14 @@ $unityChangeLog
       ).get();
 
       flutterLogBuffer.writeln('''
-[$name][$branch][$currentCommitId]:
-$changeLog
+$lineText
+[$name][$branch][$currentCommitId]
+''');
+      if (changeLog != null) {
+        flutterLogBuffer.writeln(changeLog);
+      }
+      flutterLogBuffer.writeln('''
+$lineText
 ''');
 
       if (buildCommitId != currentCommitId) {
@@ -318,14 +336,13 @@ $changeLog
     final changeLog = '''
 [Tag]: ${environment.tag}
 [version]: ${environment.buildName}(${environment.buildNumber})
------------------------
 $formatChangeLog
------------------------
 ''';
     loggerWarning('''
 当前的打包更新日志为:
 $changeLog
 ''');
+    return;
 
     loggerDebug(
         '[isFlutterBuild:$isFlutterBuild][isUnityBuild:$isUnityBuild][forceBuild:${environment.forceBuild}]');
