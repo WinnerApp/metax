@@ -121,6 +121,18 @@ class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
       throw Exception('本地不存在该配置的缓存！');
     }
 
+    final buildVersions =
+        cacheModels.map((e) => int.parse(e.buildId)).toSet().toList();
+    buildVersions.sort((a, b) => b.compareTo(a));
+    if (buildVersions.length > 1) {
+      final buildId = prompts.choose('请选择版本:', buildVersions);
+      cacheModels =
+          cacheModels.where((e) => e.buildId == buildId.toString()).toList();
+    }
+    if (cacheModels.isEmpty) {
+      throw Exception('本地不存在该配置的缓存');
+    }
+
     final cacheModel = cacheModels.last;
 
     await useLocalCache(
