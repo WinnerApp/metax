@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' as io;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_appwrite/models.dart';
@@ -135,6 +135,27 @@ abstract class UploadAppCommand extends Command {
     loggerDebug('sentryDist:${environment.sentryDist}');
     loggerDebug('tag:${environment.tag}');
 
+    /// 如果当前是打 apk则设置 Umeng 的变量
+    if (platform == 'android') {
+      final localPropertyFile =
+          io.File(join(appHomeDir.androidDir.path, 'local.properties'));
+      await writeEnvironmentValueInFile(
+        localPropertyFile.path,
+        'UMENG_APPKEY',
+        environment.umengAppKey,
+      );
+      await writeEnvironmentValueInFile(
+        localPropertyFile.path,
+        'UMENG_MESSAGE_SECRET',
+        environment.umengMessageSecret,
+      );
+      await writeEnvironmentValueInFile(
+        localPropertyFile.path,
+        'UMENG_CHANNEL',
+        environment.umengChannel,
+      );
+    }
+
     /// Flutter是否需要打包
     bool isFlutterBuild = false;
 
@@ -162,7 +183,7 @@ abstract class UploadAppCommand extends Command {
         'bash',
         "init_git_submodule.sh",
       ],
-      workingDirectory: Directory(environment.workspace),
+      workingDirectory: io.Directory(environment.workspace),
       printOutput: true,
     );
 
@@ -325,7 +346,7 @@ $lineText
         'melos',
         "bootstrap",
       ],
-      workingDirectory: Directory(environment.workspace),
+      workingDirectory: io.Directory(environment.workspace),
       printOutput: true,
     );
 
@@ -444,8 +465,10 @@ $changeLog
 
     /// 删除之前的缓存
     final cacheDir = switch (environment.platform) {
-      'ios' => Directory(join(appHomeDir.iosDir.path, 'frameworks', 'unity')),
-      'android' => Directory(join(appHomeDir.androidDir.path, 'aar', 'unity')),
+      'ios' =>
+        io.Directory(join(appHomeDir.iosDir.path, 'frameworks', 'unity')),
+      'android' =>
+        io.Directory(join(appHomeDir.androidDir.path, 'aar', 'unity')),
       _ => throw Exception('不支持的平台:${environment.platform}')
     };
     if (cacheDir.existsSync()) {
@@ -483,12 +506,12 @@ $changeLog
     String flutterBranch,
   ) async {
     final cacheDir = switch (environment.platform) {
-      'ios' => Directory(join(
+      'ios' => io.Directory(join(
           appHomeDir.iosDir.path,
           'frameworks',
           'flutter',
         )),
-      'android' => Directory(join(
+      'android' => io.Directory(join(
           appHomeDir.androidDir.path,
           'aar',
           'flutter',
