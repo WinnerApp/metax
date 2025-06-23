@@ -523,6 +523,7 @@ Future<void> writeEnvironmentValueInFile(
   String key,
   String value,
 ) async {
+  loggerDebug('writeEnvironmentValueInFile:$filePath $key=$value');
   final file = File(filePath);
   final environmentContent = '$key=$value';
   if (!await file.exists()) {
@@ -535,6 +536,9 @@ Future<void> writeEnvironmentValueInFile(
           }
           return e;
         }).toList());
+    if (!contents.contains(environmentContent)) {
+      contents.add(environmentContent);
+    }
     await file.writeAsString(contents.join('\n'));
   }
 }
