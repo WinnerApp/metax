@@ -227,9 +227,13 @@ String readAppEnv(String envName, AppHomeDir appHomeDir) {
   );
 }
 
-String readBuildAppEnv(String envName, AppHomeDir appHomeDir,
-    {Map<String, String>? environment}) {
-  environment ??= loadBuildAppEnvironment(appHomeDir, false);
+String readBuildAppEnv(
+  String envName,
+  AppHomeDir appHomeDir, {
+  Map<String, String>? environment,
+  bool isStore = false,
+}) {
+  environment ??= loadBuildAppEnvironment(appHomeDir, isStore);
   return readEnv(
     envName,
     environment: environment,

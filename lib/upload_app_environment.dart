@@ -55,28 +55,46 @@ class UploadAppEnvironment {
     required this.zealotChannelKey,
     required this.androidChannel,
     required AppHomeDir appHomeDir,
-  })  : iosHookUrl = readBuildAppEnv('IOS_HOOK_URL', appHomeDir),
-        androidHookUrl = readBuildAppEnv('ANDROID_HOOK_URL', appHomeDir),
-        appStoreConnectApiKeyFilepath =
-            readBuildAppEnv('APP_STORE_CONNECT_API_KEY_FILEPATH', appHomeDir),
-        appStoreConnectApiKeyId =
-            readBuildAppEnv('APP_STORE_CONNECT_API_KEY_ID', appHomeDir),
-        appStoreConnectApiIssuerId =
-            readBuildAppEnv('APP_STORE_CONNECT_API_ISSUER_ID', appHomeDir),
-        appIdentifier = readBuildAppEnv('APP_IDENTIFIER', appHomeDir),
-        appId = readBuildAppEnv('APP_ID', appHomeDir),
+  })  : iosHookUrl =
+            readBuildAppEnv('IOS_HOOK_URL', appHomeDir, isStore: isStore),
+        androidHookUrl =
+            readBuildAppEnv('ANDROID_HOOK_URL', appHomeDir, isStore: isStore),
+        appStoreConnectApiKeyFilepath = readBuildAppEnv(
+            'APP_STORE_CONNECT_API_KEY_FILEPATH', appHomeDir,
+            isStore: isStore),
+        appStoreConnectApiKeyId = readBuildAppEnv(
+            'APP_STORE_CONNECT_API_KEY_ID', appHomeDir,
+            isStore: isStore),
+        appStoreConnectApiIssuerId = readBuildAppEnv(
+            'APP_STORE_CONNECT_API_ISSUER_ID', appHomeDir,
+            isStore: isStore),
+        appIdentifier =
+            readBuildAppEnv('APP_IDENTIFIER', appHomeDir, isStore: isStore),
+        appId = readBuildAppEnv('APP_ID', appHomeDir, isStore: isStore),
         appwriteBuildEnvironment = AppwriteBuildEnvironment(appHomeDir),
-        sentryUrl = readBuildAppEnv('SENTRY_URL', appHomeDir),
-        sentryAuthToken = readBuildAppEnv('SENTRY_AUTH_TOKEN', appHomeDir),
-        sentryOrg = readBuildAppEnv('SENTRY_ORG', appHomeDir),
-        sentryProject = readBuildAppEnv('SENTRY_PROJECT', appHomeDir),
+        sentryUrl = readBuildAppEnv('SENTRY_URL', appHomeDir, isStore: isStore),
+        sentryAuthToken =
+            readBuildAppEnv('SENTRY_AUTH_TOKEN', appHomeDir, isStore: isStore),
+        sentryOrg = readBuildAppEnv('SENTRY_ORG', appHomeDir, isStore: isStore),
+        sentryProject =
+            readBuildAppEnv('SENTRY_PROJECT', appHomeDir, isStore: isStore),
         sentryDist = '$buildName($buildNumber)',
-        zealotEndpoint = readBuildAppEnv('ZEALOT_ENDPOINT', appHomeDir),
-        zealotToken = readBuildAppEnv('ZEALOT_TOKEN', appHomeDir),
-        umengAppKey = readBuildAppEnv('UMENG_APPKEY', appHomeDir),
-        umengMessageSecret =
-            readBuildAppEnv('UMENG_MESSAGE_SECRET', appHomeDir),
-        umengChannel = readBuildAppEnv('UMENG_CHANNEL', appHomeDir);
+        zealotEndpoint =
+            readBuildAppEnv('ZEALOT_ENDPOINT', appHomeDir, isStore: isStore),
+        zealotToken =
+            readBuildAppEnv('ZEALOT_TOKEN', appHomeDir, isStore: isStore),
+        umengAppKey =
+            readBuildAppEnv('UMENG_APPKEY', appHomeDir, isStore: isStore),
+        umengMessageSecret = readBuildAppEnv(
+          'UMENG_MESSAGE_SECRET',
+          appHomeDir,
+          isStore: isStore,
+        ),
+        umengChannel = readBuildAppEnv(
+          'UMENG_CHANNEL',
+          appHomeDir,
+          isStore: isStore,
+        );
 
   factory UploadAppEnvironment.choose({
     required String platform,
