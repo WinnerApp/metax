@@ -7,6 +7,7 @@ import 'package:meta_tool/commands/init/generate_podfile.dart';
 import 'package:meta_tool/commands/init/init_cache.dart';
 import 'package:meta_tool/commands/init/mock_command.dart';
 import 'package:meta_tool/commands/init/project_command.dart';
+import 'package:meta_tool/commands/init/verify_android_channel_command.dart';
 import 'package:meta_tool/commands/init/verify_podfile.dart';
 
 class InitCommand extends Command {
@@ -26,5 +27,6 @@ class InitCommand extends Command {
     addSubcommand(BuildNameNumberCommand());
     addSubcommand(GeneratePodfileCommand());
     addSubcommand(VerifyPodfileCommand());
+    addSubcommand(VerifyAndroidChannelCommand());
   }
 }
