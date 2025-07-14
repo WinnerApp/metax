@@ -91,16 +91,11 @@ class UnityHotAssetCommand extends Command {
     jenkinsAssetDir.create(recursive: true);
 
     /// 将目录hotAssetPath下面的资源复制到jenkinsAssetDir下面
-    Directory(hotAssetPath).listSync(recursive: true).forEach((entity) {
-      if (entity is File) {
-        final relativePath = entity.path.replaceFirst(hotAssetPath, '');
-        final jenkinsAssetFile = File(join(jenkinsAssetDir.path, relativePath));
-        if (!jenkinsAssetFile.existsSync()) {
-          jenkinsAssetFile.createSync(recursive: true);
-        }
-        jenkinsAssetFile.writeAsBytesSync(entity.readAsBytesSync());
-      }
-    });
+    // bash 复制目录到另一个目录
+    await ProcessRunner().runProcess(
+      ['cp', '-r', hotAssetPath, jenkinsAssetDir.path],
+      printOutput: true,
+    );
     loggerSuccess('复制资源到 Jenkins 工作空间成功');
   }
 
