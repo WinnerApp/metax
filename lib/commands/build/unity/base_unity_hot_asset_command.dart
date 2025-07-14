@@ -50,13 +50,18 @@ class UnityHotAssetCommand extends Command {
     if (unityEnginePath == null) {
       throw '找不到 Unity 引擎路径';
     }
+    final methodName = switch (buildType) {
+      'Debug' => 'ExportAppData.exportDebugHotAsset',
+      'Release' => 'ExportAppData.exportReleaseHotAsset',
+      _ => throw '平台不支持',
+    };
     final result = await ProcessRunner().runProcess(
       [
         unityEnginePath,
         '-quit',
         '-batchmode',
         '-executeMethod',
-        'ExportAppData.export',
+        methodName,
         '-nographics',
         '-projectPath',
         './',
