@@ -91,9 +91,9 @@ class UnityHotAssetCommand extends Command {
       buildType,
     ));
     if (jenkinsAssetDir.existsSync()) {
-      jenkinsAssetDir.delete(recursive: true);
+      await jenkinsAssetDir.delete(recursive: true);
     }
-    jenkinsAssetDir.create(recursive: true);
+    await jenkinsAssetDir.create(recursive: true);
 
     /// 将目录hotAssetPath下面的资源复制到jenkinsAssetDir下面
     // bash 复制目录到另一个目录
