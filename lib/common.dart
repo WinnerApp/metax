@@ -320,6 +320,8 @@ Future<int> getUnityBuildVersion(String workingDirectory) async {
   if (!await buildVersionFile.exists()) {
     throw '$buildVersionFile文件不存在';
   }
+  String buildVersion = await buildVersionFile.readAsString();
+  buildVersion = buildVersion.trim().replaceAll('%', '');
   int? buildVersionId =
       await buildVersionFile.readAsString().then((e) => int.tryParse(e));
   if (buildVersionId == null) {
