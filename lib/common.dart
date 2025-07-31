@@ -322,8 +322,7 @@ Future<int> getUnityBuildVersion(String workingDirectory) async {
   }
   String buildVersion = await buildVersionFile.readAsString();
   buildVersion = buildVersion.trim().replaceAll('%', '');
-  int? buildVersionId =
-      await buildVersionFile.readAsString().then((e) => int.tryParse(e));
+  int? buildVersionId = int.tryParse(buildVersion);
   if (buildVersionId == null) {
     throw 'Unity工程的build_version.txt文件内容不是有效的数字';
   }
