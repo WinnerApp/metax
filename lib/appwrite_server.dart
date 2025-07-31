@@ -45,9 +45,9 @@ class AppwriteServer {
         return null;
       }
       return e.documents.first;
-    }).catchError((e) {
-      loggerError(e.toString());
-      return null;
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
+      throw e;
     });
   }
 
@@ -67,9 +67,9 @@ class AppwriteServer {
           ],
         )
         .then<DocumentList?>((e) => e)
-        .catchError((e) async {
-          loggerError(e.toString());
-          return null;
+        .catchError((e, stackTrace) {
+          loggerError("e.toString() ${stackTrace.toString()}");
+          throw e;
         });
   }
 
@@ -100,8 +100,8 @@ class AppwriteServer {
         'unity_commit_id': unityCommitId,
         'build_number': buildNumber.toString(),
       },
-    ).catchError((e) {
-      loggerError(e.toString());
+    ).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
       throw e;
     });
     for (final config in buildBranchConfigs) {
@@ -115,8 +115,8 @@ class AppwriteServer {
           "branch": config.branch,
           "commit_id": config.commitHash,
         },
-      ).catchError((e) {
-        loggerError(e.toString());
+      ).catchError((e, stackTrace) {
+        loggerError("e.toString() ${stackTrace.toString()}");
         throw e;
       });
     }
@@ -145,8 +145,8 @@ class AppwriteServer {
       ],
     ).then((e) {
       return e.documents.map((e) => e.data).toList();
-    }).catchError((e) {
-      loggerError(e.toString());
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
       return <Map<String, dynamic>>[];
     });
   }
@@ -178,8 +178,8 @@ class AppwriteServer {
       ],
     ).then((e) {
       return e.documents.isNotEmpty;
-    }).catchError((e) {
-      loggerError(e.toString());
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
       return false;
     });
   }
@@ -212,8 +212,8 @@ class AppwriteServer {
     )
         .then((e) {
       return true;
-    }).catchError((e) {
-      loggerError(e.toString());
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
       return false;
     });
     if (!isUploadSuccess) return false;
@@ -236,8 +236,8 @@ class AppwriteServer {
       },
     ).then((e) {
       return true;
-    }).catchError((e) {
-      loggerError(e.toString());
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
       storage.deleteFile(bucketId: bucketId, fileId: fileId);
       return false;
     });

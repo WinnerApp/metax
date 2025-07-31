@@ -39,8 +39,8 @@ class VerifyAndroidChannelCommand extends Command {
     try {
       await _verifyApk(apk);
       loggerSuccess('验证通过');
-    } catch (e) {
-      loggerError(e.toString());
+    } catch (e, stackTrace) {
+      loggerError(e.toString() + stackTrace.toString());
     }
     final assetsDir = Directory(join(Directory.current.path, 'assets'));
     if (await assetsDir.exists()) {

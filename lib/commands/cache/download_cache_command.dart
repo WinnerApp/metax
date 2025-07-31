@@ -195,8 +195,8 @@ class DownloadCacheCommand extends Command {
           loggerDebug(
               '下载缓存中，已下载: ${(count / fileInfo.sizeOriginal * 100).toStringAsFixed(2)}%');
         },
-      ).catchError((e) {
-        loggerError('下载缓存失败，${e.toString()}');
+      ).catchError((e, stackTrace) {
+        loggerError('下载缓存失败，${e.toString()} ${stackTrace.toString()}');
         throw e;
       });
     }

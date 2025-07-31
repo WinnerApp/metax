@@ -418,8 +418,9 @@ $changeLog
 
     if (environment.sendLog) {
       loggerDebug('开始发送日志......');
-      await sendLog(log: changeLog, environment: environment).catchError((e) {
-        loggerError('发送日志失败:${e.toString()}');
+      await sendLog(log: changeLog, environment: environment)
+          .catchError((e, stackTrace) {
+        loggerError('发送日志失败:${e.toString()} ${stackTrace.toString()}');
       });
     }
 
@@ -449,8 +450,8 @@ $changeLog
       org: environment.sentryOrg,
       dist: environment.sentryDist,
       release: environment.buildName,
-    ).run().catchError((e) {
-      loggerError('上传sentry符号失败:${e.toString()}');
+    ).run().catchError((e, stackTrace) {
+      loggerError('上传sentry符号失败:${e.toString()} ${stackTrace.toString()}');
     });
   }
 
