@@ -6,6 +6,7 @@ import 'package:meta_tool/commands/build/build_command.dart';
 import 'package:meta_tool/commands/cache/cache_command.dart';
 import 'package:meta_tool/commands/init/init.dart';
 import 'package:meta_tool/commands/publish/publish_command.dart';
+import 'package:meta_tool/commands/test/test_command.dart';
 import 'package:meta_tool/commands/upload/upload_command.dart';
 import 'package:meta_tool/define.dart';
 
@@ -15,7 +16,8 @@ Future<void> main(List<String> arguments) async {
     ..addCommand(BuildCommand())
     ..addCommand(UploadCommand())
     ..addCommand(CacheCommand())
-    ..addCommand(PublishCommand());
+    ..addCommand(PublishCommand())
+    ..addCommand(TestCommand());
   runner.argParser.addOption(
     'workspace',
     help: 'app运行目录，默认使用当前目录',

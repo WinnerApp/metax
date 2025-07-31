@@ -376,16 +376,21 @@ String formatGitLog(String flutterLog, String unityLog) {
 /// 发送文本到企业微信
 Future<bool> sendTextToWeixinWebhooks(String text, String hookUrl) async {
   final dio = Dio();
-  final response = await dio.post(
+  final response = await dio
+      .post(
     hookUrl,
     options: Options(headers: {
       'Content-Type': 'application/json',
     }),
     data: json.encode({
-      'msgtype': 'text',
-      'text': {'content': text},
+      "msg_type": "text",
+      "content": {"text": text}
     }),
-  );
+  )
+      .catchError((e) {
+    loggerError('企业微信发送失败:${e.message}');
+    throw e;
+  });
 
   final status = response.statusCode;
   if (status != 200) {
