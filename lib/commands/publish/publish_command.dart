@@ -1,4 +1,5 @@
 import 'package:args/command_runner.dart';
+import 'package:meta_tool/commands/publish/flutter_web_cache_command.dart';
 import 'package:meta_tool/commands/publish/meta_command.dart';
 
 class PublishCommand extends Command {
@@ -10,5 +11,6 @@ class PublishCommand extends Command {
 
   PublishCommand() {
     addSubcommand(MetaCommand());
+    addSubcommand(FlutterWebCacheCommand());
   }
 }

@@ -16,6 +16,8 @@ dependencies:
   darty_json_safe: ^1.0.3
   dio: ^5.6.0
   prompts: ^2.0.0
+  archive: ^3.3.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   lints: ^4.0.0
