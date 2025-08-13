@@ -384,6 +384,11 @@ $changeLog
     final isInitFlutterEnvironment =
         argResults?['initFlutterEnvironment'] == 'true';
     if (isInitFlutterEnvironment) {
+      Map branchConfig = {};
+      for (var submodule in gitSubmodules) {
+        branchConfig[submodule.name] = submodule.branch;
+      }
+
       /// 开始初始化Flutter环境
       await initFlutterEnvironment(
         appHomeDir: appHomeDir,
@@ -391,6 +396,7 @@ $changeLog
         configuration: 'release',
         isStore: environment.isStore,
         androidChannel: environment.androidChannel,
+        branchConfig: branchConfig,
       );
     }
 

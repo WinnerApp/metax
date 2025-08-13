@@ -46,6 +46,10 @@ class FlutterEnvironmentCommand extends Command {
         'Samsung',
       ],
     );
+    argParser.addOption(
+      'branchConfig',
+      help: '分支配置',
+    );
   }
 
   @override
@@ -81,17 +85,20 @@ class FlutterEnvironmentCommand extends Command {
       ],
       defaultValue: 'Winner',
     );
+    final branchConfig = JSON(argResults?['branchConfig']).mapValue;
     if (argBuildType == 'framework') {
       await initFrameworkEnvironment(
         configuration: argConfiguration,
         isStore: argIsStore,
         androidChannel: argAndroidChannel,
+        branchConfig: branchConfig,
       );
     } else if (argBuildType == 'aar') {
       await initAarEnvironment(
         configuration: argConfiguration,
         isStore: argIsStore,
         androidChannel: argAndroidChannel,
+        branchConfig: branchConfig,
       );
     } else {
       throw ArgumentError('构建类型错误,可选值:framework/aar');
@@ -103,6 +110,7 @@ class FlutterEnvironmentCommand extends Command {
     required String configuration,
     required bool isStore,
     required String androidChannel,
+    required Map branchConfig,
   }) async {
     // frameworks/flutter/Release/App.xcframework/ios-arm64/App.framework/flutter_assets/assets/dart_define.json
     final dartDefineJsonFile = File(join(
@@ -121,6 +129,7 @@ class FlutterEnvironmentCommand extends Command {
       dartDefineJsonFile: dartDefineJsonFile,
       isStore: isStore,
       androidChannel: androidChannel,
+      branchConfig: branchConfig,
     );
     loggerSuccess('初始化Flutter环境完成');
   }
@@ -130,6 +139,7 @@ class FlutterEnvironmentCommand extends Command {
     required String configuration,
     required bool isStore,
     required String androidChannel,
+    required Map branchConfig,
   }) async {
     final flutterName = 'flutter_$configuration';
     final aarName = '$flutterName-1.0.aar';
@@ -185,6 +195,7 @@ class FlutterEnvironmentCommand extends Command {
       dartDefineJsonFile: dartDefineJsonFile,
       isStore: isStore,
       androidChannel: androidChannel,
+      branchConfig: branchConfig,
     );
 
     // jar cvf flutter_release-1.0.aar -c flutter_release-1.0 .
@@ -239,6 +250,7 @@ class FlutterEnvironmentCommand extends Command {
     required File dartDefineJsonFile,
     required bool isStore,
     required String androidChannel,
+    required Map branchConfig,
   }) async {
     if (!dartDefineJsonFile.existsSync()) {
       throw ArgumentError('dart_define.json文件不存在(${dartDefineJsonFile.path})');
@@ -270,6 +282,9 @@ class FlutterEnvironmentCommand extends Command {
     json['enableFlutterError'] = enableFlutterError;
     json['enableUnityOpenTime'] = enableUnityOpenTime;
     json['enableSensorsLog'] = enableSensorsLog;
+    if (branchConfig.isNotEmpty) {
+      json['branchConfig'] = branchConfig;
+    }
 
     loggerDebug('当前最新的Flutter环境配置:');
     for (var key in json.mapValue.keys) {

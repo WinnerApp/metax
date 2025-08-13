@@ -728,6 +728,7 @@ Future<void> initFlutterEnvironment({
   required String configuration,
   required bool isStore,
   required String androidChannel,
+  required Map branchConfig,
 }) async {
   await ProcessRunner().runProcess(
     [
@@ -741,6 +742,8 @@ Future<void> initFlutterEnvironment({
       isStore ? '--isStore' : '--no-isStore',
       '--androidChannel',
       androidChannel,
+      '--branchConfig',
+      jsonEncode(branchConfig),
     ],
     workingDirectory: appHomeDir.directory,
     printOutput: true,
