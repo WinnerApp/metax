@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dart_appwrite/dart_appwrite.dart';
+import 'package:dart_appwrite/models.dart' hide File;
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
@@ -236,35 +237,53 @@ class FlutterWebCacheCommand extends Command {
       if (!await zipFile.exists()) {
         throw Exception('ZIP文件不存在: $zipFile');
       }
-      final fileId = ID.unique();
 
-      /// 上传zip到67f47aac0019101b3584
-      await Storage(appwriteServer.client).createFile(
-        bucketId: '67f47aac0019101b3584',
-        fileId: fileId,
-        file: InputFile.fromPath(path: zipFile.path),
-        onProgress: (progress) {
-          loggerDebug('上传进度: ${progress.progress}%-[${zipFile.path}]');
-        },
-      );
-
-      loggerInfo('[$path][$md5]上传完成');
-
-      final resouceId = ID.unique();
-      await databases.createDocument(
+      /// 查询md5是否已经存在
+      final document = await databases.listDocuments(
         databaseId: '67f47b11001a83bd8eb1',
         collectionId: '67f47c64000bb4cafa02',
-        documentId: resouceId,
-        data: {
-          'fileId': fileId,
-          'md5': md5,
-          'size': size,
-          'path': path,
-        },
-      );
-      loggerInfo('[$path][$md5]资源创建成功');
+        queries: [
+          Query.equal('md5', md5),
+        ],
+      ).then<Document?>((value) {
+        return value.documents.firstOrNull;
+      }).catchError((e) {
+        return null;
+      });
+      if (document == null) {
+        final fileId = ID.unique();
 
-      resouceIds.add(resouceId);
+        /// 上传zip到67f47aac0019101b3584
+        await Storage(appwriteServer.client).createFile(
+          bucketId: '67f47aac0019101b3584',
+          fileId: fileId,
+          file: InputFile.fromPath(path: zipFile.path),
+          onProgress: (progress) {
+            loggerDebug('上传进度: ${progress.progress}%-[${zipFile.path}]');
+          },
+        );
+
+        loggerInfo('[$path][$md5]上传完成');
+
+        final resouceId = ID.unique();
+        await databases.createDocument(
+          databaseId: '67f47b11001a83bd8eb1',
+          collectionId: '67f47c64000bb4cafa02',
+          documentId: resouceId,
+          data: {
+            'fileId': fileId,
+            'md5': md5,
+            'size': size,
+            'path': path,
+          },
+        );
+        loggerInfo('[$path][$md5]资源创建成功');
+
+        resouceIds.add(resouceId);
+      } else {
+        loggerSuccess('[$path][$md5]已经存在，跳过资源上传');
+        resouceIds.add(document.$id);
+      }
     }
     final versionId = ID.unique();
     await databases.createDocument(
