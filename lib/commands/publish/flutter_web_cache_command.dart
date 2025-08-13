@@ -22,7 +22,7 @@ class FlutterWebCacheCommand extends Command {
   FlutterWebCacheCommand() {
     // Add any options or arguments here if needed
     argParser.addOption('version', help: '热更资源的版本');
-    argParser.addOption('enable', help: '是否开启热更', defaultsTo: 'true');
+    argParser.addOption('enable', help: '是否开启热更');
     argParser.addOption('routeName', help: '路由名称');
     // 新增参数
     argParser.addOption('minVersion', help: '最小支持版本号，格式x.y.z');
@@ -30,7 +30,7 @@ class FlutterWebCacheCommand extends Command {
     argParser.addOption('allow_phones', help: '允许的手机型号列表');
     argParser.addOption('minBuildNumber', help: '最小构建号');
     argParser.addOption('maxBuildNumber', help: '最大构建号');
-    argParser.addOption('is_store', help: '是否为商店版本', defaultsTo: 'false');
+    argParser.addOption('is_store', help: '是否为商店版本');
     argParser.addOption('branch', help: '分支名称');
   }
 
@@ -46,7 +46,7 @@ class FlutterWebCacheCommand extends Command {
     // 获取路由名称参数
     final routeName = ArgumentGet(argResults).getString(
       'routeName',
-      '路由名称(/开头)',
+      '路由名称',
     );
 
     final minVersion = ArgumentGet(argResults).getString(
