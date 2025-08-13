@@ -11,6 +11,7 @@ import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart' as p;
+import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
 class FlutterWebCacheCommand extends Command {
@@ -20,8 +21,6 @@ class FlutterWebCacheCommand extends Command {
   String get description => 'flutter web cache';
 
   FlutterWebCacheCommand() {
-    // Add any options or arguments here if needed
-    argParser.addOption('version', help: '热更资源的版本');
     argParser.addOption('enable', help: '是否开启热更');
     argParser.addOption('routeName', help: '路由名称');
     // 新增参数
@@ -36,17 +35,24 @@ class FlutterWebCacheCommand extends Command {
 
   @override
   Future<void> run() async {
-    final version = ArgumentGet(argResults).getString(
-      'version',
-      '热更资源的版本(格式x.y.z)',
-    );
+    final version = DateTime.now().millisecondsSinceEpoch.toString();
     final enable = ArgumentGet(argResults).getString('enable', '是否开启热更(默认true)',
             defaultValue: 'true', allowed: ['true', 'false']) ==
         'true';
+
+    final pagesDir = Directory(
+        join(Directory.current.path, 'packages', 'flutter_metax_pages'));
+    final pages = pagesDir
+        .listSync()
+        .whereType<Directory>()
+        .map((e) => p.basename(e.path))
+        .toList();
+
     // 获取路由名称参数
     final routeName = ArgumentGet(argResults).getString(
       'routeName',
       '路由名称',
+      allowed: pages,
     );
 
     final minVersion = ArgumentGet(argResults).getString(
@@ -80,10 +86,11 @@ class FlutterWebCacheCommand extends Command {
         ) ==
         'true';
 
+    final currentBranch = await getCurrentBranch(pagesDir.path);
     final branch = ArgumentGet(argResults).getString(
       'branch',
-      '分支名称(默认为空没有限制)',
-      defaultValue: '',
+      '分支名称',
+      allowed: [currentBranch],
     );
 
     // 第一步：执行Dart命令创建Web页面

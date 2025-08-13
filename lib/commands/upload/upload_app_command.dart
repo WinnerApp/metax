@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' as io;
+import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:dart_appwrite/models.dart';
@@ -384,9 +385,20 @@ $changeLog
     final isInitFlutterEnvironment =
         argResults?['initFlutterEnvironment'] == 'true';
     if (isInitFlutterEnvironment) {
+      final pages = Directory(join(
+              appHomeDir.directory.path, 'packages', 'flutter_metax_pages'))
+          .listSync()
+          .whereType<Directory>()
+          .map((e) => basename(e.path))
+          .toList();
       Map branchConfig = {};
       for (var submodule in gitSubmodules) {
         branchConfig[submodule.name] = submodule.branch;
+        if (submodule.name == 'packages/flutter_metax_pages') {
+          for (var page in pages) {
+            branchConfig[page] = submodule.branch;
+          }
+        }
       }
 
       /// 开始初始化Flutter环境
