@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
-import 'package:archive/archive.dart';
 import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
@@ -30,28 +31,60 @@ class FlutterWebCacheCommand extends Command {
     argParser.addOption('minBuildNumber', help: '最小构建号');
     argParser.addOption('maxBuildNumber', help: '最大构建号');
     argParser.addOption('is_store', help: '是否为商店版本', defaultsTo: 'false');
+    argParser.addOption('branch', help: '分支名称');
   }
 
   @override
   Future<void> run() async {
-    final version = ArgumentGet(argResults).getString('version', '热更资源的版本');
-    final enable =
-        ArgumentGet(argResults).getString('enable', '是否开启热更') == 'true';
+    final version = ArgumentGet(argResults).getString(
+      'version',
+      '热更资源的版本(格式x.y.z)',
+    );
+    final enable = ArgumentGet(argResults).getString('enable', '是否开启热更(默认true)',
+            defaultValue: 'true', allowed: ['true', 'false']) ==
+        'true';
     // 获取路由名称参数
-    final routeName = ArgumentGet(argResults).getString('routeName', '路由名称');
+    final routeName = ArgumentGet(argResults).getString(
+      'routeName',
+      '路由名称(/开头)',
+    );
 
-    final minVersion =
-        ArgumentGet(argResults).getString('minVersion', '最小支持版本号');
-    final maxVersion =
-        ArgumentGet(argResults).getString('maxVersion', '最大支持版本号');
-    final allowPhones = ArgumentGet(argResults)
-        .getString('allow_phones', '允许的手机型号列表', defaultValue: '');
-    final minBuildNumber =
-        ArgumentGet(argResults).getString('minBuildNumber', '最小构建号');
-    final maxBuildNumber =
-        ArgumentGet(argResults).getString('maxBuildNumber', '最大构建号');
-    final isStore =
-        ArgumentGet(argResults).getString('is_store', '是否为商店版本') == 'true';
+    final minVersion = ArgumentGet(argResults).getString(
+      'minVersion',
+      '最小支持版本号(格式x.y.z)',
+    );
+    final maxVersion = ArgumentGet(argResults).getString(
+      'maxVersion',
+      '最大支持版本号(格式x.y.z)',
+    );
+    final allowPhones = ArgumentGet(argResults).getString(
+      'allow_phones',
+      '允许的手机型号列表(默认为空)',
+      defaultValue: '',
+    );
+    final minBuildNumber = ArgumentGet(argResults).getString(
+      'minBuildNumber',
+      '最小构建号(默认为 0)',
+      defaultValue: '0',
+    );
+    final maxBuildNumber = ArgumentGet(argResults).getString(
+      'maxBuildNumber',
+      '最大构建号(默认为 0)',
+      defaultValue: '0',
+    );
+    final isStore = ArgumentGet(argResults).getString(
+          'is_store',
+          '是否为商店版本(默认false)',
+          defaultValue: 'false',
+          allowed: ['true', 'false'],
+        ) ==
+        'true';
+
+    final branch = ArgumentGet(argResults).getString(
+      'branch',
+      '分支名称(默认为空没有限制)',
+      defaultValue: '',
+    );
 
     // 第一步：执行Dart命令创建Web页面
     final createPageResult = await ProcessRunner().runProcess(
@@ -174,6 +207,18 @@ class FlutterWebCacheCommand extends Command {
 
     final databases = Databases(appwriteServer.client);
 
+    /// 查询当前版本是否已经存在
+    final documents = await databases.listDocuments(
+      databaseId: '67f47b11001a83bd8eb1',
+      collectionId: '67f47b4b0035167f54f4',
+      queries: [
+        Query.equal('version', version),
+      ],
+    );
+    if (documents.total > 0) {
+      throw Exception('版本 $version 已经存在');
+    }
+
     final resouceIds = <String>[];
 
     for (final entry in cacheEntries) {
@@ -226,10 +271,11 @@ class FlutterWebCacheCommand extends Command {
         'enable': enable,
         'routeName': '/$routeName',
         'resources': resouceIds,
-        'allow_phones': allowPhones.split(','),
+        'allow_phones': allowPhones == '' ? [] : allowPhones.split(','),
         'minBuildNumber': int.parse(minBuildNumber),
         'maxBuildNumber': int.parse(maxBuildNumber),
         'is_store': isStore,
+        'branch': branch,
       },
     );
 
