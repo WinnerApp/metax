@@ -11,6 +11,7 @@ import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart' as p;
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -24,14 +25,8 @@ class FlutterWebCacheCommand extends Command {
   FlutterWebCacheCommand() {
     argParser.addOption('enable', help: '是否开启热更');
     argParser.addOption('routeName', help: '路由名称');
-    // 新增参数
-    argParser.addOption('minVersion', help: '最小支持版本号，格式x.y.z');
-    argParser.addOption('maxVersion', help: '最大支持版本号，格式x.y.z');
     argParser.addOption('allow_phones', help: '允许的手机型号列表');
-    argParser.addOption('minBuildNumber', help: '最小构建号');
-    argParser.addOption('maxBuildNumber', help: '最大构建号');
     argParser.addOption('is_store', help: '是否为商店版本');
-    argParser.addOption('branch', help: '分支名称');
   }
 
   @override
@@ -55,29 +50,10 @@ class FlutterWebCacheCommand extends Command {
       '路由名称',
       allowed: pages,
     );
-
-    final minVersion = ArgumentGet(argResults).getString(
-      'minVersion',
-      '最小支持版本号(格式x.y.z)',
-    );
-    final maxVersion = ArgumentGet(argResults).getString(
-      'maxVersion',
-      '最大支持版本号(格式x.y.z)',
-    );
     final allowPhones = ArgumentGet(argResults).getString(
       'allow_phones',
       '允许的手机型号列表(默认为空)',
       defaultValue: '',
-    );
-    final minBuildNumber = ArgumentGet(argResults).getString(
-      'minBuildNumber',
-      '最小构建号(默认为 0)',
-      defaultValue: '0',
-    );
-    final maxBuildNumber = ArgumentGet(argResults).getString(
-      'maxBuildNumber',
-      '最大构建号(默认为 0)',
-      defaultValue: '0',
     );
     final isStore = ArgumentGet(argResults).getString(
           'is_store',
@@ -86,13 +62,6 @@ class FlutterWebCacheCommand extends Command {
           allowed: ['true', 'false'],
         ) ==
         'true';
-
-    final currentBranch = await getCurrentBranch(pagesDir.path);
-    final branch = ArgumentGet(argResults).getString(
-      'branch',
-      '分支名称',
-      allowed: [currentBranch],
-    );
 
     // 第一步：执行Dart命令创建Web页面
     final createPageResult = await ProcessRunner().runProcess(
@@ -215,20 +184,7 @@ class FlutterWebCacheCommand extends Command {
 
     final databases = Databases(appwriteServer.client);
 
-    /// 查询当前版本是否已经存在
-    final documents = await databases.listDocuments(
-      databaseId: '67f47b11001a83bd8eb1',
-      collectionId: '67f47b4b0035167f54f4',
-      queries: [
-        Query.equal('version', version),
-      ],
-    );
-    if (documents.total > 0) {
-      throw Exception('版本 $version 已经存在');
-    }
-
     final resouceIds = <String>[];
-
     for (final entry in cacheEntries) {
       final String md5 = entry['md5'];
       final String path = entry['path'];
@@ -285,26 +241,40 @@ class FlutterWebCacheCommand extends Command {
         resouceIds.add(document.$id);
       }
     }
+
+    final workspace = Directory.current.path;
+    final gitmodulesPath = p.join(workspace, '.gitmodules');
+    final gitSubmodules = await parseGitmodulesFile(gitmodulesPath);
+    final flutterWebPackages = await getFlutterModuleVersions(
+      workspace: workspace,
+      gitSubmodules: gitSubmodules,
+    );
+
+    for (final name in flutterWebPackages.keys) {
+      final id = ID.unique();
+      await databases.createDocument(
+        databaseId: '67f47b11001a83bd8eb1',
+        collectionId: '68a342350038944c93cf',
+        documentId: id,
+        data: flutterWebPackages[name]!,
+      );
+    }
+    List<String> packageIds = [];
     final versionId = ID.unique();
     await databases.createDocument(
       databaseId: '67f47b11001a83bd8eb1',
-      collectionId: '67f47b4b0035167f54f4',
+      collectionId: '68a340c0002682fb25ba',
       documentId: versionId,
       data: {
-        'minVersion': minVersion,
-        'maxVersion': maxVersion,
         'version': version,
         'enable': enable,
         'routeName': '/$routeName',
         'resources': resouceIds,
         'allow_phones': allowPhones == '' ? [] : allowPhones.split(','),
-        'minBuildNumber': int.parse(minBuildNumber),
-        'maxBuildNumber': int.parse(maxBuildNumber),
         'is_store': isStore,
-        'branch': branch,
+        'package_ids': packageIds,
       },
     );
-
     loggerSuccess('发布成功: $version');
   }
 }
