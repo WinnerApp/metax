@@ -8,6 +8,7 @@ import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_web_version_data.dart';
 import 'package:meta_tool/get_git_log.dart';
 import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:meta_tool/unity_environment.dart';
@@ -391,22 +392,31 @@ $changeLog
           .whereType<Directory>()
           .map((e) => basename(e.path))
           .toList();
-      Map branchConfig = await getFlutterModuleVersions(
+      List<FlutterWebVersionData> moduleVersions =
+          await getFlutterModuleVersions(
         workspace: environment.workspace,
         gitSubmodules: gitSubmodules,
       );
-      for (var name in branchConfig.keys) {
+      final branchText = generateSpecialBranchString(gitSubmodules);
+      final versionText =
+          generateSpecialVersionStringForFlutterWeb(moduleVersions);
+      Map<String, dynamic> branchConfig = {};
+      for (var moduleVersion in moduleVersions) {
+        final name = moduleVersion.name;
+        branchConfig[name] = moduleVersion.toJson();
         if (name == 'packages/flutter_metax_pages') {
           for (var page in pages) {
             branchConfig[page] = {
-              'branch': branchConfig[name],
-              'git_version': branchConfig[name],
+              'branch': moduleVersion.branch,
+              'git_version': moduleVersion.gitVersion,
               'name': page,
-              'version': branchConfig[name],
+              'version': moduleVersion.version,
             };
           }
         }
       }
+      branchConfig['package_branch_text'] = branchText;
+      branchConfig['package_version_text'] = versionText;
 
       /// 开始初始化Flutter环境
       await initFlutterEnvironment(

@@ -31,7 +31,7 @@ class FlutterWebCacheCommand extends Command {
 
   @override
   Future<void> run() async {
-    final version = DateTime.now().millisecondsSinceEpoch.toString();
+    final version = DateTime.now().millisecondsSinceEpoch;
     final enable = ArgumentGet(argResults).getString('enable', '是否开启热更(默认true)',
             defaultValue: 'true', allowed: ['true', 'false']) ==
         'true';
@@ -249,31 +249,54 @@ class FlutterWebCacheCommand extends Command {
       workspace: workspace,
       gitSubmodules: gitSubmodules,
     );
-
-    for (final name in flutterWebPackages.keys) {
-      final id = ID.unique();
-      await databases.createDocument(
+    final flutterWebBranchText = generateSpecialBranchString(gitSubmodules);
+    final flutterWebVersionText =
+        generateSpecialVersionStringForFlutterWeb(flutterWebPackages);
+    List<String> packageIds = [];
+    for (final package in flutterWebPackages) {
+      String id = ID.unique();
+      final data = package.toJson();
+      final document = await databases
+          .listDocuments(
         databaseId: '67f47b11001a83bd8eb1',
         collectionId: '68a342350038944c93cf',
-        documentId: id,
-        data: flutterWebPackages[name]!,
-      );
+        queries: data.keys.map((e) => Query.equal(e, data[e])).toList(),
+      )
+          .then<Document?>((value) {
+        return value.documents.firstOrNull;
+      }).catchError((e) {
+        return null;
+      });
+      if (document == null) {
+        await databases.createDocument(
+          databaseId: '67f47b11001a83bd8eb1',
+          collectionId: '68a342350038944c93cf',
+          documentId: id,
+          data: data,
+        );
+      } else {
+        id = document.$id;
+      }
+      packageIds.add(id);
     }
-    List<String> packageIds = [];
     final versionId = ID.unique();
+    final versionData = {
+      'version': version,
+      'enable': enable,
+      'routeName': '/$routeName',
+      'resources': resouceIds,
+      'allow_phones': allowPhones == '' ? [] : allowPhones.split(','),
+      'is_store': isStore,
+      'package_ids': packageIds,
+      'package_branch_text': flutterWebBranchText,
+      'package_version_text': flutterWebVersionText,
+    };
+    loggerDebug('versionData: $versionData');
     await databases.createDocument(
       databaseId: '67f47b11001a83bd8eb1',
       collectionId: '68a340c0002682fb25ba',
       documentId: versionId,
-      data: {
-        'version': version,
-        'enable': enable,
-        'routeName': '/$routeName',
-        'resources': resouceIds,
-        'allow_phones': allowPhones == '' ? [] : allowPhones.split(','),
-        'is_store': isStore,
-        'package_ids': packageIds,
-      },
+      data: versionData,
     );
     loggerSuccess('发布成功: $version');
   }

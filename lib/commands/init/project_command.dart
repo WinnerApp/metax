@@ -98,6 +98,14 @@ flutter.minSdkVersion=21
       await _initGitProject(flutterProjectDir, flutterGitUrl);
       await ProcessRunner().runProcess(
         [
+          'metax',
+          'init',
+          'flutter_web_environment',
+        ],
+        workingDirectory: appHomeDir.directory,
+      );
+      await ProcessRunner().runProcess(
+        [
           'flutter',
           'pub',
           'get',

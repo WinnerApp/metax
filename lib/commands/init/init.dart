@@ -3,6 +3,7 @@ import 'package:meta_tool/commands/init/app_environment_command.dart';
 import 'package:meta_tool/commands/init/branch.dart';
 import 'package:meta_tool/commands/init/build_name_number_command.dart';
 import 'package:meta_tool/commands/init/flutter_environment_command.dart';
+import 'package:meta_tool/commands/init/flutter_web_environment.dart';
 import 'package:meta_tool/commands/init/flutter_web_version_command.dart';
 import 'package:meta_tool/commands/init/generate_podfile.dart';
 import 'package:meta_tool/commands/init/init_cache.dart';
@@ -30,5 +31,6 @@ class InitCommand extends Command {
     addSubcommand(VerifyPodfileCommand());
     addSubcommand(VerifyAndroidChannelCommand());
     addSubcommand(FlutterWebVersionCommand());
+    addSubcommand(FlutterWebEnvironmentCommand());
   }
 }

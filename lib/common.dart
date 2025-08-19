@@ -6,6 +6,7 @@ import 'package:color_logger/color_logger.dart';
 import 'package:dio/dio.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_web_version_data.dart';
 import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -774,11 +775,11 @@ Future<void> setVersionNumber({
   );
 }
 
-Future<Map<String, Map<String, String>>> getFlutterModuleVersions({
+Future<List<FlutterWebVersionData>> getFlutterModuleVersions({
   required String workspace,
   required List<GitSubmodule> gitSubmodules,
 }) async {
-  final flutterModuleVersions = <String, Map<String, String>>{};
+  final flutterModuleVersions = <FlutterWebVersionData>[];
   for (var submodule in gitSubmodules) {
     final name = submodule.name;
     final path = submodule.path;
@@ -811,12 +812,33 @@ Future<Map<String, Map<String, String>>> getFlutterModuleVersions({
       printOutput: false,
     );
     final gitLogTime = gitLog.stdout.toString().trim();
-    flutterModuleVersions[name] = {
-      'name': name,
-      'branch': branch,
-      'version': flutterWebVersion.toString(),
-      'git_version': gitLogTime,
-    };
+    flutterModuleVersions.add(FlutterWebVersionData(
+      name: name,
+      branch: branch,
+      version: flutterWebVersion,
+      gitVersion: int.parse(gitLogTime) * 1000,
+    ));
   }
   return flutterModuleVersions;
+}
+
+/// 生成依赖的特殊分支字符串
+String generateSpecialBranchString(List<GitSubmodule> gitSubmodules) {
+  final specialBranchString = <String>[];
+  for (var module in gitSubmodules) {
+    final branch = module.branch;
+    specialBranchString.add('${module.name}:$branch');
+  }
+  return specialBranchString.join(',');
+}
+
+/// 生成依赖的热更版本字符串
+String generateSpecialVersionStringForFlutterWeb(
+    List<FlutterWebVersionData> flutterWebVersionDatas) {
+  final specialVersionString = <String>[];
+  for (var module in flutterWebVersionDatas) {
+    final version = module.version;
+    specialVersionString.add('${module.name}:$version');
+  }
+  return specialVersionString.join(',');
 }
