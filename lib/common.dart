@@ -6,6 +6,7 @@ import 'package:color_logger/color_logger.dart';
 import 'package:dio/dio.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -771,4 +772,51 @@ Future<void> setVersionNumber({
     workingDirectory: appHomeDir.directory,
     printOutput: true,
   );
+}
+
+Future<Map<String, Map<String, String>>> getFlutterModuleVersions({
+  required String workspace,
+  required List<GitSubmodule> gitSubmodules,
+}) async {
+  final flutterModuleVersions = <String, Map<String, String>>{};
+  for (var submodule in gitSubmodules) {
+    final name = submodule.name;
+    final path = submodule.path;
+    final branch = submodule.branch;
+    if (name == null || path == null || branch == null) {
+      continue;
+    }
+    final submoduleDir = join(workspace, path);
+    final submoduleRepo = join(submoduleDir, '.git');
+    if (await Directory(submoduleRepo).exists()) {
+      continue;
+    }
+    final flutterWebVersionFile = join(submoduleDir, '.flutter_web_version');
+    int flutterWebVersion = 0;
+    if (await File(flutterWebVersionFile).exists()) {
+      final flutterWebVersionContent =
+          await File(flutterWebVersionFile).readAsString();
+      flutterWebVersion = int.parse(flutterWebVersionContent);
+    }
+
+    /// 获取当前 git 最新提交的时间 输出 13 位时间戳
+    final gitLog = await ProcessRunner().runProcess(
+      [
+        'git',
+        'log',
+        '--format=%ct',
+        '-1',
+      ],
+      workingDirectory: Directory(submoduleDir),
+      printOutput: false,
+    );
+    final gitLogTime = gitLog.stdout.toString().trim();
+    flutterModuleVersions[name] = {
+      'name': name,
+      'branch': branch,
+      'version': flutterWebVersion.toString(),
+      'git_version': gitLogTime,
+    };
+  }
+  return flutterModuleVersions;
 }

@@ -391,12 +391,19 @@ $changeLog
           .whereType<Directory>()
           .map((e) => basename(e.path))
           .toList();
-      Map branchConfig = {};
-      for (var submodule in gitSubmodules) {
-        branchConfig[submodule.name] = submodule.branch;
-        if (submodule.name == 'packages/flutter_metax_pages') {
+      Map branchConfig = await getFlutterModuleVersions(
+        workspace: environment.workspace,
+        gitSubmodules: gitSubmodules,
+      );
+      for (var name in branchConfig.keys) {
+        if (name == 'packages/flutter_metax_pages') {
           for (var page in pages) {
-            branchConfig[page] = submodule.branch;
+            branchConfig[page] = {
+              'branch': branchConfig[name],
+              'git_version': branchConfig[name],
+              'name': page,
+              'version': branchConfig[name],
+            };
           }
         }
       }
