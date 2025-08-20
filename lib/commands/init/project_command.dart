@@ -96,14 +96,14 @@ flutter.minSdkVersion=21
       final flutterGitUrl = appRunner.environment['FLUTTER_GIT_URL']!;
       final flutterProjectDir = appHomeDir.flutterDir;
       await _initGitProject(flutterProjectDir, flutterGitUrl);
-      await ProcessRunner().runProcess(
-        [
-          'metax',
-          'init',
-          'flutter_web_environment',
-        ],
-        workingDirectory: appHomeDir.directory,
-      );
+      // await ProcessRunner().runProcess(
+      //   [
+      //     'metax',
+      //     'init',
+      //     'flutter_web_environment',
+      //   ],
+      //   workingDirectory: appHomeDir.directory,
+      // );
       await ProcessRunner().runProcess(
         [
           'flutter',
