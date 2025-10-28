@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:meta_tool/cache/cache.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/cache_model.dart';
@@ -49,5 +51,38 @@ class MetaxCache extends Cache {
           .toList();
     });
     return models.firstOrNull;
+  }
+
+  /// 强制清理当前分支和构建ID的所有缓存
+  Future<void> forceCleanCache() async {
+    loggerDebug(
+        '🧹 强制清理缓存: ${buildPlatform.name}/${buildLibrary.name}/${buildType.name}/$branch/$buildId');
+
+    // 删除缓存目录下的所有ZIP文件
+    final cacheDir = Directory(cacheHomeDir);
+    if (await cacheDir.exists()) {
+      await for (final entity in cacheDir.list()) {
+        if (entity is File && entity.path.endsWith('.zip')) {
+          await entity.delete();
+          loggerDebug('删除缓存文件: ${entity.path}');
+        }
+      }
+    }
+
+    // 从全局缓存索引中移除相关条目
+    final allModels = await cacheManager.read();
+    final filteredModels = allModels.where((model) {
+      return !(model.buildPlatform == buildPlatform.name &&
+          model.buildLibrary == buildLibrary.name &&
+          model.buildType == buildType.name &&
+          model.branch == branch &&
+          model.buildId == buildId.toString() &&
+          model.configuration == buildConfiguration.name);
+    }).toList();
+
+    if (filteredModels.length != allModels.length) {
+      await cacheManager.write(filteredModels);
+      loggerDebug('已从缓存索引中移除 ${allModels.length - filteredModels.length} 个条目');
+    }
   }
 }

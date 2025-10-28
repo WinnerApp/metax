@@ -131,25 +131,44 @@ class UseCacheCommand extends Command {
       if (!unityProjectDir.existsSync()) {
         throw Exception('Unity项目目录不存在: ${unityProjectDir.path}');
       }
-      final branchs = await getLatestBranchList(unityProjectDir.path).then(
-        (e) => e.map((e) => getBranchName(e)).toList(),
-      );
-      branch = ArgumentGet(argResults).getString(
-        'unityBranch',
-        '请输入Unity分支',
-        allowed: branchs,
-      );
+
+      /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
+      if (skipGitPull) {
+        loggerInfo('跳过Git操作模式，使用本地代码');
+        branch = ArgumentGet(argResults).getString(
+          'unityBranch',
+          '请输入Unity分支',
+        );
+      } else {
+        final branchs = await getLatestBranchList(unityProjectDir.path).then(
+          (e) => e.map((e) => getBranchName(e)).toList(),
+        );
+        branch = ArgumentGet(argResults).getString(
+          'unityBranch',
+          '请输入Unity分支',
+          allowed: branchs,
+        );
+      }
     } else if (buildLibrary == BuildLibrary.flutter.name) {
-      final flutterBranchs =
-          await getLatestBranchList(appHomeDir.flutterDir.path).then(
-        (e) => e.map((e) => getBranchName(e)).toList(),
-      );
-      loggerDebug('flutterBranchs: $flutterBranchs');
-      branch = ArgumentGet(argResults).getString(
-        'branch',
-        '请输入分支',
-        allowed: flutterBranchs,
-      );
+      /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
+      if (skipGitPull) {
+        loggerInfo('跳过Git操作模式，使用本地代码');
+        branch = ArgumentGet(argResults).getString(
+          'branch',
+          '请输入分支',
+        );
+      } else {
+        final flutterBranchs =
+            await getLatestBranchList(appHomeDir.flutterDir.path).then(
+          (e) => e.map((e) => getBranchName(e)).toList(),
+        );
+        loggerDebug('flutterBranchs: $flutterBranchs');
+        branch = ArgumentGet(argResults).getString(
+          'branch',
+          '请输入分支',
+          allowed: flutterBranchs,
+        );
+      }
     }
 
     commitHash = argResults?['commitHash'] as String?;

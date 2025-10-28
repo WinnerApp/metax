@@ -49,5 +49,13 @@ Future<void> main(List<String> arguments) async {
       isUseCache = value;
     },
   );
+  runner.argParser.addFlag(
+    'skipGitPull',
+    help: '跳过拉取最新代码，使用本地提交',
+    defaultsTo: false,
+    callback: (value) {
+      skipGitPull = value;
+    },
+  );
   await runner.run(arguments);
 }

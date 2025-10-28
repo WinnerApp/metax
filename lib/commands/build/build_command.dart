@@ -4,6 +4,7 @@ import 'package:meta_tool/commands/build/app/app_command.dart';
 import 'package:meta_tool/commands/build/framework/framework_command.dart';
 import 'package:meta_tool/commands/build/unity/base_unity_hot_asset_command.dart';
 import 'package:meta_tool/commands/build/unity/unity_cache_command.dart';
+import 'package:meta_tool/commands/build/unity/unity_local_build_command.dart';
 
 class BuildCommand extends Command {
   @override
@@ -18,5 +19,6 @@ class BuildCommand extends Command {
     addSubcommand(AppCommand());
     addSubcommand(UnityCacheCommand());
     addSubcommand(UnityHotAssetCommand());
+    addSubcommand(UnityLocalBuildCommand());
   }
 }

@@ -49,7 +49,12 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
 
     final argBranch = argResults?['branch'];
     if (argBranch != null) {
-      await switchBranch(flutterDir.path, argBranch);
+      /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
+      if (skipGitPull) {
+        loggerInfo('跳过Git操作模式，使用本地代码');
+      } else {
+        await switchBranch(flutterDir.path, argBranch);
+      }
     }
 
     final branch = await getCurrentBranch(flutterDir.path);
@@ -79,7 +84,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
-      forceUpdate: !isUseCache,
+      forceUpdate: forceUpdate,
     );
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {

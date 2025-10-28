@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -14,6 +15,7 @@ class UnityHotAssetCommand extends Command {
         .addOption('build_type', help: '打包类型', allowed: ['Debug', 'Release']);
     argParser.addOption('jenkins_workspace', help: 'Jenkins 工作空间');
     argParser.addOption('branch', help: '分支');
+    argParser.addOption('buildId', help: '构建ID (必填)');
   }
 
   @override
@@ -21,6 +23,10 @@ class UnityHotAssetCommand extends Command {
     final branch = argResults?['branch'];
     if (branch == null) {
       throw '分支未设置';
+    }
+    final buildId = argResults?['buildId'];
+    if (buildId == null || buildId.toString().trim().isEmpty) {
+      throw '构建ID未设置';
     }
     final platform = argResults?['platform'];
     if (platform == null) {
@@ -31,6 +37,8 @@ class UnityHotAssetCommand extends Command {
     if (jenkinsWorkspace == null) {
       throw 'Jenkins 工作空间未设置';
     }
+
+    loggerInfo('构建ID: $buildId');
 
     /// 执行 Unity 打包
     /// /Users/king/Documents/2022.3.55f1c1/Unity.app/Contents/MacOS/Unity -quit -batchmode -executeMethod ExportAppData.export -nographics -projectPath ./
@@ -45,7 +53,13 @@ class UnityHotAssetCommand extends Command {
     if (unityProjectPath == null) {
       throw '找不到平台对应的 Unity 项目路径';
     }
-    await switchBranch(unityProjectPath, branch);
+
+    /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
+    if (skipGitPull) {
+      loggerInfo('跳过Git操作模式，使用本地代码');
+    } else {
+      await switchBranch(unityProjectPath, branch);
+    }
     final unityEnginePath = env['UNITY_ENGINE_PATH'];
     if (unityEnginePath == null) {
       throw '找不到 Unity 引擎路径';
@@ -87,8 +101,7 @@ class UnityHotAssetCommand extends Command {
     final jenkinsAssetDir = Directory(join(
       jenkinsWorkspace,
       'HotUpdate',
-      platform,
-      buildType,
+      buildId,
     ));
     if (jenkinsAssetDir.existsSync()) {
       await jenkinsAssetDir.delete(recursive: true);

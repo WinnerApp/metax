@@ -17,13 +17,20 @@ abstract class BuildCacheCommand extends Command {
       help: '是否上传缓存',
       defaultsTo: true,
     );
+    argParser.addFlag(
+      'forceUpdate',
+      help: '强制更新缓存，清理现有缓存后重新构建',
+      defaultsTo: false,
+    );
   }
 
   late bool isUpload;
+  late bool forceUpdate;
 
   @override
   FutureOr? run() async {
     isUpload = argResults?['isUpload'] ?? true;
+    forceUpdate = argResults?['forceUpdate'] ?? false;
   }
 
   Future<void> updateCache({
@@ -46,6 +53,11 @@ abstract class BuildCacheCommand extends Command {
       buildId: cache.buildId.toString(),
       commitTime: commitTime,
     );
+
+    if (forceUpdate) {
+      loggerInfo('🔄 强制更新模式，清理现有缓存...');
+      await cache.forceCleanCache();
+    }
 
     if (cacheModel != null &&
         await cache.isCacheExists(cacheModel.commitHash) &&

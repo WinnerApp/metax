@@ -36,6 +36,9 @@ class UnityAarCommand extends BuildCacheCommand {
     }
     final cacheManager = BuildCacheManager(unityDir.path);
     final models = await cacheManager.read();
+    if (models.isEmpty) {
+      throw Exception('未找到Unity缓存数据，请先运行: metax build unity_cache android');
+    }
     final cache = models.first;
     final branch = cache.branch;
     final commitHash = cache.commitHash;
@@ -60,7 +63,7 @@ class UnityAarCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: cache.buildId.toString(),
-      forceUpdate: !isUseCache,
+      forceUpdate: forceUpdate,
     );
 
     loggerSuccess('打包Unity AAR完成!');

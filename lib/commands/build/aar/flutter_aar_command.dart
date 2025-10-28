@@ -52,7 +52,12 @@ class FlutterAarCommand extends BuildCacheCommand {
     }
     final argBranch = argResults?['branch'];
     if (argBranch != null) {
-      await switchBranch(workspaceDir.path, argBranch);
+      /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
+      if (skipGitPull) {
+        loggerInfo('跳过Git操作模式，使用本地代码');
+      } else {
+        await switchBranch(workspaceDir.path, argBranch);
+      }
     }
     final branch = await getCurrentBranch(workspaceDir.path);
     final commitHash = await getCurrentCommitHash(workspaceDir.path);
@@ -74,7 +79,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
-      forceUpdate: !isUseCache,
+      forceUpdate: forceUpdate,
     );
     loggerSuccess('导出Flutter AAR完成!');
     if (isUpload) {

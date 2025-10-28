@@ -55,45 +55,82 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       }
       loggerSuccess('导出Unity代码完成');
     } else {
-      /// 当前分支列表
-      final branchList = await getLatestBranchList(workspaceDirectory);
-      final chooseBranch = ArgumentGet(argResults).getString(
-        'unityBranch',
-        '请选择Unity分支',
-        allowed: branchList,
-      );
-      await switchBranch(workspaceDirectory, chooseBranch);
-      final branch = await getCurrentBranch(workspaceDirectory);
-      final commitHash = await getCurrentCommitHash(workspaceDirectory);
-      final commitTime = await getCommitTime(workspaceDirectory, commitHash);
-      final buildId = await getUnityBuildVersion(workspaceDirectory);
-      final unityCache = UnityCache(
-        buildPlatform: platform,
-        branch: branch,
-        buildId: buildId,
-      );
-
-      await updateCache(
-        cache: unityCache,
-        commitHash: commitHash,
-        buildCacheDir: unityCacheDir,
-        commitTime: commitTime,
-        cacheId: buildId.toString(),
-        forceUpdate: !isUseCache,
-      );
-      loggerSuccess('导出Unity代码完成');
-      if (isUpload) {
-        loggerDebug('上传缓存...');
-        await uploadCacheResource(
+      /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
+      if (skipGitPull) {
+        loggerInfo('跳过Git操作模式，使用本地代码');
+        final branch = await getCurrentBranch(workspaceDirectory);
+        final commitHash = await getCurrentCommitHash(workspaceDirectory);
+        final commitTime = await getCommitTime(workspaceDirectory, commitHash);
+        final buildId = await getUnityBuildVersion(workspaceDirectory);
+        final unityCache = UnityCache(
           buildPlatform: platform,
-          buildLibrary: BuildLibrary.unity,
-          buildConfiguration: BuildConfiguration.release,
-          buildType: BuildType.library,
           branch: branch,
-          commitHash: commitHash,
-          commitTime: commitTime,
           buildId: buildId,
         );
+
+        await updateCache(
+          cache: unityCache,
+          commitHash: commitHash,
+          buildCacheDir: unityCacheDir,
+          commitTime: commitTime,
+          cacheId: buildId.toString(),
+          forceUpdate: forceUpdate,
+        );
+        loggerSuccess('导出Unity代码完成');
+        if (isUpload) {
+          loggerDebug('上传缓存...');
+          await uploadCacheResource(
+            buildPlatform: platform,
+            buildLibrary: BuildLibrary.unity,
+            buildConfiguration: BuildConfiguration.release,
+            buildType: BuildType.library,
+            branch: branch,
+            commitHash: commitHash,
+            commitTime: commitTime,
+            buildId: buildId,
+          );
+        }
+      } else {
+        /// 当前分支列表
+        final branchList = await getLatestBranchList(workspaceDirectory);
+        final chooseBranch = ArgumentGet(argResults).getString(
+          'unityBranch',
+          '请选择Unity分支',
+          allowed: branchList,
+        );
+        await switchBranch(workspaceDirectory, chooseBranch);
+        final branch = await getCurrentBranch(workspaceDirectory);
+        final commitHash = await getCurrentCommitHash(workspaceDirectory);
+        final commitTime = await getCommitTime(workspaceDirectory, commitHash);
+        final buildId = await getUnityBuildVersion(workspaceDirectory);
+        final unityCache = UnityCache(
+          buildPlatform: platform,
+          branch: branch,
+          buildId: buildId,
+        );
+
+        await updateCache(
+          cache: unityCache,
+          commitHash: commitHash,
+          buildCacheDir: unityCacheDir,
+          commitTime: commitTime,
+          cacheId: buildId.toString(),
+          forceUpdate: forceUpdate,
+        );
+        loggerSuccess('导出Unity代码完成');
+        if (isUpload) {
+          loggerDebug('上传缓存...');
+          await uploadCacheResource(
+            buildPlatform: platform,
+            buildLibrary: BuildLibrary.unity,
+            buildConfiguration: BuildConfiguration.release,
+            buildType: BuildType.library,
+            branch: branch,
+            commitHash: commitHash,
+            commitTime: commitTime,
+            buildId: buildId,
+          );
+        }
       }
     }
   }

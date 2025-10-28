@@ -139,3 +139,4 @@ late AppHomeDir appHomeDir;
 late bool useMock;
 late String? customUnityPath;
 late bool isUseCache;
+late bool skipGitPull;
