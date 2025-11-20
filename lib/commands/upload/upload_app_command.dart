@@ -417,7 +417,6 @@ $changeLog
       }
       branchConfig['package_branch_text'] = branchText;
       branchConfig['package_version_text'] = versionText;
-      branchConfig = {};
 
       /// 开始初始化Flutter环境
       await initFlutterEnvironment(
