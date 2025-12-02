@@ -123,6 +123,7 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
       'git',
       'reset',
       '--hard',
+      'origin/$switchBranch',
     ],
     workingDirectory: Directory(workingDirectory),
     printOutput: true,
