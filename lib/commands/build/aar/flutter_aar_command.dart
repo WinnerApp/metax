@@ -109,22 +109,21 @@ class FlutterAarCommand extends BuildCacheCommand {
     // metaapp_flutter/buildConfigs/android
     final androidConfigDir =
         Directory(join(appHomeDir.flutterDir.path, 'buildConfigs', 'android'));
-    if (!androidConfigDir.existsSync()) {
-      throw Exception('buildConfigs/android目录不存在: ${androidConfigDir.path}');
-    }
+    if (androidConfigDir.existsSync()) {
+      final toConfigDir =
+          Directory(join(appHomeDir.flutterDir.path, '.android'));
+      if (!toConfigDir.existsSync()) {
+        throw Exception('.android目录不存在: ${toConfigDir.path}');
+      }
 
-    final toConfigDir = Directory(join(appHomeDir.flutterDir.path, '.android'));
-    if (!toConfigDir.existsSync()) {
-      throw Exception('.android目录不存在: ${toConfigDir.path}');
-    }
-
-    if (await androidConfigDir.exists()) {
-      /// cp -r -f "$android_config_dir"/* "$generate_android_dir"
-      await ProcessRunner().runProcess(
-        ['cp', '-rf', "${androidConfigDir.path}/.", toConfigDir.path],
-        workingDirectory: appHomeDir.flutterDir,
-        printOutput: true,
-      );
+      if (await androidConfigDir.exists()) {
+        /// cp -r -f "$android_config_dir"/* "$generate_android_dir"
+        await ProcessRunner().runProcess(
+          ['cp', '-rf', "${androidConfigDir.path}/.", toConfigDir.path],
+          workingDirectory: appHomeDir.flutterDir,
+          printOutput: true,
+        );
+      }
     }
 
     if (configuration == 'debug') {
@@ -174,7 +173,8 @@ class FlutterAarCommand extends BuildCacheCommand {
       throw Exception(
           'aar_init_script.gradle文件不存在: ${buildAarScriptFile.path}');
     }
-    await buildAarScriptFile.writeAsString(r'''
+
+    String buildAarScriptContent = r'''
 // This script is used to initialize the build in a module or plugin project.
 // During this phase, the script applies the Maven plugin and configures the
 // destination of the local repository.
@@ -359,7 +359,18 @@ projectsEvaluated {
         }
     }
 }
-''');
+''';
+
+    final fixAarInitScriptFile = File(join(
+      appHomeDir.directory.path,
+      'fix_aar_init_script.gradle',
+    ));
+    loggerDebug("fixAarInitScriptFile: ${fixAarInitScriptFile.path}");
+    if (fixAarInitScriptFile.existsSync()) {
+      loggerDebug("fix_aar_init_script.gradle存在，使用自定义修复!");
+      buildAarScriptContent = await fixAarInitScriptFile.readAsString();
+    }
+    await buildAarScriptFile.writeAsString(buildAarScriptContent);
     loggerSuccess('提升Flutter aar编译加速设置完成!');
   }
 }

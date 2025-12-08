@@ -126,7 +126,83 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       if (!iosPodFile.existsSync()) {
         throw Exception('$iosPodFile文件不存在');
       }
-      iosPodFile.writeAsStringSync(r'''
+      final fixIosPodfileContent = await getFixIosPodfileContent();
+      iosPodFile.writeAsStringSync(fixIosPodfileContent);
+      await ProcessRunner().runProcess(
+        [
+          'pod',
+          'install',
+          '--verbose',
+        ],
+        workingDirectory: Directory(join(
+          appHomeDir.flutterDir.path,
+          '.ios',
+        )),
+        printOutput: true,
+      );
+      if (configuration == 'debug') {
+        /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
+        await ProcessRunner().runProcess(
+          [
+            'flutter',
+            'build',
+            'ios-framework',
+            '--no-profile',
+            '--no-release',
+            '--xcframework',
+            '--cocoapods',
+            '--verbose'
+          ],
+          workingDirectory: appHomeDir.flutterDir,
+          printOutput: true,
+        );
+      } else {
+        /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
+        await ProcessRunner().runProcess(
+          [
+            'flutter',
+            'build',
+            'ios-framework',
+            '--no-debug',
+            '--no-profile',
+            '--xcframework',
+            '--cocoapods',
+            '--verbose'
+          ],
+          workingDirectory: appHomeDir.flutterDir,
+          printOutput: true,
+        );
+      }
+    }
+    final configurationDirName = switch (configuration) {
+      'debug' => 'Debug',
+      'release' => 'Release',
+      _ => throw Exception('不支持的配置: $configuration'),
+    };
+    await ProcessRunner().runProcess(
+      // jenkins_ci/setup_ios_framework_podspec.sh
+      [
+        'bash',
+        join(
+          'jenkins_ci',
+          'setup_ios_framework_podspec.sh',
+        ),
+        configurationDirName,
+        join(
+          appHomeDir.flutterDir.path,
+          'build',
+          'ios',
+          'framework',
+          configurationDirName,
+        ),
+      ],
+      workingDirectory: appHomeDir.directory,
+      printOutput: true,
+    );
+  }
+
+  Future<String> getFixIosPodfileContent() async {
+    final defaultContent = r'''
 platform :ios, '12.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
@@ -231,77 +307,15 @@ post_install do |installer|
     end
   end
 end
-''');
-      await ProcessRunner().runProcess(
-        [
-          'pod',
-          'install',
-          '--verbose',
-        ],
-        workingDirectory: Directory(join(
-          appHomeDir.flutterDir.path,
-          '.ios',
-        )),
-        printOutput: true,
-      );
-      if (configuration == 'debug') {
-        /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
-        await ProcessRunner().runProcess(
-          [
-            'flutter',
-            'build',
-            'ios-framework',
-            '--no-profile',
-            '--no-release',
-            '--xcframework',
-            '--cocoapods',
-            '--verbose'
-          ],
-          workingDirectory: appHomeDir.flutterDir,
-          printOutput: true,
-        );
-      } else {
-        /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
-        await ProcessRunner().runProcess(
-          [
-            'flutter',
-            'build',
-            'ios-framework',
-            '--no-debug',
-            '--no-profile',
-            '--xcframework',
-            '--cocoapods',
-            '--verbose'
-          ],
-          workingDirectory: appHomeDir.flutterDir,
-          printOutput: true,
-        );
-      }
+''';
+    final customFixFile = File(join(
+      appHomeDir.workspace,
+      'fix_ios_podfile.txt',
+    ));
+    loggerDebug('customFixFile: ${customFixFile.path}');
+    if (customFixFile.existsSync()) {
+      return customFixFile.readAsStringSync();
     }
-    final configurationDirName = switch (configuration) {
-      'debug' => 'Debug',
-      'release' => 'Release',
-      _ => throw Exception('不支持的配置: $configuration'),
-    };
-    await ProcessRunner().runProcess(
-      // jenkins_ci/setup_ios_framework_podspec.sh
-      [
-        'bash',
-        join(
-          'jenkins_ci',
-          'setup_ios_framework_podspec.sh',
-        ),
-        configurationDirName,
-        join(
-          appHomeDir.flutterDir.path,
-          'build',
-          'ios',
-          'framework',
-          configurationDirName,
-        ),
-      ],
-      workingDirectory: appHomeDir.directory,
-      printOutput: true,
-    );
+    return defaultContent;
   }
 }
