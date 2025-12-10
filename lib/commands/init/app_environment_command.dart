@@ -140,6 +140,31 @@ class AppEnvironmentCommand extends Command {
     await _writeEnvironmentWithPrompt(
       environment,
       envFile,
+      'FLUTTER_DIR',
+      '请输入Flutter路径',
+      readValueHandler: () async {
+        /// 通过 whci
+        final flutterPath = await ProcessRunner().runProcess(
+          ['which', 'flutter'],
+          printOutput: true,
+        ).then((e) => e.stdout.trim().replaceAll("/bin/flutter", "").trim());
+
+        /// 如果是软连接 返回真正的路径
+        final realPath = await ProcessRunner().runProcess(
+          ['readlink', '-f', flutterPath],
+          printOutput: true,
+        ).then((e) => e.stdout.trim().trim());
+        return realPath;
+      },
+      validator: (value) {
+        final dartFile = File(join(value, 'bin', 'dart'));
+        final flutterFile = File(join(value, 'bin', 'flutter'));
+        return dartFile.existsSync() && flutterFile.existsSync();
+      },
+    );
+    await _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
       'SDK_DIR',
       '请输入Android SDK路径',
       readValueHandler: () async {

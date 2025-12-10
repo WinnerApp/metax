@@ -67,19 +67,21 @@ storeFile=${appHomeDir.workspace}/winner-metaapp-keystore.jks
       ));
       await createFileAndWrite(keyPropertiesFile, keyPropertiesContent);
       final sdkDir = readAppEnv('SDK_DIR', appHomeDir);
-      final ndkDir = readAppEnv('NDK_DIR', appHomeDir);
+      // final ndkDir = readAppEnv('NDK_DIR', appHomeDir);
+      final flutterDir = readAppEnv('FLUTTER_DIR', appHomeDir);
       final versionName = prompts.get('请输入版本号，例如1.0.0');
       final localPropertiesContent = '''
 sdk.dir=$sdkDir
 flutterSourceCompile=false
 useUnityAarBuild=true
 enableRocketX=true
-ndk.dir=$ndkDir
+ndk.dir=$sdkDir/ndk/27.0.12077973
 flutter.versionName=$versionName
 flutter.versionCode=${getCurrentTimestamp()}
 flutter.buildMode=release
 flutter.compileSdkVersion=32
 flutter.minSdkVersion=21
+flutter.sdk=$flutterDir
 ''';
       final localPropertiesFile = File(join(
         androidProjectDir.path,
