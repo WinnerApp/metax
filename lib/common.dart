@@ -115,37 +115,17 @@ Future<Set<String>> getLatestBranchList(String workingDirectory) async {
 }
 
 /// 切换分支
+/// 功能：
+/// 1. 获取最新远程分支信息
+/// 2. 保留被 .gitignore 忽略的文件（不删除）
+/// 3. 丢弃所有已跟踪文件的本地更改
+/// 4. 切换到目标分支并拉取最新代码
 Future<void> switchBranch(String workingDirectory, String branch) async {
   final switchBranch = getBranchName(branch);
   final currentBranch = await getCurrentBranch(workingDirectory);
-  await ProcessRunner().runProcess(
-    [
-      'git',
-      'reset',
-      '--hard',
-      'origin/$switchBranch',
-    ],
-    workingDirectory: Directory(workingDirectory),
-    printOutput: true,
-  );
-  final result = await ProcessRunner().runProcess(
-    [
-      'git',
-      'status',
-      '--porcelain',
-    ],
-    workingDirectory: Directory(workingDirectory),
-    printOutput: true,
-  );
-  final changedPaths =
-      result.stdout.trim().split('\n').map((e) => e.split(' ').last).toList();
-  for (var path in changedPaths) {
-    final filePath = join(workingDirectory, path);
-    if (await FileSystemEntity.isFile(filePath) &&
-        File(filePath).existsSync()) {
-      await File(filePath).delete(recursive: true);
-    }
-  }
+
+  // 步骤1: 先 fetch 获取最新远程分支信息
+  loggerDebug('获取最新远程分支信息...');
   await ProcessRunner().runProcess(
     [
       'git',
@@ -155,7 +135,59 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
     workingDirectory: Directory(workingDirectory),
     printOutput: true,
   );
+
+  // 步骤2: 在执行 reset 之前，备份被 .gitignore 忽略的文件
+  // 这些文件可能被停止跟踪，但在本地需要保留
+  loggerDebug('备份被忽略的文件...');
+  final ignoredFilesResult = await ProcessRunner().runProcess(
+    [
+      'git',
+      'ls-files',
+      '--others',
+      '--ignored',
+      '--exclude-standard',
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: false,
+  );
+
+  final ignoredFiles = ignoredFilesResult.stdout
+      .trim()
+      .split('\n')
+      .where((line) => line.isNotEmpty)
+      .toList();
+
+  // 创建临时目录用于备份
+  final tempBackupDir =
+      Directory(join(workingDirectory, '.metax_branch_switch_backup'));
+  if (ignoredFiles.isNotEmpty) {
+    if (await tempBackupDir.exists()) {
+      await tempBackupDir.delete(recursive: true);
+    }
+    await tempBackupDir.create(recursive: true);
+
+    // 备份被忽略的文件
+    for (var relativePath in ignoredFiles) {
+      final sourcePath = join(workingDirectory, relativePath);
+      final sourceFile = File(sourcePath);
+      if (await sourceFile.exists()) {
+        final backupPath = join(tempBackupDir.path, relativePath);
+        final backupFile = File(backupPath);
+        // 确保备份文件的父目录存在
+        final backupParentDir = backupFile.parent;
+        if (!await backupParentDir.exists()) {
+          await backupParentDir.create(recursive: true);
+        }
+        await sourceFile.copy(backupPath);
+        loggerDebug('备份被忽略的文件: $relativePath');
+      }
+    }
+    loggerInfo('已备份 ${ignoredFiles.length} 个被忽略的文件');
+  }
+
+  // 步骤3: 如果目标分支和当前分支不同，先切换到目标分支
   if (switchBranch != currentBranch) {
+    loggerDebug('切换到分支: $switchBranch');
     await ProcessRunner().runProcess(
       [
         'git',
@@ -166,6 +198,22 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
       printOutput: true,
     );
   }
+
+  // 步骤4: 丢弃所有已跟踪文件的本地更改，重置到远程分支状态
+  loggerDebug('丢弃所有已跟踪文件的本地更改，重置到远程分支状态...');
+  await ProcessRunner().runProcess(
+    [
+      'git',
+      'reset',
+      '--hard',
+      'origin/$switchBranch',
+    ],
+    workingDirectory: Directory(workingDirectory),
+    printOutput: true,
+  );
+
+  // 步骤5: 拉取最新代码（确保是最新的）
+  loggerDebug('拉取最新代码...');
   await ProcessRunner().runProcess(
     [
       'git',
@@ -176,9 +224,37 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
     workingDirectory: Directory(workingDirectory),
     printOutput: true,
   );
-  if (await getCurrentBranch(workingDirectory) != switchBranch) {
-    throw '切换分支$switchBranch失败';
+
+  // 步骤6: 恢复被忽略的文件
+  if (ignoredFiles.isNotEmpty && await tempBackupDir.exists()) {
+    loggerDebug('恢复被忽略的文件...');
+    for (var relativePath in ignoredFiles) {
+      final backupPath = join(tempBackupDir.path, relativePath);
+      final backupFile = File(backupPath);
+      if (await backupFile.exists()) {
+        final targetPath = join(workingDirectory, relativePath);
+        final targetFile = File(targetPath);
+        // 确保目标文件的父目录存在
+        final targetParentDir = targetFile.parent;
+        if (!await targetParentDir.exists()) {
+          await targetParentDir.create(recursive: true);
+        }
+        await backupFile.copy(targetPath);
+        loggerDebug('恢复被忽略的文件: $relativePath');
+      }
+    }
+    // 清理临时备份目录
+    await tempBackupDir.delete(recursive: true);
+    loggerInfo('已恢复 ${ignoredFiles.length} 个被忽略的文件');
   }
+
+  // 验证分支切换是否成功
+  final finalBranch = await getCurrentBranch(workingDirectory);
+  if (finalBranch != switchBranch) {
+    throw '切换分支$switchBranch失败，当前分支为: $finalBranch';
+  }
+
+  loggerSuccess('成功切换到分支: $switchBranch');
 }
 
 String getBranchName(String branch) {
