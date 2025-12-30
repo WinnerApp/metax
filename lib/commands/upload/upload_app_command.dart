@@ -379,6 +379,22 @@ $changeLog
       join(environment.workspace, 'metaapp_flutter'),
     );
 
+    final dartDefineFile =
+        io.File(join(appHomeDir.flutterDir.path, 'assets', 'dart_define.json'));
+    if (!dartDefineFile.existsSync()) {
+      loggerDebug("dart_define.json 不存在进行生成!");
+      await ProcessRunner().runProcess(
+        [
+          'flutter',
+          'pub',
+          'run',
+          'dart_define',
+          'generate',
+        ],
+        workingDirectory: appHomeDir.flutterDir,
+      );
+    }
+
     loggerDebug('开始复制Flutter静态库到指定位置');
     await copyFlutterStaticLibrary(
         flutterCurrentCommitId, environment, isFlutterBuild, flutterBranch);
