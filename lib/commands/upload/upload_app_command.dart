@@ -258,14 +258,12 @@ abstract class UploadAppCommand extends Command {
 
     String lineText = "----------------------------------------";
 
-    unityLogBuffer.write('''
-$lineText
-[Unity][${environment.unityBranchName}][$currentUnityCommitId]
-''');
     if (unityChangeLog != null) {
-      unityLogBuffer.writeln(unityChangeLog);
+      unityLogBuffer.writeln('''
+[Unity][${environment.unityBranchName}][$currentUnityCommitId]
+$unityChangeLog
+''');
     }
-    unityLogBuffer.writeln(lineText);
 
     /// 上一次打包Flutter模块的分支和节点配置
     DocumentList? buildBranchConfig;
@@ -318,14 +316,12 @@ $lineText
         afterCommitId: currentCommitId,
       ).get();
 
-      flutterLogBuffer.write('''
-$lineText
-[$name][$branch][$currentCommitId]
-''');
       if (changeLog != null) {
-        flutterLogBuffer.writeln(changeLog);
+        flutterLogBuffer.write('''
+[$name][$branch][$currentCommitId]
+$changeLog
+''');
       }
-      flutterLogBuffer.writeln(lineText);
 
       if (buildCommitId != currentCommitId) {
         isFlutterBuild = true;

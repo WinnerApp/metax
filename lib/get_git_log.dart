@@ -34,6 +34,9 @@ class GetGitLog {
       /// 删除日志左右的空格
       final message = element.trim();
       if (message.isEmpty) continue;
+      if (message.startsWith("CR-link:")) continue;
+      if (message.startsWith("Signed-off-by:")) continue;
+      if (message.startsWith("Reviewed-by:")) continue;
       if (message.isNotEmpty) {
         messages.add(message);
       }
