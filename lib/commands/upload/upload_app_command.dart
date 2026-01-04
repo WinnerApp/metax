@@ -179,6 +179,35 @@ abstract class UploadAppCommand extends Command {
     await switchBranch(appHomeDir.workspace, environment.melosBranch);
 
     /// 将当前项目进行初始化
+    /// 0. 重置所有已存在的子模块到当前分支的最新提交
+    final gitSubmodulePath = join(environment.workspace, '.gitmodules');
+    if (await io.File(gitSubmodulePath).exists()) {
+      final gitSubmodules = await parseGitmodulesFile(gitSubmodulePath);
+      for (var submodule in gitSubmodules) {
+        final path = submodule.path;
+        if (path == null) {
+          continue;
+        }
+        final submodulePath = join(environment.workspace, path);
+        final submoduleGitDir = join(submodulePath, '.git');
+
+        // 检查子模块目录是否存在且是有效的 git 仓库
+        if (await io.Directory(submodulePath).exists() &&
+            (await io.Directory(submoduleGitDir).exists() ||
+                await io.File(submoduleGitDir).exists())) {
+          try {
+            // 获取子模块当前分支
+            final currentBranch = await getCurrentBranch(submodulePath);
+            loggerDebug('重置子模块 [$path] 从分支 [$currentBranch] 到最新提交');
+            // 重置到当前分支的最新提交
+            await switchBranch(submodulePath, currentBranch);
+          } catch (e) {
+            loggerWarning('重置子模块 [$path] 失败: $e');
+          }
+        }
+      }
+    }
+
     /// 1. 更新最新的Git submodule
     await buildAppRunner.runProcess(
       [
@@ -190,7 +219,6 @@ abstract class UploadAppCommand extends Command {
     );
 
     /// 2 分析出当前项目的submodule
-    final gitSubmodulePath = join(environment.workspace, '.gitmodules');
     final gitSubmodules = await parseGitmodulesFile(gitSubmodulePath);
 
     /// 得到最新melos工程的分支
