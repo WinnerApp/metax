@@ -47,6 +47,11 @@ class UseCacheCommand extends Command {
     argParser.addOption('commitHash', help: 'Git Hash');
     argParser.addOption('buildId', help: '构建ID');
     argParser.addOption('unityBranch', help: 'Unity分支');
+    argParser.addFlag(
+      'isUpload',
+      help: '是否上传网络缓存',
+      defaultsTo: true,
+    );
   }
 
   late String buildPlatform;
@@ -57,6 +62,7 @@ class UseCacheCommand extends Command {
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
   late String? commitHash;
   late String? buildId;
+  late bool isUpload;
   @override
   Future<void> run() async {
     appwriteCacheEnvironment = AppwriteCacheEnvironment(appHomeDir);
@@ -173,6 +179,7 @@ class UseCacheCommand extends Command {
 
     commitHash = argResults?['commitHash'] as String?;
     buildId = argResults?['buildId'] as String?;
+    isUpload = argResults?['isUpload'] ?? true;
 
     CacheModel? useCacheModel;
     if (isUseCache) {
@@ -427,6 +434,7 @@ class UseCacheCommand extends Command {
           'library',
           '--unityBranch',
           branch,
+          isUpload ? '--isUpload' : '--no-isUpload',
           getUseMockCommand(),
           isUseCache ? '--isUseCache' : '--no-isUseCache',
         ];
@@ -457,6 +465,7 @@ class UseCacheCommand extends Command {
         buildPlatform,
         '--unityBranch',
         branch,
+        isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
         isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
@@ -480,6 +489,7 @@ class UseCacheCommand extends Command {
         'build',
         buildType,
         'unity',
+        isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
         isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],
@@ -506,6 +516,7 @@ class UseCacheCommand extends Command {
         'flutter',
         '--configuration',
         buildConfiguration,
+        isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
         isUseCache ? '--isUseCache' : '--no-isUseCache',
       ],

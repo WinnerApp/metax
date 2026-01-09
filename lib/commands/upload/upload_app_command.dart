@@ -288,7 +288,7 @@ abstract class UploadAppCommand extends Command {
 
     if (unityChangeLog != null) {
       unityLogBuffer.writeln('''
-[Unity][${environment.unityBranchName}][$currentUnityCommitId]
+👉[Unity][${environment.unityBranchName}][$currentUnityCommitId]
 $unityChangeLog
 ''');
     }
@@ -346,7 +346,7 @@ $unityChangeLog
 
       if (changeLog != null) {
         flutterLogBuffer.write('''
-[$name][$branch][$currentCommitId]
+👉[$name][$branch][$currentCommitId]
 $changeLog
 ''');
       }

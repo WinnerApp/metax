@@ -41,7 +41,9 @@ class GetGitLog {
         messages.add(message);
       }
     }
-    final logContent = messages.join('\n');
-    return logContent;
+    if (messages.isEmpty) {
+      return null;
+    }
+    return messages.join('\n');
   }
 }
