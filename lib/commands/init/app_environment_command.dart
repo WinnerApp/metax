@@ -129,6 +129,7 @@ class AppEnvironmentCommand extends Command {
         }
       },
       validator: (value) {
+        value = normalize(value);
         loggerDebug('NDK路径: $value');
         final ndkBuild = Platform.isMacOS
             ? File(join(value, 'ndk-build'))
