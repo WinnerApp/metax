@@ -133,6 +133,7 @@ class AppEnvironmentCommand extends Command {
         final ndkBuild = Platform.isMacOS
             ? File(join(value, 'ndk-build'))
             : File(join(value, 'ndk-build.cmd'));
+        loggerDebug("ndkBuild: ${ndkBuild.path}");
         if (!ndkBuild.existsSync()) {
           throw Exception('NDK路径错误');
         }
