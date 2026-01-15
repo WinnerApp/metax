@@ -41,16 +41,33 @@ class MetaCommand extends Command {
     }
     final version = prompts.get('请输入版本号');
     final metaxPath = prompts.get('请输入metax的路径');
-    final sha256 = await ProcessRunner().runProcess(
-      [
-        'openssl',
-        'sha256',
-        metaxPath,
-      ],
-      printOutput: true,
-    ).then((e) {
-      return e.stdout.toString().trim().split('=').last.trim();
-    });
+    final sha256 = await (() async {
+      // 优先 openssl；Windows 没装 openssl 时用 certutil
+      if (await isCommandAvailable('openssl')) {
+        return await ProcessRunner().runProcess(
+          ['openssl', 'sha256', metaxPath],
+          printOutput: true,
+        ).then((e) => e.stdout.toString().trim().split('=').last.trim());
+      }
+      if (Platform.isWindows && await isCommandAvailable('certutil')) {
+        final out = await ProcessRunner().runProcess(
+          ['certutil', '-hashfile', metaxPath, 'SHA256'],
+          printOutput: true,
+        ).then((e) => e.stdout.toString());
+        // certutil 输出里会有一行纯 hash
+        final lines = out
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .toList();
+        final hashLine = lines.firstWhere(
+          (l) => RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(l),
+          orElse: () => throw Exception('certutil 输出无法解析 SHA256'),
+        );
+        return hashLine.toLowerCase();
+      }
+      throw Exception('计算 SHA256 失败：未找到 openssl（Windows 可安装 openssl 或确保 certutil 可用）');
+    })();
 
     final storage = Storage(client);
     String fileId = ID.unique();

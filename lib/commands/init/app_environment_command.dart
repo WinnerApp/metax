@@ -147,18 +147,19 @@ class AppEnvironmentCommand extends Command {
       'FLUTTER_DIR',
       '请输入Flutter路径',
       readValueHandler: () async {
-        /// 通过 whci
-        final flutterPath = await ProcessRunner().runProcess(
-          ['which', 'flutter'],
-          printOutput: true,
-        ).then((e) => e.stdout.trim().replaceAll("/bin/flutter", "").trim());
-
-        /// 如果是软连接 返回真正的路径
-        final realPath = await ProcessRunner().runProcess(
-          ['readlink', '-f', flutterPath],
-          printOutput: true,
-        ).then((e) => e.stdout.trim().trim());
-        return realPath;
+        final flutterExec = await findExecutableOnPath('flutter');
+        if (flutterExec == null) {
+          return null;
+        }
+        // flutter 可执行在 <flutter>/bin/flutter(.bat/.exe)
+        final flutterBinDir = File(flutterExec).parent;
+        final flutterDir = flutterBinDir.parent;
+        // 如果 flutterDir 本身是软链接，尽量解析到真实路径
+        try {
+          return await flutterDir.resolveSymbolicLinks();
+        } catch (_) {
+          return flutterDir.path;
+        }
       },
       validator: (value) {
         final dartFile = File(join(value, 'bin', 'dart'));

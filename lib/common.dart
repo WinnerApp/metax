@@ -11,6 +11,101 @@ import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
+/// 在 PATH 中查找可执行文件（跨平台）
+/// - Windows 会额外尝试：.exe/.cmd/.bat
+Future<String?> findExecutableOnPath(String name,
+    {Map<String, String>? environment}) async {
+  final env = {...Platform.environment, ...?environment};
+  final pathVar = env['PATH'];
+  if (pathVar == null || pathVar.trim().isEmpty) {
+    return null;
+  }
+  final sep = Platform.isWindows ? ';' : ':';
+  final parts =
+      pathVar.split(sep).map((e) => e.trim()).where((e) => e.isNotEmpty);
+  final candidates = <String>[name];
+  if (Platform.isWindows) {
+    // 常见可执行后缀
+    if (!name.toLowerCase().endsWith('.exe')) candidates.add('$name.exe');
+    if (!name.toLowerCase().endsWith('.cmd')) candidates.add('$name.cmd');
+    if (!name.toLowerCase().endsWith('.bat')) candidates.add('$name.bat');
+  }
+  for (final dir in parts) {
+    for (final c in candidates) {
+      final file = File(join(dir, c));
+      if (file.existsSync()) {
+        return file.path;
+      }
+    }
+  }
+  return null;
+}
+
+/// 命令是否可用（跨平台）
+Future<bool> isCommandAvailable(String name,
+    {Map<String, String>? environment}) async {
+  // 优先走系统自带的 where/which，避免 PATH 里同名非可执行文件误判
+  try {
+    final runner = ProcessRunner(environment: environment);
+    final result = await runner.runProcess(
+      Platform.isWindows ? ['where', name] : ['which', name],
+      printOutput: false,
+    );
+    final out = result.stdout.toString().trim();
+    if (out.isNotEmpty) return true;
+  } catch (_) {
+    // ignore
+  }
+  return (await findExecutableOnPath(name, environment: environment)) != null;
+}
+
+/// 递归复制目录（纯 Dart，跨平台）
+Future<void> copyDirectoryRecursive(
+  Directory sourceDir,
+  Directory targetDir, {
+  bool deleteTargetIfExists = true,
+}) async {
+  if (!await sourceDir.exists()) {
+    throw '源目录不存在: ${sourceDir.path}';
+  }
+  if (await targetDir.exists()) {
+    if (deleteTargetIfExists) {
+      await targetDir.delete(recursive: true);
+    } else {
+      throw '目标目录已存在: ${targetDir.path}';
+    }
+  }
+  await targetDir.create(recursive: true);
+  await for (final entity
+      in sourceDir.list(recursive: false, followLinks: false)) {
+    final name = basename(entity.path);
+    final newPath = join(targetDir.path, name);
+    if (entity is File) {
+      await entity.copy(newPath);
+    } else if (entity is Directory) {
+      await copyDirectoryRecursive(entity, Directory(newPath),
+          deleteTargetIfExists: false);
+    } else if (entity is Link) {
+      // Windows/权限环境下 Link 可能失败：尽量解析为真实文件/目录再复制
+      try {
+        final resolved = await entity.resolveSymbolicLinks();
+        final resolvedType = FileSystemEntity.typeSync(resolved);
+        if (resolvedType == FileSystemEntityType.file) {
+          await File(resolved).copy(newPath);
+        } else if (resolvedType == FileSystemEntityType.directory) {
+          await copyDirectoryRecursive(
+            Directory(resolved),
+            Directory(newPath),
+            deleteTargetIfExists: false,
+          );
+        }
+      } catch (_) {
+        // ignore link copy
+      }
+    }
+  }
+}
+
 /// 判断是否是git仓库
 Future<bool> isGitRepository(String workingDirectory) async {
   final commands = ['git', 'rev-parse', '--is-inside-work-tree'];
@@ -259,10 +354,7 @@ void checkEnv(String envName, {Map<String, String>? environment}) {
 
 /// 检测命令是否安装
 Future<bool> isCommandInstall(String name) async {
-  return ProcessRunner()
-      .runProcess(['which', name], printOutput: true)
-      .then((e) => !e.output.contains('$name not found'))
-      .catchError((e) => false);
+  return isCommandAvailable(name);
 }
 
 /// 如果文件夹存在则删除
@@ -341,14 +433,22 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
     await targetDir.delete(recursive: true);
   }
   await targetDir.create(recursive: true);
+  // Windows 上默认没有 unzip：优先用 PowerShell Expand-Archive
+  if (Platform.isWindows) {
+    await ProcessRunner().runProcess(
+      [
+        'powershell',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Expand-Archive -Path "$zipPath" -DestinationPath "${targetDir.path}" -Force',
+      ],
+      printOutput: true,
+    );
+    return;
+  }
   await ProcessRunner().runProcess(
-    [
-      'unzip',
-      '-o',
-      zipPath,
-      '-d',
-      targetDir.path,
-    ],
+    ['unzip', '-o', zipPath, '-d', targetDir.path],
     printOutput: true,
   );
 }
@@ -585,20 +685,19 @@ Map<String, String> readEnvironmentFromFile(String filePath) {
     }
     final key = line.substring(0, equalIndex).trim();
     var value = line.substring(equalIndex + 1).trim();
-    
+
     // 处理引号包裹的值
     if ((value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'"))) {
       value = value.substring(1, value.length - 1);
     }
-    
+
     if (key.isNotEmpty) {
       environment[key] = value;
     }
   }
   return environment;
 }
-
 
 Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
   final appEnvFile = File(join(
@@ -712,30 +811,22 @@ Future<void> checkAndroidNDK(AppHomeDir appHomeDir) async {
   if (ndkDir == null) {
     throw '请先通过metax init android_environment 初始化安卓环境ndk.dir变量';
   }
-  final ndkBuild = File(join(ndkDir, 'ndk-build'));
-  if (!ndkBuild.existsSync()) {
+  final candidates = Platform.isWindows
+      ? [
+          File(join(ndkDir, 'ndk-build.cmd')),
+          File(join(ndkDir, 'ndk-build.bat')),
+          File(join(ndkDir, 'ndk-build')),
+        ]
+      : [File(join(ndkDir, 'ndk-build'))];
+  if (!candidates.any((f) => f.existsSync())) {
     throw 'ndk.dir路径错误，请检查是否正确！';
   }
 }
 
 /// 复制目录到指定目录
 Future<void> copyDirToDir(Directory sourceDir, Directory targetDir) async {
-  if (await targetDir.exists()) {
-    await targetDir.delete(recursive: true);
-  }
-  final targetParentDir = targetDir.parent;
-  if (!await targetParentDir.exists()) {
-    await targetParentDir.create(recursive: true);
-  }
-  await ProcessRunner().runProcess(
-    [
-      'cp',
-      '-rf',
-      sourceDir.path,
-      targetDir.path,
-    ],
-    printOutput: true,
-  );
+  await copyDirectoryRecursive(sourceDir, targetDir,
+      deleteTargetIfExists: true);
 }
 
 String getUseMockCommand() {
@@ -744,11 +835,13 @@ String getUseMockCommand() {
 
 /// 获取Flutter命令路径
 Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
-  final flutterBinPath = await ProcessRunner().runProcess(
-    ['which', 'flutter'],
-    printOutput: true,
-  ).then((e) => e.output.split('\n').first.trim());
-  return File(flutterBinPath).parent.parent.path;
+  final flutterPath = await findExecutableOnPath('flutter') ??
+      await findExecutableOnPath('flutter.bat');
+  if (flutterPath == null) {
+    throw '找不到 flutter 可执行文件，请确认已安装并加入 PATH';
+  }
+  // flutter 可执行在 <flutter>/bin/flutter(.bat/.exe)
+  return File(flutterPath).parent.parent.path;
 }
 
 /// 初始化Flutter环境

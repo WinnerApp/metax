@@ -172,15 +172,9 @@ class FlutterEnvironmentCommand extends Command {
     }
 
     /// 解压当前aar到指定目录
-    await ProcessRunner().runProcess(
-      [
-        'unzip',
-        aarFile.path,
-        '-d',
-        flutterName,
-      ],
-      workingDirectory: aarParentDir,
-      printOutput: true,
+    await copyZipToDir(
+      aarFile.path,
+      Directory(join(aarParentDir.path, flutterName)),
     );
     // assets/flutter_assets/assets/dart_define.json
     final dartDefineJsonFile = File(join(

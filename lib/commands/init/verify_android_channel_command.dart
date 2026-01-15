@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 /// 验证当前的 apk 是否是正式版本 是否是对应渠道的 apk
@@ -64,15 +63,9 @@ class VerifyAndroidChannelCommand extends Command {
     loggerWarning('当前需要校验的安卓渠道为: $channel');
     // const androidManifestPath = 'AndroidManifest.xml';
 
-    await ProcessRunner().runProcess(
-      [
-        'unzip',
-        apk,
-        dartDefinePath,
-      ],
-      workingDirectory: Directory.current,
-      printOutput: true,
-    );
+    // 只需要 dart_define.json：解压到临时目录（跨平台，避免污染/误删当前目录）
+    final tempDir = await Directory.systemTemp.createTemp('metax-verify-apk-');
+    await copyZipToDir(apk, tempDir);
 
     // final androidMainfestFile =
     //     File(join(Directory.current.path, androidManifestPath));
@@ -81,7 +74,7 @@ class VerifyAndroidChannelCommand extends Command {
     //   return;
     // }
 
-    final dartDefineFile = getDartDefineFile(dartDefinePath);
+    final dartDefineFile = File(join(tempDir.path, dartDefinePath));
     if (!dartDefineFile.existsSync()) {
       throw Exception('$dartDefineFile 不存在!');
     }
