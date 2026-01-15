@@ -19,15 +19,15 @@ class ApkCommand extends Command {
     if (!androidDir.existsSync()) {
       throw Exception('android目录不存在: ${androidDir.path}');
     }
-
-    final gradlew = File(join(androidDir.path, 'gradlew'));
+    final gradlewName = Platform.isWindows ? 'gradlew.bat' : 'gradlew';
+    final gradlew = File(join(androidDir.path, gradlewName));
     if (!gradlew.existsSync()) {
       throw Exception('gradlew文件不存在: ${gradlew.path}');
     }
 
     /// ./gradlew assembleRelease
     await ProcessRunner().runProcess(
-      ['./gradlew', 'assembleRelease'],
+      [gradlewName, 'assembleRelease'],
       workingDirectory: androidDir,
       printOutput: true,
     );
