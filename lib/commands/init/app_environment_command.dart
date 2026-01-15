@@ -174,10 +174,7 @@ class AppEnvironmentCommand extends Command {
       '请输入Android SDK路径',
       readValueHandler: () async {
         if (Platform.isMacOS) {
-          final isExitFlutter = await ProcessRunner().runProcess(
-            ['which', 'flutter'],
-            printOutput: true,
-          ).then((e) => e.stdout.trim().isNotEmpty);
+          final isExitFlutter = await isCommandAvailable('flutter');
           if (!isExitFlutter) return null;
           final flutterDoctorVerbose = await ProcessRunner().runProcess(
             ['flutter', 'doctor', '-v'],
