@@ -568,13 +568,37 @@ Map<String, String> readEnvironmentFromFile(String filePath) {
   }
   final contents = file.readAsLinesSync();
   for (var line in contents) {
-    final match = RegExp(r'(\w+)=(\S+)').firstMatch(line);
-    if (match != null) {
-      environment[match.group(1)!] = match.group(2)!;
+    // 去除首尾空白
+    line = line.trim();
+    // 跳过空行和注释行
+    if (line.isEmpty || line.startsWith('#')) {
+      continue;
+    }
+    // 处理 export KEY=VALUE 格式
+    if (line.startsWith('export ')) {
+      line = line.substring(7).trim();
+    }
+    // 查找等号位置
+    final equalIndex = line.indexOf('=');
+    if (equalIndex == -1) {
+      continue;
+    }
+    final key = line.substring(0, equalIndex).trim();
+    var value = line.substring(equalIndex + 1).trim();
+    
+    // 处理引号包裹的值
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.substring(1, value.length - 1);
+    }
+    
+    if (key.isNotEmpty) {
+      environment[key] = value;
     }
   }
   return environment;
 }
+
 
 Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
   final appEnvFile = File(join(

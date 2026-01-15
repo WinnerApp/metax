@@ -238,7 +238,11 @@ class AppEnvironmentCommand extends Command {
   ) async {
     environment[name] = value;
     await envFile.writeAsString(
-      environment.entries.map((e) => 'export ${e.key}=${e.value}').join('\n'),
+      environment.entries.map((e) {
+        // 如果值包含空格，则添加引号
+        final envValue = e.value.contains(' ') ? '"${e.value}"' : e.value;
+        return 'export ${e.key}=$envValue';
+      }).join('\n'),
     );
     return value;
   }
