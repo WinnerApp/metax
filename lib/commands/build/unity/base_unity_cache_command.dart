@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/unity_cache.dart';
@@ -138,7 +139,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   @override
   Future<void> buildCache() async {
     final appRunner = await createAppRunner(appHomeDir);
-    await appRunner.runProcess(
+    final result = await appRunner.runProcess(
       [
         'build_winner_app',
         'export',
@@ -147,5 +148,9 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       ],
       printOutput: true,
     );
+    if (result.exitCode != 0) {
+      loggerError('导出Unity代码失败: ${result.stderr}');
+      exit(1);
+    }
   }
 }
