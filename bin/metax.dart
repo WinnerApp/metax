@@ -57,5 +57,11 @@ Future<void> main(List<String> arguments) async {
       skipGitPull = value;
     },
   );
-  await runner.run(arguments);
+  try {
+    await runner.run(arguments);
+  } catch (e, stackTrace) {
+    print('Error: $e');
+    print('Stack trace: $stackTrace');
+    exit(1);
+  }
 }
