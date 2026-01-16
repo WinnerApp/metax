@@ -7,6 +7,22 @@ class GitSubmodule {
   String? name;
   String? branch;
 
+  GitSubmodule({
+    this.path,
+    this.url,
+    this.name,
+    this.branch,
+  });
+
+  factory GitSubmodule.fromJson(Map<String, dynamic> json) {
+    return GitSubmodule(
+      name: json['name'] as String?,
+      path: json['path'] as String?,
+      url: json['url'] as String?,
+      branch: json['branch'] as String?,
+    );
+  }
+
   @override
   String toString() => '''
 name = $name
@@ -16,6 +32,19 @@ branch = $branch
 ''';
 }
 
+/// 获取 gitmodules 文件路径
+/// 使用新的 JSON 格式路径（workspace/gitmodules.json），如果不存在则抛出异常中止流程
+Future<String> getGitmodulesFilePath(String workspace) async {
+  // 新的 JSON 格式路径：workspace/gitmodules.json
+  final newPath = '$workspace/gitmodules.json';
+  final newFile = File(newPath);
+  if (!await newFile.exists()) {
+    throw Exception('Gitmodules file not found: $newPath');
+  }
+  return newPath;
+}
+
+/// 解析 gitmodules 文件（支持 INI 和 JSON 格式）
 Future<List<GitSubmodule>> parseGitmodulesFile(String filePath) async {
   final file = File(filePath);
   if (!await file.exists()) {
@@ -23,6 +52,32 @@ Future<List<GitSubmodule>> parseGitmodulesFile(String filePath) async {
   }
 
   final content = await file.readAsString();
+
+  // 尝试解析为 JSON 格式
+  try {
+    final jsonData = jsonDecode(content);
+    if (jsonData is List) {
+      // 如果是数组格式
+      return jsonData
+          .map((item) => GitSubmodule.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } else if (jsonData is Map) {
+      // 如果是对象格式，可能包含 submodules 字段
+      if (jsonData.containsKey('submodules')) {
+        final submodules = jsonData['submodules'] as List;
+        return submodules
+            .map((item) => GitSubmodule.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        // 直接是对象，尝试转换
+        return [GitSubmodule.fromJson(jsonData as Map<String, dynamic>)];
+      }
+    }
+  } catch (e) {
+    // 不是 JSON 格式，继续解析 INI 格式
+  }
+
+  // 解析 INI 格式（旧的 .gitmodules 格式）
   final submodules = <GitSubmodule>[];
   GitSubmodule? currentSubmodule;
 
