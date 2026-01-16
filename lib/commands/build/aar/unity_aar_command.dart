@@ -137,12 +137,15 @@ class UnityAarCommand extends BuildCacheCommand {
     if (!gradlew.existsSync()) {
       throw Exception('gradlew文件不存在: ${gradlew.path}');
     }
-    await ProcessRunner().runProcess(
+    final result = await ProcessRunner().runProcess(
       [gradlew.absolute.path, 'unityLibrary:bundleReleaseAar'],
       workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
-
+    if (result.exitCode != 0) {
+      loggerError('打包Unity AAR失败: ${result.stdout}');
+      exit(1);
+    }
     if (androidArchieveFile.existsSync()) {
       loggerDebug('复制Android_archieve.zip到build/unityLibrary/outputs/aar目录下');
 
