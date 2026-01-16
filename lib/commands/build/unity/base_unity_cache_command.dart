@@ -145,6 +145,8 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         'export',
         '-p',
         platform.name,
+        '-r',
+        appHomeDir.directory.path,
       ],
       printOutput: true,
     );
