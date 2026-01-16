@@ -243,7 +243,7 @@ class FlutterWebCacheCommand extends Command {
     }
 
     final workspace = Directory.current.path;
-    final gitmodulesPath = p.join(workspace, '.gitmodules');
+    final gitmodulesPath = await getGitmodulesFilePath(workspace);
     final gitSubmodules = await parseGitmodulesFile(gitmodulesPath);
     final flutterWebPackages = await getFlutterModuleVersions(
       workspace: workspace,

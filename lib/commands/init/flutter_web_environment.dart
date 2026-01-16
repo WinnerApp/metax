@@ -25,7 +25,7 @@ class FlutterWebEnvironmentCommand extends Command {
   Future<void> _initFlutterHotUpdateConfigFile({
     required String workspace,
   }) async {
-    final gitModuleFile = join(workspace, '.gitmodules');
+    final gitModuleFile = await getGitmodulesFilePath(workspace);
     if (!await File(gitModuleFile).exists()) {
       throw Exception('$gitModuleFile not exists');
     }
