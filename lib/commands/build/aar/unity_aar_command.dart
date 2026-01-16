@@ -132,8 +132,13 @@ class UnityAarCommand extends BuildCacheCommand {
     await fixUnityBuildGradleFile();
 
     /// ./gradlew unityLibrary:bundleReleaseAar
+    final gradlewName = Platform.isWindows ? 'gradlew.bat' : 'gradlew';
+    final gradlew = File(join(appHomeDir.androidDir.path, gradlewName));
+    if (!gradlew.existsSync()) {
+      throw Exception('gradlew文件不存在: ${gradlew.path}');
+    }
     await ProcessRunner().runProcess(
-      ['./gradlew', 'unityLibrary:bundleReleaseAar'],
+      ["./$gradlewName", 'unityLibrary:bundleReleaseAar'],
       workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
