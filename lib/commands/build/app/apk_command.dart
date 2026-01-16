@@ -27,7 +27,7 @@ class ApkCommand extends Command {
 
     /// ./gradlew assembleRelease
     await ProcessRunner().runProcess(
-      ["./$gradlewName", 'assembleRelease'],
+      [gradlew.absolute.path, 'assembleRelease'],
       workingDirectory: androidDir,
       printOutput: true,
     );
