@@ -138,7 +138,7 @@ class UnityAarCommand extends BuildCacheCommand {
       throw Exception('gradlew文件不存在: ${gradlew.path}');
     }
     await ProcessRunner().runProcess(
-      ["./$gradlewName", 'unityLibrary:bundleReleaseAar'],
+      [gradlew.absolute.path, 'unityLibrary:bundleReleaseAar'],
       workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
