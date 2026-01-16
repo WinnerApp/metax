@@ -4,7 +4,6 @@ import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class ApkCommand extends Command {
   @override
@@ -26,7 +25,7 @@ class ApkCommand extends Command {
     }
 
     /// ./gradlew assembleRelease
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       [gradlew.absolute.path, 'assembleRelease'],
       workingDirectory: androidDir,
       printOutput: true,

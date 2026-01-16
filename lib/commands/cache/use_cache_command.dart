@@ -12,7 +12,6 @@ import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class UseCacheCommand extends Command {
   @override
@@ -442,7 +441,7 @@ class UseCacheCommand extends Command {
           commandLine.add('--buildId');
           commandLine.add(buildId.toString());
         }
-        await ProcessRunner().runProcess(
+        await runProcessChecked(
           commandLine,
           printOutput: true,
           workingDirectory: Directory(appHomeDir.workspace),
@@ -457,7 +456,7 @@ class UseCacheCommand extends Command {
 
   /// 编译Unity Library
   Future<void> compileUnityLibrary() async {
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       [
         'metax',
         'build',
@@ -483,7 +482,7 @@ class UseCacheCommand extends Command {
     } else {
       throw UnimplementedError();
     }
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       [
         'metax',
         'build',
@@ -508,7 +507,7 @@ class UseCacheCommand extends Command {
     } else {
       throw UnimplementedError();
     }
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       [
         'metax',
         'build',

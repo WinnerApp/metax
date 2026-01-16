@@ -11,6 +11,37 @@ import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
+/// 运行进程并检查退出码，失败时抛出异常
+/// 这是所有命令执行的标准方法，确保异常能被正确捕获并导致程序退出
+Future<ProcessRunnerResult> runProcessChecked(
+  List<String> command, {
+  Directory? workingDirectory,
+  Map<String, String>? environment,
+  bool printOutput = true,
+}) async {
+  final result = await ProcessRunner(
+    environment: environment,
+    defaultWorkingDirectory: workingDirectory,
+  ).runProcess(
+    command,
+    printOutput: printOutput,
+  );
+
+  if (result.exitCode != 0) {
+    final commandStr = command.join(' ');
+    final errorMsg = result.stderr.toString().trim();
+    final outputMsg = result.stdout.toString().trim();
+    throw Exception(
+      '命令执行失败: $commandStr\n'
+      '退出码: ${result.exitCode}\n'
+      '${errorMsg.isNotEmpty ? "错误输出:\n$errorMsg\n" : ""}'
+      '${outputMsg.isNotEmpty ? "标准输出:\n$outputMsg" : ""}',
+    );
+  }
+
+  return result;
+}
+
 /// 在 PATH 中查找可执行文件（跨平台）
 /// - Windows 会额外尝试：.exe/.cmd/.bat
 Future<String?> findExecutableOnPath(String name,
@@ -556,7 +587,7 @@ Future<void> uploadCacheResource({
   required DateTime commitTime,
   required int buildId,
 }) async {
-  await ProcessRunner().runProcess(
+  await runProcessChecked(
     [
       'metax',
       'cache',
@@ -594,7 +625,7 @@ Future<void> useCache({
   required String commitHash,
   int buildId = 0,
 }) async {
-  await ProcessRunner().runProcess(
+  await runProcessChecked(
     [
       'metax',
       'cache',
@@ -632,7 +663,7 @@ Future<void> downloadCacheResource({
   int buildId = 0,
 }) async {
   loggerDebug('下载缓存到本地中，请稍等......');
-  await ProcessRunner().runProcess(
+  await runProcessChecked(
     [
       'metax',
       'cache',
@@ -891,7 +922,7 @@ Future<void> initFlutterEnvironment({
   required String androidChannel,
   required Map branchConfig,
 }) async {
-  await ProcessRunner().runProcess(
+  await runProcessChecked(
     [
       'metax',
       'init',
@@ -917,7 +948,7 @@ Future<void> setVersionNumber({
   required String buildNumber,
   required String platform,
 }) async {
-  await ProcessRunner().runProcess(
+  await runProcessChecked(
     [
       'metax',
       'init',

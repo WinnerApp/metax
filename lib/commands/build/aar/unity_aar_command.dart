@@ -6,7 +6,6 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class UnityAarCommand extends BuildCacheCommand {
   @override
@@ -137,15 +136,11 @@ class UnityAarCommand extends BuildCacheCommand {
     if (!gradlew.existsSync()) {
       throw Exception('gradlew文件不存在: ${gradlew.path}');
     }
-    final result = await ProcessRunner().runProcess(
+    await runProcessChecked(
       [gradlew.absolute.path, 'unityLibrary:bundleReleaseAar'],
       workingDirectory: appHomeDir.androidDir,
       printOutput: true,
     );
-    if (result.exitCode != 0) {
-      loggerError('打包Unity AAR失败: ${result.stdout}');
-      exit(1);
-    }
     if (androidArchieveFile.existsSync()) {
       loggerDebug('复制Android_archieve.zip到build/unityLibrary/outputs/aar目录下');
 

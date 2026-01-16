@@ -11,7 +11,6 @@ import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 /// Unity强制本地编译命令 - 跳过缓存查找，直接强制本地编译，不上传网络
 class UnityLocalBuildCommand extends Command {
@@ -155,7 +154,7 @@ class UnityLocalBuildCommand extends Command {
       commandArgs.addAll(['--buildId', buildId]);
     }
 
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       commandArgs,
       workingDirectory: appHomeDir.directory,
       printOutput: true,

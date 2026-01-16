@@ -6,7 +6,6 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class FlutterAarCommand extends BuildCacheCommand {
   @override
@@ -101,7 +100,7 @@ class FlutterAarCommand extends BuildCacheCommand {
   Future<void> buildCache() async {
     await speedUpFlutterAarBuild();
     // flutter pub get
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       ['flutter', 'pub', 'get'],
       workingDirectory: appHomeDir.flutterDir,
       printOutput: true,
@@ -118,7 +117,7 @@ class FlutterAarCommand extends BuildCacheCommand {
 
       if (await androidConfigDir.exists()) {
         /// cp -r -f "$android_config_dir"/* "$generate_android_dir"
-        await ProcessRunner().runProcess(
+        await runProcessChecked(
           ['cp', '-rf', "${androidConfigDir.path}/.", toConfigDir.path],
           workingDirectory: appHomeDir.flutterDir,
           printOutput: true,
@@ -128,7 +127,7 @@ class FlutterAarCommand extends BuildCacheCommand {
 
     if (configuration == 'debug') {
       /// flutter build aar --no-profile --no-release --verbose
-      await ProcessRunner().runProcess(
+      await runProcessChecked(
         [
           'flutter',
           'build',
@@ -143,7 +142,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       );
     } else {
       /// flutter build aar --no-debug --no-profile --verbose
-      await ProcessRunner().runProcess(
+      await runProcessChecked(
         [
           'flutter',
           'build',

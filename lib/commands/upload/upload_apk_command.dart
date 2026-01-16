@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:process_runner/process_runner.dart';
 
 class UploadApkCommand extends Command {
   @override
@@ -32,7 +31,7 @@ class UploadApkCommand extends Command {
     if (!File(apk).existsSync()) {
       throw Exception('$apk文件不存在');
     }
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       [
         'fastlane',
         'deploy',

@@ -5,7 +5,6 @@ import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/upload_app_environment.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class BuildUploadIpaCommand extends UploadAppCommand {
   @override
@@ -22,7 +21,7 @@ class BuildUploadIpaCommand extends UploadAppCommand {
 
   @override
   Future<void> buildApp() async {
-    await ProcessRunner().runProcess(
+    await runProcessChecked(
       [
         'metax',
         'build',
@@ -40,7 +39,7 @@ class BuildUploadIpaCommand extends UploadAppCommand {
     required String log,
     required UploadAppEnvironment environment,
   }) async {
-    await buildAppRunner.runProcess(
+    final result = await buildAppRunner.runProcess(
       [
         'metax',
         'upload',
@@ -54,6 +53,13 @@ class BuildUploadIpaCommand extends UploadAppCommand {
       workingDirectory: appHomeDir.directory,
       printOutput: true,
     );
+    if (result.exitCode != 0) {
+      throw Exception(
+        '上传IPA失败: 退出码 ${result.exitCode}\n'
+        'stdout: ${result.stdout}\n'
+        'stderr: ${result.stderr}',
+      );
+    }
   }
 
   String get ipaPath => join(

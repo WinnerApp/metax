@@ -290,8 +290,6 @@ abstract class UploadAppCommand extends Command {
       afterCommitId: afterCommitId,
     ).get();
 
-    String lineText = "----------------------------------------";
-
     if (unityChangeLog != null) {
       unityLogBuffer.writeln('''
 👉[Unity][${environment.unityBranchName}][$currentUnityCommitId]
@@ -419,7 +417,7 @@ $changeLog
         io.File(join(appHomeDir.flutterDir.path, 'assets', 'dart_define.json'));
     if (!dartDefineFile.existsSync()) {
       loggerDebug("dart_define.json 不存在进行生成!");
-      final dartDefineResult = await ProcessRunner().runProcess(
+      await runProcessChecked(
         [
           'flutter',
           'pub',
@@ -429,12 +427,6 @@ $changeLog
         ],
         workingDirectory: appHomeDir.flutterDir,
       );
-
-      if (dartDefineResult.exitCode != 0) {
-        throw Exception(
-          '生成dart_define.json失败：\nstdout: ${dartDefineResult.stdout}\nstderr: ${dartDefineResult.stderr}',
-        );
-      }
     }
 
     loggerDebug('开始复制Flutter静态库到指定位置');

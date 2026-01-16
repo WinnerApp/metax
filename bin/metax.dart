@@ -59,9 +59,14 @@ Future<void> main(List<String> arguments) async {
   );
   try {
     await runner.run(arguments);
+  } on UsageException catch (e) {
+    // 参数错误，打印使用说明
+    print(e);
+    exit(64); // EX_USAGE
   } catch (e, stackTrace) {
-    print('Error: $e');
-    print('Stack trace: $stackTrace');
+    // 所有其他异常，打印错误信息并退出
+    print('错误: $e');
+    print('堆栈跟踪: $stackTrace');
     exit(1);
   }
 }

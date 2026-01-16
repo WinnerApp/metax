@@ -6,7 +6,6 @@ import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class UnityHotAssetCommand extends Command {
   UnityHotAssetCommand() {
@@ -69,7 +68,7 @@ class UnityHotAssetCommand extends Command {
       'Release' => 'ExportAppData.exportReleaseHotAsset',
       _ => throw '平台不支持',
     };
-    final result = await ProcessRunner().runProcess(
+    final result = await runProcessChecked(
       [
         unityEnginePath,
         '-quit',
@@ -86,7 +85,7 @@ class UnityHotAssetCommand extends Command {
     final stdout = result.stdout;
     bool isSuccess = stdout.contains('Exiting batchmode successfully now!');
     if (!isSuccess) {
-      throw 'Unity 打包失败';
+      throw Exception('Unity 打包失败: 未找到成功标识');
     } else {
       loggerSuccess('Unity 打包成功');
     }
