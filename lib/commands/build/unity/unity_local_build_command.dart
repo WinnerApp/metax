@@ -235,16 +235,7 @@ class UnityLocalBuildCommand extends Command {
     final zipFile = File(join(buildCacheParentDir.path, '$commitHash.zip'));
 
     // 压缩AAR目录
-    await ProcessRunner().runProcess(
-      [
-        'zip',
-        "-r",
-        zipFile.path,
-        './',
-      ],
-      workingDirectory: Directory(buildCacheDir),
-      printOutput: true,
-    );
+    await compressDirToZip(zipFile.path, Directory(buildCacheDir));
 
     // 保存到缓存系统
     await unityCache.updateCacheData(

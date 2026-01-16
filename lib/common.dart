@@ -427,6 +427,44 @@ Future<int> getUnityBuildVersion(String workingDirectory) async {
   return buildVersionId;
 }
 
+/// 压缩目录到zip文件（跨平台）
+Future<void> compressDirToZip(String zipPath, Directory sourceDir) async {
+  // Windows 上默认没有 zip：优先用 PowerShell Compress-Archive
+  if (Platform.isWindows) {
+    // PowerShell 的 Compress-Archive 需要绝对路径，并且使用 * 来包含所有内容
+    // 路径需要正确转义，使用双引号并转义内部的双引号和反斜杠
+    final sourcePath =
+        sourceDir.path.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+    final zipPathEscaped =
+        zipPath.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+    // 使用 Dart 字符串插值将路径值插入到 PowerShell 命令中
+    final command =
+        'Compress-Archive -Path "$sourcePath\\*" -DestinationPath "$zipPathEscaped" -Force';
+    await ProcessRunner().runProcess(
+      [
+        'powershell',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        command,
+      ],
+      printOutput: true,
+    );
+  } else {
+    // Unix/Linux/macOS 使用 zip 命令
+    await ProcessRunner().runProcess(
+      [
+        'zip',
+        '-r',
+        zipPath,
+        './',
+      ],
+      workingDirectory: sourceDir,
+      printOutput: true,
+    );
+  }
+}
+
 /// 复制zip 到指定目录下面并先清空当前目录
 Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
   if (await targetDir.exists()) {

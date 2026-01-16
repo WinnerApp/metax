@@ -8,7 +8,6 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 abstract class BuildCacheCommand extends Command {
   BuildCacheCommand() {
@@ -115,18 +114,8 @@ abstract class BuildCacheCommand extends Command {
     String cacheId = commitHash;
 
     /// 压缩
-    await ProcessRunner().runProcess(
-      [
-        'zip',
-        "-r",
-        join(buildCacheParentDir.path, '$cacheId.zip'),
-        './',
-      ],
-      workingDirectory: Directory(buildCacheDir),
-      printOutput: true,
-    );
-
     final zipFile = File(join(buildCacheParentDir.path, '$cacheId.zip'));
+    await compressDirToZip(zipFile.path, Directory(buildCacheDir));
     await cache.updateCacheData(
       zipFile,
       CacheModel(
