@@ -148,11 +148,11 @@ class UploadCacheCommand extends Command {
     }
 
     /// 存储上传失败的commitHash
-    final failedCommitHashs = [];
-    for (var commitHash in needUploadCommitModels) {
-      final isUploadSuccess = await uploadCache(metaxCache, commitHash);
+    final failedCommitHashs = <String>[];
+    for (var model in needUploadCommitModels) {
+      final isUploadSuccess = await uploadCache(metaxCache, model);
       if (!isUploadSuccess) {
-        failedCommitHashs.add(commitHash);
+        failedCommitHashs.add(model.commitHash);
       }
     }
     if (failedCommitHashs.isNotEmpty) {

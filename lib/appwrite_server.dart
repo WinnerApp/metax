@@ -46,7 +46,7 @@ class AppwriteServer {
       }
       return e.documents.first;
     }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("获取当前最新分支打包版本配置失败: $e\n$stackTrace");
       throw e;
     });
   }
@@ -68,7 +68,7 @@ class AppwriteServer {
         )
         .then<DocumentList?>((e) => e)
         .catchError((e, stackTrace) {
-          loggerError("e.toString() ${stackTrace.toString()}");
+          loggerError("查询最新打包相关分支配置失败: $e\n$stackTrace");
           throw e;
         });
   }
@@ -101,7 +101,7 @@ class AppwriteServer {
         'build_number': buildNumber.toString(),
       },
     ).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("创建打包版本配置失败: $e\n$stackTrace");
       throw e;
     });
     for (final config in buildBranchConfigs) {
@@ -116,7 +116,7 @@ class AppwriteServer {
           "commit_id": config.commitHash,
         },
       ).catchError((e, stackTrace) {
-        loggerError("e.toString() ${stackTrace.toString()}");
+        loggerError("创建打包分支配置失败: $e\n$stackTrace");
         throw e;
       });
     }
@@ -164,7 +164,7 @@ class AppwriteServer {
         .then((e) {
       return e.documents.map((e) => e.data).toList();
     }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("查询缓存列表失败: $e\n$stackTrace");
       return <Map<String, dynamic>>[];
     });
   }
@@ -215,7 +215,7 @@ class AppwriteServer {
         .then((e) {
       return e.documents.isNotEmpty;
     }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("查询缓存是否存在失败: $e\n$stackTrace");
       return false;
     });
   }
@@ -250,7 +250,7 @@ class AppwriteServer {
         .then((e) {
       return true;
     }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("上传缓存文件失败: $e\n$stackTrace");
       return false;
     });
     if (!isUploadSuccess) return false;
@@ -278,7 +278,7 @@ class AppwriteServer {
     ).then((e) {
       return true;
     }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("上传缓存文档失败: $e\n$stackTrace");
       storage.deleteFile(bucketId: bucketId, fileId: fileId);
       return false;
     });
