@@ -61,7 +61,12 @@ abstract class BuildCacheCommand extends Command {
     if (cacheModel != null &&
         await cache.isCacheExists(cacheModel.commitHash) &&
         !forceUpdate) {
-      loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
+      loggerWarning(
+        '🔍 命中全局缓存，跳过编译: '
+        'zip=${cache.getZipCachePath(cacheModel.commitHash)} '
+        'cacheHomeDir=${cache.cacheHomeDir} '
+        'cacheIndex=${cache.cacheManager.cacheFilePath}',
+      );
       commitHash = cacheModel.commitHash;
     } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir) &&
         !forceUpdate) {

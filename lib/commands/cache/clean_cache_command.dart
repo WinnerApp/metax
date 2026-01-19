@@ -15,23 +15,25 @@ class CleanCacheCommand extends Command {
 
   CleanCacheCommand() {
     argParser.addFlag(
-      'confirm',
-      help: '确认清理，跳过交互式确认',
+      'no-project',
+      help: '不清理项目目录中的构建缓存，只清理全局缓存',
       defaultsTo: false,
     );
     argParser.addFlag(
-      'no-project',
-      help: '不清理项目目录中的构建缓存，只清理全局缓存',
+      'dry-run',
+      help: '仅显示将要清理的内容，不实际删除',
       defaultsTo: false,
     );
   }
 
   @override
   Future<void> run() async {
-    final confirm = argResults?['confirm'] ?? false;
     final skipProject = argResults?['no-project'] ?? false;
+    final dryRun = argResults?['dry-run'] ?? false;
 
     final metaxDir = Directory(join(readEnv(homeEnvName), '.metax'));
+    loggerInfo('🧭 全局缓存目录: ${metaxDir.path}');
+    loggerInfo('🧭 全局缓存索引: ${MetaxCacheManager().cacheFilePath}');
 
     // 统计全局缓存
     int globalCacheFileCount = 0;
@@ -79,10 +81,8 @@ class CleanCacheCommand extends Command {
       loggerInfo('📁 项目构建缓存文件: $projectCacheCount 个');
     }
 
-    // 确认清理
-    if (!confirm) {
-      loggerWarning('⚠️  即将清理所有本地缓存，此操作不可恢复！');
-      loggerInfo('如需确认清理，请使用 --confirm 参数');
+    if (dryRun) {
+      loggerInfo('🧪 dry-run 模式：仅展示统计信息，不执行删除');
       return;
     }
 
