@@ -55,14 +55,23 @@ class UpdateUnity {
 
       final exitCode = await process.exitCode;
       final stdoutStr = stdoutBuffer.toString();
+      final stderrStr = stderrBuffer.toString();
+      // 成功必须包含 Unity 的成功标记
+      final output = '$stdoutStr\n$stderrStr';
       final success = exitCode == 0 &&
-          stdoutStr.contains('Exiting batchmode successfully now!');
+          output.contains('Exiting batchmode successfully now!');
 
       if (success) {
         loggerSuccess('导出$workspace最新的包成功!');
         return true;
       } else {
         loggerError('导出$workspace最新的包失败!');
+        if (stdoutStr.isNotEmpty) {
+          loggerError('Unity stdout: $stdoutStr');
+        }
+        if (stderrStr.isNotEmpty) {
+          loggerError('Unity stderr: $stderrStr');
+        }
         return false;
       }
     } catch (e) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/unity_cache.dart';
@@ -159,7 +160,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
 
     final success = await updateUnity.update();
     if (!success) {
-      throw Exception('导出Unity代码失败');
+      exit(1);
     }
   }
 }
