@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/unity_cache.dart';
@@ -7,6 +6,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/unity_environment.dart';
+import 'package:meta_tool/update_unity.dart';
 import 'package:path/path.dart';
 
 abstract class BaseUnityCacheCommand extends BuildCacheCommand {
@@ -22,9 +22,6 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   FutureOr? run() async {
     await super.run();
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
-    if (!await isCommandInstall('build_winner_app')) {
-      throw '请先通过dart pub global activate build_winner_app 进行安装build_winner_app命令';
-    }
     if (!await isCommandInstall('cmake')) {
       throw '请先通过brew install cmake 安装cmake';
     }
@@ -138,21 +135,31 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
-    final appRunner = await createAppRunner(appHomeDir);
-    final result = await appRunner.runProcess(
-      [
-        'build_winner_app',
-        'export',
-        '-p',
-        platform.name,
-        '-r',
-        appHomeDir.directory.path,
-      ],
-      printOutput: true,
+    final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+
+    // 确定 Unity 工作空间和平台
+    late String workspace;
+    late UnityPlatform unityPlatform;
+    if (platform == BuildPlatform.ios) {
+      workspace = unityEnvironment.iosUnityWorkspace;
+      unityPlatform = UnityPlatform.ios;
+    } else if (platform == BuildPlatform.android) {
+      workspace = unityEnvironment.androidUnityWorkspace;
+      unityPlatform = UnityPlatform.android;
+    } else {
+      throw Exception('不支持的平台: ${platform.name}');
+    }
+
+    // 使用 UpdateUnity 类直接导出 Unity 缓存
+    final updateUnity = UpdateUnity(
+      workspace: workspace,
+      unityEnginePath: unityEnvironment.unityEnginePath,
+      platform: unityPlatform,
     );
-    if (result.exitCode != 0) {
-      loggerError('导出Unity代码失败: ${result.stderr}');
-      exit(1);
+
+    final success = await updateUnity.update();
+    if (!success) {
+      throw Exception('导出Unity代码失败');
     }
   }
 }

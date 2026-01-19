@@ -93,6 +93,8 @@ class DownloadCacheCommand extends Command {
       projectId: appwriteEnvironment.projectId,
       apiKey: appwriteEnvironment.apiKey,
     );
+    // 获取当前构建平台（macos 或 windows）
+    final currentBuildPlatform = getCurrentBuildPlatform();
     List<Map<String, dynamic>> cacheDocuments =
         await appwriteServer.queryZipCacheList(
       databaseId: appwriteEnvironment.databaseId,
@@ -102,6 +104,7 @@ class DownloadCacheCommand extends Command {
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
+      buildPlatform: currentBuildPlatform,
     );
     if (cacheDocuments.isEmpty) {
       throw '网络缓存为空';
@@ -188,12 +191,21 @@ class DownloadCacheCommand extends Command {
         fileId: fileId,
       );
 
+      // 用于控制每秒只打印一次进度
+      DateTime? lastProgressLogTime;
+
       await Dio().download(
         downloadUrl,
         cacheFile,
         onReceiveProgress: (int count, int total) {
-          loggerDebug(
-              '下载缓存中，已下载: ${(count / fileInfo.sizeOriginal * 100).toStringAsFixed(2)}%');
+          final now = DateTime.now();
+          // 每秒只打印一次进度日志
+          if (lastProgressLogTime == null ||
+              now.difference(lastProgressLogTime!).inSeconds >= 1) {
+            lastProgressLogTime = now;
+            loggerDebug(
+                '下载缓存中，已下载: ${(count / fileInfo.sizeOriginal * 100).toStringAsFixed(2)}%');
+          }
         },
       ).catchError((e, stackTrace) {
         loggerError('下载缓存失败，${e.toString()} ${stackTrace.toString()}');

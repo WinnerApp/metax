@@ -355,6 +355,8 @@ class UseCacheCommand extends Command {
       projectId: appwriteCacheEnvironment.projectId,
       apiKey: appwriteCacheEnvironment.apiKey,
     );
+    // 获取当前构建平台（macos 或 windows）
+    final currentBuildPlatform = getCurrentBuildPlatform();
     final zipCacheList = await appwriteService.queryZipCacheList(
       databaseId: appwriteCacheEnvironment.databaseId,
       collectionId: appwriteCacheEnvironment.collectionId,
@@ -363,6 +365,7 @@ class UseCacheCommand extends Command {
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
+      buildPlatform: currentBuildPlatform,
     );
     final serverCacheModels =
         zipCacheList.map((e) => ServerCacheModel.fromJson(e)).toList();

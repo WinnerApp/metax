@@ -169,6 +169,9 @@ class UploadCacheCommand extends Command {
       apiKey: appwriteCacheEnvironment.apiKey,
     );
 
+    // 获取当前构建平台（macos 或 windows）
+    final currentBuildPlatform = getCurrentBuildPlatform();
+
     final isAlreadyUploaded = await appwriteServer.isCacheExists(
       databaseId: appwriteCacheEnvironment.databaseId,
       collectionId: appwriteCacheEnvironment.collectionId,
@@ -179,6 +182,7 @@ class UploadCacheCommand extends Command {
       buildType: metaxCache.buildType.name,
       buildId: metaxCache.buildId,
       commitHash: model.commitHash,
+      buildPlatform: currentBuildPlatform,
     );
     if (isAlreadyUploaded) {
       loggerInfo('缓存已存在: ${model.commitHash}');
@@ -202,6 +206,7 @@ class UploadCacheCommand extends Command {
         bytes: File(zipFilePath).readAsBytesSync(),
         filename: '${model.commitHash}.zip',
       ),
+      buildPlatform: currentBuildPlatform,
     );
   }
 }

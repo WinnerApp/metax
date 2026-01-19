@@ -693,6 +693,12 @@ Directory getCacheResourceDir(String workspace) {
   return Directory(join(workspace, 'cache'));
 }
 
+/// 获取当前构建平台（macos 或 windows）
+/// 用于区分缓存是在哪个平台上打包的
+String getCurrentBuildPlatform() {
+  return Platform.isWindows ? 'windows' : 'macos';
+}
+
 /// 生成Flutter环境参数
 Future<void> generateFlutterEnv(String workspace) async {
   throw UnimplementedError();

@@ -131,19 +131,37 @@ class AppwriteServer {
     required String buildConfiguration,
     required String buildLibrary,
     required String buildType,
+    String? buildPlatform,
   }) async {
-    return databases.listDocuments(
+    // 如果 buildPlatform 为 null，则默认为 'macos'
+    final actualBuildPlatform = buildPlatform ?? 'macos';
+    final queries = <String>[
+      Query.equal('platform', platform),
+      Query.equal('is_store', isStore),
+      Query.equal('configuration', buildConfiguration),
+      Query.equal('library', buildLibrary),
+      Query.equal('type', buildType),
+      Query.orderDesc('\$createdAt'),
+    ];
+
+    // 添加 buildPlatform 过滤，支持 null 值查询（兼容旧数据）
+    // 如果查询的是 macos，也要查询 build_platform 为 null 的记录（旧数据默认是 macos）
+    if (actualBuildPlatform == 'macos') {
+      queries.add(Query.or([
+        Query.equal('build_platform', 'macos'),
+        Query.isNull('build_platform'),
+      ]));
+    } else {
+      queries.add(Query.equal('build_platform', actualBuildPlatform));
+    }
+
+    return databases
+        .listDocuments(
       databaseId: databaseId,
       collectionId: collectionId,
-      queries: [
-        Query.equal('platform', platform),
-        Query.equal('is_store', isStore),
-        Query.equal('configuration', buildConfiguration),
-        Query.equal('library', buildLibrary),
-        Query.equal('type', buildType),
-        Query.orderDesc('\$createdAt'),
-      ],
-    ).then((e) {
+      queries: queries,
+    )
+        .then((e) {
       return e.documents.map((e) => e.data).toList();
     }).catchError((e, stackTrace) {
       loggerError("e.toString() ${stackTrace.toString()}");
@@ -162,21 +180,39 @@ class AppwriteServer {
     required String buildType,
     required String commitHash,
     required int buildId,
+    String? buildPlatform,
   }) async {
-    return databases.listDocuments(
+    // 如果 buildPlatform 为 null，则默认为 'macos'
+    final actualBuildPlatform = buildPlatform ?? 'macos';
+    final queries = <String>[
+      Query.equal('platform', platform),
+      Query.equal('is_store', true),
+      Query.equal('configuration', buildConfiguration),
+      Query.equal('library', buildLibrary),
+      Query.equal('type', buildType),
+      Query.equal('branch', branch),
+      Query.equal('build_id', buildId),
+      Query.equal('commit_hash', commitHash),
+    ];
+
+    // 添加 buildPlatform 过滤，支持 null 值查询（兼容旧数据）
+    // 如果查询的是 macos，也要查询 build_platform 为 null 的记录（旧数据默认是 macos）
+    if (actualBuildPlatform == 'macos') {
+      queries.add(Query.or([
+        Query.equal('build_platform', 'macos'),
+        Query.isNull('build_platform'),
+      ]));
+    } else {
+      queries.add(Query.equal('build_platform', actualBuildPlatform));
+    }
+
+    return databases
+        .listDocuments(
       databaseId: databaseId,
       collectionId: collectionId,
-      queries: [
-        Query.equal('platform', platform),
-        Query.equal('is_store', true),
-        Query.equal('configuration', buildConfiguration),
-        Query.equal('library', buildLibrary),
-        Query.equal('type', buildType),
-        Query.equal('branch', branch),
-        Query.equal('build_id', buildId),
-        Query.equal('commit_hash', commitHash),
-      ],
-    ).then((e) {
+      queries: queries,
+    )
+        .then((e) {
       return e.documents.isNotEmpty;
     }).catchError((e, stackTrace) {
       loggerError("e.toString() ${stackTrace.toString()}");
@@ -198,6 +234,7 @@ class AppwriteServer {
     required DateTime commitTime,
     required int buildId,
     required InputFile zipFile,
+    String? buildPlatform,
   }) async {
     final Storage storage = Storage(client);
     final fileId = ID.unique();
@@ -218,6 +255,9 @@ class AppwriteServer {
     });
     if (!isUploadSuccess) return false;
 
+    // 如果 buildPlatform 为 null，则默认为 'macos'
+    final actualBuildPlatform = buildPlatform ?? 'macos';
+
     return databases.createDocument(
       databaseId: databaseId,
       collectionId: collectionId,
@@ -233,6 +273,7 @@ class AppwriteServer {
         'commit_hash': commitHash,
         'file_id': fileId,
         'commit_time': commitTime.toUtc().toIso8601String(),
+        'build_platform': actualBuildPlatform,
       },
     ).then((e) {
       return true;
