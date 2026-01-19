@@ -145,14 +145,14 @@ class AppwriteServer {
     ];
 
     // 添加 buildPlatform 过滤，支持 null 值查询（兼容旧数据）
-    // 如果查询的是 macos，也要查询 build_platform 为 null 的记录（旧数据默认是 macos）
+    // 如果查询的是 macos，也要查询 buildPlatform 为 null 的记录（旧数据默认是 macos）
     if (actualBuildPlatform == 'macos') {
       queries.add(Query.or([
-        Query.equal('build_platform', 'macos'),
-        Query.isNull('build_platform'),
+        Query.equal('buildPlatform', 'macos'),
+        Query.isNull('buildPlatform'),
       ]));
     } else {
-      queries.add(Query.equal('build_platform', actualBuildPlatform));
+      queries.add(Query.equal('buildPlatform', actualBuildPlatform));
     }
 
     return databases
@@ -196,14 +196,14 @@ class AppwriteServer {
     ];
 
     // 添加 buildPlatform 过滤，支持 null 值查询（兼容旧数据）
-    // 如果查询的是 macos，也要查询 build_platform 为 null 的记录（旧数据默认是 macos）
+    // 如果查询的是 macos，也要查询 buildPlatform 为 null 的记录（旧数据默认是 macos）
     if (actualBuildPlatform == 'macos') {
       queries.add(Query.or([
-        Query.equal('build_platform', 'macos'),
-        Query.isNull('build_platform'),
+        Query.equal('buildPlatform', 'macos'),
+        Query.isNull('buildPlatform'),
       ]));
     } else {
-      queries.add(Query.equal('build_platform', actualBuildPlatform));
+      queries.add(Query.equal('buildPlatform', actualBuildPlatform));
     }
 
     return databases
@@ -273,7 +273,7 @@ class AppwriteServer {
         'commit_hash': commitHash,
         'file_id': fileId,
         'commit_time': commitTime.toUtc().toIso8601String(),
-        'build_platform': actualBuildPlatform,
+        'buildPlatform': actualBuildPlatform,
       },
     ).then((e) {
       return true;

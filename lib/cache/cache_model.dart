@@ -89,10 +89,11 @@ class ServerCacheModel extends CacheModel {
 
   factory ServerCacheModel.fromJson(Map<String, dynamic> map) {
     final json = JSON(map);
-    // 从 build_platform 字段读取，如果为 null 则默认为 'macos'
-    // 注意：'platform' 字段是构建目标平台（ios/android），而 'build_platform' 是构建所在平台（macos/windows）
-    final buildPlatformValue = json['build_platform'].stringValue;
-    final buildPlatform = buildPlatformValue.isEmpty ? 'macos' : buildPlatformValue;
+    // 从 buildPlatform 字段读取，如果为 null 则默认为 'macos'
+    // 注意：'platform' 字段是构建目标平台（ios/android），而 'buildPlatform' 是构建所在平台（macos/windows）
+    final buildPlatformValue = json['buildPlatform'].stringValue;
+    final buildPlatform =
+        buildPlatformValue.isEmpty ? 'macos' : buildPlatformValue;
     return ServerCacheModel(
       fileId: json['file_id'].stringValue,
       buildPlatform: buildPlatform,
