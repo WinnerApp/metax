@@ -140,3 +140,5 @@ late bool useMock;
 late String? customUnityPath;
 late bool isUseCache;
 late bool skipGitPull;
+
+String get homeEnvName => Platform.isWindows ? 'USERPROFILE' : 'HOME';

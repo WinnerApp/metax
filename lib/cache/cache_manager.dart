@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 
 abstract class CacheManager {
@@ -52,5 +53,5 @@ class BuildCacheManager extends CacheManager {
 
 class MetaxCacheManager extends CacheManager {
   MetaxCacheManager()
-      : super(join(join(readEnv('HOME'), '.metax'), 'cache.json'));
+      : super(join(join(readEnv(homeEnvName), '.metax'), 'cache.json'));
 }
