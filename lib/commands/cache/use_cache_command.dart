@@ -454,6 +454,46 @@ class UseCacheCommand extends Command {
         throw UnimplementedError();
       }
     }
+
+    // 如果忽略了缓存，不应该查询本地缓存，而是直接返回编译后的缓存模型
+    if (!isUseCache) {
+      loggerDebug('忽略缓存模式，跳过查询本地缓存，直接使用编译后的缓存');
+      // 获取编译后的 commitHash
+      String compiledCommitHash;
+      if (commitHash != null) {
+        compiledCommitHash = commitHash!;
+      } else {
+        // 根据构建库类型获取对应的目录
+        final Directory workspaceDir;
+        if (buildLibrary == BuildLibrary.flutter.name) {
+          workspaceDir = appHomeDir.flutterDir;
+        } else if (buildLibrary == BuildLibrary.unity.name) {
+          final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+          workspaceDir = buildPlatform == BuildPlatform.ios.name
+              ? Directory(unityEnvironment.iosUnityWorkspace)
+              : Directory(unityEnvironment.androidUnityWorkspace);
+        } else {
+          workspaceDir = Directory(appHomeDir.workspace);
+        }
+        compiledCommitHash = await getCurrentCommitHash(workspaceDir.path);
+      }
+
+      // 获取编译后的 buildId
+      final compiledBuildId = buildId ?? '0';
+
+      // 创建缓存模型
+      return CacheModel(
+        buildPlatform: buildPlatform,
+        buildLibrary: buildLibrary,
+        buildType: buildType,
+        branch: branch,
+        configuration: buildConfiguration,
+        commitHash: compiledCommitHash,
+        buildId: compiledBuildId,
+        commitTime: DateTime.now(),
+      );
+    }
+
     return queryLocalCache();
   }
 
