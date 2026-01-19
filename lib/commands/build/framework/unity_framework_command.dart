@@ -6,7 +6,6 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
-import 'package:process_runner/process_runner.dart';
 
 class UnityFrameworkCommand extends BuildCacheCommand {
   @override
@@ -74,7 +73,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         MockType.unityFramework.sourceCacheDir(appHomeDir),
       );
     } else {
-      await ProcessRunner().runProcess(
+      await runProcessStreamingChecked(
         [
           'xcodebuild',
           '-project',
@@ -93,7 +92,6 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         ],
         workingDirectory:
             Directory(join(appHomeDir.iosDir.path, 'UnityLibrary')),
-        printOutput: true,
       );
       loggerSuccess('打包Unity Framework完成!');
       loggerDebug('正在生成UnityFramework.xcframework...');
@@ -111,7 +109,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         'Release-iphoneos',
         'UnityFramework.framework.dSYM',
       );
-      await ProcessRunner().runProcess(
+      await runProcessStreamingChecked(
         [
           'xcodebuild',
           '-create-xcframework',
@@ -128,6 +126,8 @@ class UnityFrameworkCommand extends BuildCacheCommand {
             'UnityFramework.xcframework',
           ),
         ],
+        workingDirectory:
+            Directory(join(appHomeDir.iosDir.path, 'UnityLibrary')),
       );
       await Directory(dSYMDir).delete(recursive: true);
       await Directory(frameworkDir).delete(recursive: true);
