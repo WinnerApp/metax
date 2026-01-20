@@ -209,7 +209,7 @@ abstract class UploadAppCommand extends Command {
     }
 
     /// 1. 更新最新的Git submodule
-    final gitSubmoduleResult = await buildAppRunner.runProcess(
+    await buildAppRunner.runProcess(
       [
         'bash',
         "init_git_submodule.sh",
@@ -217,12 +217,6 @@ abstract class UploadAppCommand extends Command {
       workingDirectory: io.Directory(environment.workspace),
       printOutput: true,
     );
-
-    if (gitSubmoduleResult.exitCode != 0) {
-      throw Exception(
-        '初始化Git子模块失败：\nstdout: ${gitSubmoduleResult.stdout}\nstderr: ${gitSubmoduleResult.stderr}',
-      );
-    }
 
     /// 2 分析出当前项目的submodule
     final gitSubmodules = await parseGitmodulesFile(gitSubmodulePath);
@@ -367,7 +361,7 @@ $changeLog
     }
 
     /// 执行melos bootstrap
-    final melosResult = await buildAppRunner.runProcess(
+    await buildAppRunner.runProcess(
       [
         'melos',
         'bootstrap',
@@ -375,12 +369,6 @@ $changeLog
       workingDirectory: io.Directory(environment.workspace),
       printOutput: true,
     );
-
-    if (melosResult.exitCode != 0) {
-      throw Exception(
-        'melos bootstrap执行失败：\nstdout: ${melosResult.stdout}\nstderr: ${melosResult.stderr}',
-      );
-    }
 
     final formatChangeLog = formatGitLog(
       flutterLogBuffer.toString(),
@@ -417,7 +405,7 @@ $changeLog
         io.File(join(appHomeDir.flutterDir.path, 'assets', 'dart_define.json'));
     if (!dartDefineFile.existsSync()) {
       loggerDebug("dart_define.json 不存在进行生成!");
-      await runProcessChecked(
+      await ProcessRunner().runProcess(
         [
           'flutter',
           'pub',
@@ -557,7 +545,7 @@ $changeLog
       cacheDir.deleteSync(recursive: true);
     }
 
-    final unityCacheResult = await appRunner.runProcess(
+    await appRunner.runProcess(
       [
         'metax',
         'cache',
@@ -579,12 +567,6 @@ $changeLog
       ],
       printOutput: true,
     );
-
-    if (unityCacheResult.exitCode != 0) {
-      throw Exception(
-        'Unity缓存使用失败：\nstdout: ${unityCacheResult.stdout}\nstderr: ${unityCacheResult.stderr}',
-      );
-    }
   }
 
   Future<void> copyFlutterStaticLibrary(
@@ -609,7 +591,7 @@ $changeLog
     if (cacheDir.existsSync()) {
       cacheDir.deleteSync(recursive: true);
     }
-    final flutterCacheResult = await ProcessRunner().runProcess(
+    await ProcessRunner().runProcess(
       [
         'metax',
         'cache',
@@ -631,12 +613,6 @@ $changeLog
       ],
       printOutput: true,
     );
-
-    if (flutterCacheResult.exitCode != 0) {
-      throw Exception(
-        'Flutter缓存使用失败：\nstdout: ${flutterCacheResult.stdout}\nstderr: ${flutterCacheResult.stderr}',
-      );
-    }
   }
 
   /// 进行打包
