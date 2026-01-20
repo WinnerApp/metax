@@ -42,45 +42,6 @@ Future<ProcessRunnerResult> runProcessChecked(
   return result;
 }
 
-/// 运行进程并实时输出日志，失败时抛出异常
-/// 此函数使用 Dart 原生 Process，支持实时流式输出，适合长时间运行的命令（如编译）
-Future<void> runProcessStreamingChecked(
-  List<String> command, {
-  Directory? workingDirectory,
-  Map<String, String>? environment,
-}) async {
-  final process = await Process.start(
-    command.first,
-    command.skip(1).toList(),
-    workingDirectory: workingDirectory?.path,
-    environment: environment ?? Platform.environment,
-    mode: ProcessStartMode.normal,
-  );
-
-  // 实时输出 stdout
-  process.stdout.transform(const SystemEncoding().decoder).listen(
-    (data) {
-      stdout.write(data);
-    },
-  );
-
-  // 实时输出 stderr
-  process.stderr.transform(const SystemEncoding().decoder).listen(
-    (data) {
-      stderr.write(data);
-    },
-  );
-
-  final exitCode = await process.exitCode;
-
-  if (exitCode != 0) {
-    final commandStr = command.join(' ');
-    throw Exception(
-      '命令执行失败: $commandStr\n退出码: $exitCode',
-    );
-  }
-}
-
 /// 在 PATH 中查找可执行文件（跨平台）
 /// - Windows 会额外尝试：.exe/.cmd/.bat
 Future<String?> findExecutableOnPath(String name,

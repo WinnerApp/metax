@@ -73,7 +73,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         MockType.unityFramework.sourceCacheDir(appHomeDir),
       );
     } else {
-      await runProcessStreamingChecked(
+      await runProcessChecked(
         [
           'xcodebuild',
           '-project',
@@ -109,7 +109,7 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         'Release-iphoneos',
         'UnityFramework.framework.dSYM',
       );
-      await runProcessStreamingChecked(
+      await runProcessChecked(
         [
           'xcodebuild',
           '-create-xcframework',
