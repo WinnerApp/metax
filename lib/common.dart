@@ -856,7 +856,11 @@ Map<String, String> loadBuildAppEnvironment(
 }
 
 Future<ProcessRunner> createAppRunner(AppHomeDir appHomeDir) async {
-  final environment = loadAppEnvironment(appHomeDir);
+  // 合并系统环境，确保 PATH 等全局命令可用（melos/flutter 等）
+  final environment = {
+    ...Platform.environment,
+    ...loadAppEnvironment(appHomeDir),
+  };
   return ProcessRunner(
     defaultWorkingDirectory: Directory(appHomeDir.workspace),
     environment: environment,
@@ -865,7 +869,11 @@ Future<ProcessRunner> createAppRunner(AppHomeDir appHomeDir) async {
 
 Future<ProcessRunner> createBuildAppRunner(
     AppHomeDir appHomeDir, bool isStore) async {
-  final environment = loadBuildAppEnvironment(appHomeDir, isStore);
+  // 合并系统环境，确保 PATH 等全局命令可用（melos/flutter 等）
+  final environment = {
+    ...Platform.environment,
+    ...loadBuildAppEnvironment(appHomeDir, isStore),
+  };
   return ProcessRunner(
     defaultWorkingDirectory: Directory(appHomeDir.workspace),
     environment: environment,
