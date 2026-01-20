@@ -367,13 +367,13 @@ $changeLog
     }
 
     /// 执行melos bootstrap
-    final melosResult = await ProcessRunner().runProcess(
+    final melosResult = await buildAppRunner.runProcess(
       [
         'melos',
         'bootstrap',
       ],
+      workingDirectory: io.Directory(environment.workspace),
       printOutput: true,
-      runInShell: true,
     );
 
     if (melosResult.exitCode != 0) {
