@@ -180,7 +180,7 @@ abstract class UploadAppCommand extends Command {
 
     /// 将当前项目进行初始化
     /// 0. 重置所有已存在的子模块到当前分支的最新提交
-    final gitSubmodulePath = join(environment.workspace, '.gitmodules');
+    final gitSubmodulePath = await getGitmodulesFilePath(environment.workspace);
     if (await io.File(gitSubmodulePath).exists()) {
       final gitSubmodules = await parseGitmodulesFile(gitSubmodulePath);
       for (var submodule in gitSubmodules) {

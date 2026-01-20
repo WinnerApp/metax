@@ -15,7 +15,7 @@ class FlutterWebVersionCommand extends Command {
 
   @override
   Future<void> run() async {
-    final gitSubmodulePath = join(Directory.current.path, '.gitmodules');
+    final gitSubmodulePath = await getGitmodulesFilePath(Directory.current.path);
     loggerDebug('gitSubmodulePath: $gitSubmodulePath');
     if (!File(gitSubmodulePath).existsSync()) {
       throw Exception('当前目录不是棉宇宙主目录');
