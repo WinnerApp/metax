@@ -6,7 +6,6 @@ import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/unity_environment.dart';
-import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
 class ExportFirstPackageCommand extends Command {
@@ -61,14 +60,14 @@ class ExportFirstPackageCommand extends Command {
     }
 
     bool isSuccess = false;
-    final streamController = StreamController<List<int>>.broadcast();
-    streamController.stream.listen((event) {
-      String data = String.fromCharCodes(event);
-      loggerDebug(data);
-      if (data.contains('Exiting batchmode successfully now!')) {
-        isSuccess = true;
-      }
-    });
+    // final streamController = StreamController<List<int>>.broadcast();
+    // streamController.stream.listen((event) {
+    //   String data = String.fromCharCodes(event);
+    //   loggerDebug(data);
+    //   if (data.contains('Exiting batchmode successfully now!')) {
+    //     isSuccess = true;
+    //   }
+    // });
 
     if (!skipBuild) {
       final result = await ProcessRunner().runProcess(
@@ -84,40 +83,36 @@ class ExportFirstPackageCommand extends Command {
         ],
         printOutput: true,
         workingDirectory: unityProjectDir,
-        stdin: streamController.stream,
+        // stdin: streamController.stream,
       );
-      if (!isSuccess) {
-        throw '导出Unity首包失败: ${result.stdout}';
-      } else {
-        loggerSuccess('导出Unity首包成功');
-      }
+      loggerSuccess('导出Unity首包成功');
     }
     // Assets\StreamingAssets\InnerAssets
-    final path = join('Assets', 'StreamingAssets', 'InnerAssets');
-    final gitAddResult = await ProcessRunner().runProcess(
-      ['git', 'add', path],
-      printOutput: true,
-      workingDirectory: unityProjectDir,
-    );
-    if (gitAddResult.stderr.isNotEmpty) {
-      throw 'git add $path失败: ${gitAddResult.stderr}';
-    }
-    final gitCommitResult = await ProcessRunner().runProcess(
-      ['git', 'commit', '-m', 'export first package'],
-      printOutput: true,
-      workingDirectory: unityProjectDir,
-    );
-    if (gitCommitResult.stderr.isNotEmpty) {
-      throw 'git commit -m export first package失败: ${gitCommitResult.stderr}';
-    }
-    final gitPushResult = await ProcessRunner().runProcess(
-      ['git', 'push', 'origin', unityBranch],
-      printOutput: true,
-      workingDirectory: unityProjectDir,
-    );
-    if (gitPushResult.stderr.isNotEmpty) {
-      throw 'git push origin $unityBranch失败: ${gitPushResult.stderr}';
-    }
+    // final path = join('Assets', 'StreamingAssets', 'InnerAssets');
+    // final gitAddResult = await ProcessRunner().runProcess(
+    //   ['git', 'add', path],
+    //   printOutput: true,
+    //   workingDirectory: unityProjectDir,
+    // );
+    // if (gitAddResult.stderr.isNotEmpty) {
+    //   throw 'git add $path失败: ${gitAddResult.stderr}';
+    // }
+    // final gitCommitResult = await ProcessRunner().runProcess(
+    //   ['git', 'commit', '-m', 'export first package'],
+    //   printOutput: true,
+    //   workingDirectory: unityProjectDir,
+    // );
+    // if (gitCommitResult.stderr.isNotEmpty) {
+    //   throw 'git commit -m export first package失败: ${gitCommitResult.stderr}';
+    // }
+    // final gitPushResult = await ProcessRunner().runProcess(
+    //   ['git', 'push', 'origin', unityBranch],
+    //   printOutput: true,
+    //   workingDirectory: unityProjectDir,
+    // );
+    // if (gitPushResult.stderr.isNotEmpty) {
+    //   throw 'git push origin $unityBranch失败: ${gitPushResult.stderr}';
+    // }
     return super.run();
   }
 }
