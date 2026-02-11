@@ -6,6 +6,7 @@ import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/unity_environment.dart';
+import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
 class ExportFirstPackageCommand extends Command {
@@ -18,10 +19,12 @@ class ExportFirstPackageCommand extends Command {
   ExportFirstPackageCommand() {
     argParser.addOption('platform', help: '平台', allowed: ['ios', 'android']);
     argParser.addOption('unityBranch', help: 'Unity分支');
+    argParser.addFlag('skipBuild', help: '是否跳过构建');
   }
 
   @override
   FutureOr? run() async {
+    final skipBuild = argResults?['skipBuild'] ?? false;
     final platform = ArgumentGet(argResults).getString(
       'platform',
       '请选择平台',
@@ -67,25 +70,53 @@ class ExportFirstPackageCommand extends Command {
       }
     });
 
-    final result = await ProcessRunner().runProcess(
-      [
-        unityEnginePath,
-        '-quit',
-        '-batchmode',
-        '-executeMethod',
-        'ExportAppData.exportFirstPackage',
-        '-nographics',
-        '-projectPath',
-        './'
-      ],
+    if (!skipBuild) {
+      final result = await ProcessRunner().runProcess(
+        [
+          unityEnginePath,
+          '-quit',
+          '-batchmode',
+          '-executeMethod',
+          'ExportAppData.exportFirstPackage',
+          '-nographics',
+          '-projectPath',
+          './'
+        ],
+        printOutput: true,
+        workingDirectory: unityProjectDir,
+        stdin: streamController.stream,
+      );
+      if (!isSuccess) {
+        throw '导出Unity首包失败: ${result.stdout}';
+      } else {
+        loggerSuccess('导出Unity首包成功');
+      }
+    }
+    // Assets\StreamingAssets\InnerAssets
+    final path = join('Assets', 'StreamingAssets', 'InnerAssets');
+    final gitAddResult = await ProcessRunner().runProcess(
+      ['git', 'add', path],
       printOutput: true,
       workingDirectory: unityProjectDir,
-      stdin: streamController.stream,
     );
-    if (!isSuccess) {
-      throw '导出Unity首包失败: ${result.stdout}';
-    } else {
-      loggerSuccess('导出Unity首包成功');
+    if (gitAddResult.stderr.isNotEmpty) {
+      throw 'git add $path失败: ${gitAddResult.stderr}';
+    }
+    final gitCommitResult = await ProcessRunner().runProcess(
+      ['git', 'commit', '-m', 'export first package'],
+      printOutput: true,
+      workingDirectory: unityProjectDir,
+    );
+    if (gitCommitResult.stderr.isNotEmpty) {
+      throw 'git commit -m export first package失败: ${gitCommitResult.stderr}';
+    }
+    final gitPushResult = await ProcessRunner().runProcess(
+      ['git', 'push', 'origin', unityBranch],
+      printOutput: true,
+      workingDirectory: unityProjectDir,
+    );
+    if (gitPushResult.stderr.isNotEmpty) {
+      throw 'git push origin $unityBranch失败: ${gitPushResult.stderr}';
     }
     return super.run();
   }
