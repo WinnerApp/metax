@@ -27,10 +27,6 @@ class ExportFirstPackageCommand extends Command {
       '请选择平台',
       allowed: ['ios', 'android'],
     );
-    final unityBranch = ArgumentGet(argResults).getString(
-      'unityBranch',
-      '请选择Unity分支',
-    );
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     final unityProjectDir = Directory(
       switch (platform) {
@@ -42,6 +38,16 @@ class ExportFirstPackageCommand extends Command {
     if (!unityProjectDir.existsSync()) {
       throw 'Unity项目目录不存在: ${unityProjectDir.path}';
     }
+
+    final unityBranchs = await getLatestBranchList(unityProjectDir.path).then(
+      (e) => e.map((e) => getBranchName(e)).toList(),
+    );
+
+    final unityBranch = ArgumentGet(argResults).getString(
+      'unityBranch',
+      '请选择Unity分支',
+      allowed: unityBranchs,
+    );
 
     /// 切换分支
     await switchBranch(unityProjectDir.path, unityBranch);
@@ -68,6 +74,9 @@ class ExportFirstPackageCommand extends Command {
         '-batchmode',
         '-executeMethod',
         'ExportAppData.exportFirstPackage',
+        '-nographics',
+        '-projectPath',
+        './'
       ],
       printOutput: true,
       workingDirectory: unityProjectDir,
