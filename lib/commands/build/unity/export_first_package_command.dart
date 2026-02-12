@@ -99,6 +99,17 @@ class ExportFirstPackageCommand extends Command {
       'StreamingAssets',
       'InnerAssets',
     );
+
+    final gitStatusResult = await ProcessRunner().runProcess(
+      ['git', 'status', path],
+      workingDirectory: unityProjectDir,
+    );
+    final stdout = gitStatusResult.stdout;
+    bool isClean = stdout.contains('nothing to commit, working tree clean');
+    if (isClean) {
+      throw '不存在本地缓存提交!';
+    }
+
     final gitAddResult = await ProcessRunner().runProcess(
       ['git', 'add', path],
       printOutput: true,
@@ -108,7 +119,7 @@ class ExportFirstPackageCommand extends Command {
       throw 'git add $path失败: ${gitAddResult.stderr}';
     }
     final gitCommitResult = await ProcessRunner().runProcess(
-      ['git', 'commit', '-m', 'export first package'],
+      ['git', 'commit', '-m', '"export first package"'],
       printOutput: true,
       workingDirectory: unityProjectDir,
     );
