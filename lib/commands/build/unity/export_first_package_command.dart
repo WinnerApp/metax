@@ -20,6 +20,9 @@ class ExportFirstPackageCommand extends Command {
     argParser.addOption('platform', help: '平台', allowed: ['ios', 'android']);
     argParser.addOption('unityBranch', help: 'Unity分支');
     argParser.addFlag('skipBuild', help: '是否跳过构建');
+
+    /// 是否支持上传 默认不支持
+    argParser.addFlag('uploadGit', help: '是否支持上传 git');
   }
 
   @override
@@ -94,45 +97,48 @@ class ExportFirstPackageCommand extends Command {
       loggerSuccess('导出Unity首包成功');
     }
     // Assets\StreamingAssets\InnerAssets
-    final path = join(
-      'Assets',
-      'StreamingAssets',
-      'InnerAssets',
-    );
+    bool isUploadGit = argResults?['uploadGit'] ?? false;
+    if (isUploadGit) {
+      final path = join(
+        'Assets',
+        'StreamingAssets',
+        'InnerAssets',
+      );
 
-    final gitStatusResult = await ProcessRunner().runProcess(
-      ['git', 'status', path],
-      workingDirectory: unityProjectDir,
-    );
-    final stdout = gitStatusResult.stdout;
-    bool isClean = stdout.contains('nothing to commit, working tree clean');
-    if (isClean) {
-      throw '不存在本地缓存提交!';
-    }
+      final gitStatusResult = await ProcessRunner().runProcess(
+        ['git', 'status', path],
+        workingDirectory: unityProjectDir,
+      );
+      final stdout = gitStatusResult.stdout;
+      bool isClean = stdout.contains('nothing to commit, working tree clean');
+      if (isClean) {
+        throw '不存在本地缓存提交!';
+      }
 
-    final gitAddResult = await ProcessRunner().runProcess(
-      ['git', 'add', path],
-      printOutput: true,
-      workingDirectory: unityProjectDir,
-    );
-    if (gitAddResult.stderr.isNotEmpty) {
-      throw 'git add $path失败: ${gitAddResult.stderr}';
-    }
-    final gitCommitResult = await ProcessRunner().runProcess(
-      ['git', 'commit', '-m', '"export first package"'],
-      printOutput: true,
-      workingDirectory: unityProjectDir,
-    );
-    if (gitCommitResult.stderr.isNotEmpty) {
-      throw 'git commit -m export first package失败: ${gitCommitResult.stderr}';
-    }
-    final gitPushResult = await ProcessRunner().runProcess(
-      ['git', 'push', 'origin', unityBranch],
-      printOutput: true,
-      workingDirectory: unityProjectDir,
-    );
-    if (gitPushResult.stderr.isNotEmpty) {
-      throw 'git push origin $unityBranch失败: ${gitPushResult.stderr}';
+      final gitAddResult = await ProcessRunner().runProcess(
+        ['git', 'add', path],
+        printOutput: true,
+        workingDirectory: unityProjectDir,
+      );
+      if (gitAddResult.stderr.isNotEmpty) {
+        throw 'git add $path失败: ${gitAddResult.stderr}';
+      }
+      final gitCommitResult = await ProcessRunner().runProcess(
+        ['git', 'commit', '-m', '"export first package"'],
+        printOutput: true,
+        workingDirectory: unityProjectDir,
+      );
+      if (gitCommitResult.stderr.isNotEmpty) {
+        throw 'git commit -m export first package失败: ${gitCommitResult.stderr}';
+      }
+      final gitPushResult = await ProcessRunner().runProcess(
+        ['git', 'push', 'origin', unityBranch],
+        printOutput: true,
+        workingDirectory: unityProjectDir,
+      );
+      if (gitPushResult.stderr.isNotEmpty) {
+        throw 'git push origin $unityBranch失败: ${gitPushResult.stderr}';
+      }
     }
   }
 }
