@@ -137,6 +137,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
+    final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     final appRunner = await createAppRunner(appHomeDir);
     await appRunner.runProcess(
       [
@@ -144,6 +145,8 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         'export',
         '-p',
         platform.name,
+        '-u',
+        unityEnvironment.unityEnginePath,
       ],
       printOutput: true,
     );
