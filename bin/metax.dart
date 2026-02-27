@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -12,6 +13,12 @@ import 'package:meta_tool/commands/upload/upload_command.dart';
 import 'package:meta_tool/define.dart';
 
 Future<void> main(List<String> arguments) async {
+  // 在 Windows 下显式使用 UTF-8，减少中文乱码和输入异常
+  if (Platform.isWindows) {
+    stdout.encoding = utf8;
+    stderr.encoding = utf8;
+  }
+
   final runner = CommandRunner('metax', '一款棉宇宙开发和发布工具')
     ..addCommand(InitCommand())
     ..addCommand(BuildCommand())

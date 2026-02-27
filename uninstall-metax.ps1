@@ -1,7 +1,7 @@
 <#
 metax 一键卸载脚本（Windows）
 使用说明：以管理员身份运行 PowerShell，执行以下命令：
-irm https://raw.githubusercontent.com/WinnerApp/metax/main/uninstall-metax.ps1 | iex
+irm https://raw.githubusercontent.com/WinnerApp/metax/refs/heads/stable | iex
 #>
 
 $toolName = "metax"
