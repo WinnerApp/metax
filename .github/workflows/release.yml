@@ -3,13 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*" # 触发条件：当推送的标签以 'v' 开头时
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # 只支持 macos【intel/arm64】 和 windows
         os: [macos-latest, windows-latest]
         architecture: [x64]
     steps:
@@ -30,7 +31,7 @@ jobs:
 
       - name: Build executable (Windows)
         if: matrix.os == 'windows-latest'
-        run: dart compile exe bin/metax.dart -o metax.exe
+        run: dart compile exe bin/metax.dart -o metax.exe # Windows 带 exe 后缀
 
       - name: Upload artifact (macOS)
         if: matrix.os == 'macos-latest'

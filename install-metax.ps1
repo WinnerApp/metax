@@ -1,14 +1,14 @@
 <#
 metax 一键安装脚本（Windows）
 使用说明：以管理员身份运行 PowerShell，执行以下命令：
-irm https://raw.githubusercontent.com/你的用户名/你的仓库/main/install-metax.ps1 | iex
+irm https://raw.githubusercontent.com/WinnerApp/metax/main/install-metax.ps1 | iex
 #>
 
-# 配置项（替换为你的实际信息）
+# 配置项（已适配 WinnerApp/metax 仓库）
 $toolName = "metax"
-$repoOwner = "你的GitHub用户名"
-$repoName = "你的仓库名"
-$installDir = "$env:ProgramFiles\$toolName" # 安装到系统程序目录，默认全局可访问
+$repoOwner = "WinnerApp"
+$repoName = "metax"
+$installDir = "$env:ProgramFiles\$toolName" # 安装到系统程序目录，全局可访问
 $latestReleaseApi = "https://api.github.com/repos/$repoOwner/$repoName/releases/latest"
 
 try {
@@ -34,7 +34,7 @@ try {
     $exeAsset = $releaseInfo.assets | Where-Object { $_.name -eq "metax-windows-x64.exe" }
 
     if (-not $exeAsset) {
-        Write-Error "未找到 Windows 版本的可执行文件！"
+        Write-Error "未找到 Windows 版本的可执行文件！请确认仓库已发布带 metax-windows-x64.exe 的 Release"
         exit 1
     }
 
@@ -45,7 +45,7 @@ try {
 
     # 5. 检查文件是否下载成功
     if (-not (Test-Path $exePath)) {
-        Write-Error "文件下载失败！"
+        Write-Error "文件下载失败！请检查网络或仓库 Release 资产是否存在"
         exit 1
     }
 
