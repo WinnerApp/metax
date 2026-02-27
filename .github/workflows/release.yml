@@ -3,14 +3,13 @@ name: Release
 on:
   push:
     tags:
-      - "v*" # 触发条件：当推送的标签以 'v' 开头时
+      - "v*"
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # 只支持 macos【intel/arm64】 和 windows
         os: [macos-latest, windows-latest]
         architecture: [x64]
     steps:
@@ -25,13 +24,27 @@ jobs:
       - name: Install dependencies
         run: dart pub get
 
-      - name: Build executable
+      - name: Build executable (macOS)
+        if: matrix.os == 'macos-latest'
         run: dart compile exe bin/metax.dart -o metax
-      - name: Upload artifact
+
+      - name: Build executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: dart compile exe bin/metax.dart -o metax.exe
+
+      - name: Upload artifact (macOS)
+        if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: metax-${{ matrix.os }}
+          name: metax-macos-x64
           path: metax
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: metax-windows-x64
+          path: metax.exe
 
   release:
     needs: build
@@ -49,7 +62,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
 
@@ -59,8 +72,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/metax-macos-latest/metax
-          asset_name: metax-macos-latest
+          asset_path: artifacts/metax-macos-x64/metax
+          asset_name: metax-macos-x64
           asset_content_type: application/octet-stream
 
       - name: Upload Windows Release Assets
@@ -69,6 +82,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/metax-windows-latest/metax
-          asset_name: metax-windows-latest
+          asset_path: artifacts/metax-windows-x64/metax.exe
+          asset_name: metax-windows-x64.exe
           asset_content_type: application/octet-stream
