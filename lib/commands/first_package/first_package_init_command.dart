@@ -23,6 +23,7 @@ class FirstPackageInitCommand extends Command {
   @override
   FutureOr? run() async {
     final targetConfigFile = getFirstPackageConfigFile();
+    loggerDebug('targetConfigFile: ${targetConfigFile.path}');
     final cacheDir = targetConfigFile.parent;
 
     if (!await cacheDir.exists()) {
@@ -52,4 +53,3 @@ class FirstPackageInitCommand extends Command {
     );
   }
 }
-
