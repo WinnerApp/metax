@@ -157,11 +157,34 @@ class FirstPackageDownloadCommand extends Command {
 
     // 9. 下载所有文件到目标目录
     for (final fileId in fileIds) {
+      String? desiredName;
+      try {
+        final meta = await storage.getFile(
+          bucketId: bucketId,
+          fileId: fileId,
+        );
+        final name = (meta.name).trim();
+        if (name.isNotEmpty) {
+          desiredName = p.basename(name);
+        }
+      } catch (_) {
+        // ignore: best-effort to keep original filename
+      }
+
       final bytes = await storage.getFileDownload(
         bucketId: bucketId,
         fileId: fileId,
       );
-      final outFile = File(p.join(targetDir.path, '$fileId.zip'));
+      desiredName ??= '$fileId.zip';
+
+      var outPath = p.join(targetDir.path, desiredName);
+      if (File(outPath).existsSync()) {
+        final ext = p.extension(desiredName);
+        final base = p.basenameWithoutExtension(desiredName);
+        outPath = p.join(targetDir.path, '$base-$fileId$ext');
+      }
+
+      final outFile = File(outPath);
       await outFile.writeAsBytes(bytes, flush: true);
       loggerSuccess('已下载首包文件: ${outFile.path}');
     }
