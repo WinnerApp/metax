@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dart_appwrite/dart_appwrite.dart';
@@ -17,7 +18,16 @@ class AppwriteServer {
       ..setEndpoint(endpoint)
       ..setProject(projectId)
       ..setKey(apiKey);
+    _applyUserAgentWorkaround(client);
     databases = Databases(client);
+  }
+
+  /// 覆盖 SDK 默认 User-Agent，避免 Windows 等系统版本字符串中的双引号导致 HTTP 头非法
+  /// （如 "Windows 10 企业版" 会触发 FormatException: Invalid HTTP header field value）
+  static void _applyUserAgentWorkaround(Client client) {
+    final v = Platform.operatingSystemVersion;
+    final sanitized = v.replaceAll('"', '').replaceAll(RegExp(r'[\x00-\x1f\x7f]'), '');
+    client.addHeader('user-agent', 'AppwriteDartSDK/16.1.0 (${Platform.operatingSystem}; $sanitized)');
   }
 
   /// 获取当前最新分支打包版本配置
