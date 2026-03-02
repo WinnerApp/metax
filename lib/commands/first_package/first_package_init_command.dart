@@ -51,5 +51,8 @@ class FirstPackageInitCommand extends Command {
     loggerSuccess(
       '首包配置文件已复制到缓存目录: ${targetConfigFile.path}',
     );
+    loggerInfo(
+      '可选：在配置中增加 FIRST_PACKAGE_IOS_NOTIFY_URL / FIRST_PACKAGE_ANDROID_NOTIFY_URL（首包上传成功后飞书机器人通知链接）',
+    );
   }
 }

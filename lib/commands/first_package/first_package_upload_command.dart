@@ -148,5 +148,21 @@ class FirstPackageUploadCommand extends Command {
     }
 
     loggerSuccess('首包上传流程完成');
+
+    // 6. 若配置了首包飞书通知链接，则按平台发送通知
+    final notifyUrlKey = platform == 'ios'
+        ? firstPackageIosNotifyUrlKey
+        : firstPackageAndroidNotifyUrlKey;
+    final notifyUrl = cacheConfig[notifyUrlKey]?.trim();
+    if (notifyUrl != null && notifyUrl.isNotEmpty) {
+      final platformLabel = platform == 'ios' ? 'iOS' : 'Android';
+      final msg = '【首包上传成功】\n平台：$platformLabel\n分支：$branch\n文件数：${fileIds.length}';
+      try {
+        await sendTextToWeixinWebhooks(msg, notifyUrl);
+        loggerSuccess('已发送首包上传通知到飞书');
+      } catch (e) {
+        loggerWarning('首包飞书通知发送失败: $e');
+      }
+    }
   }
 }
