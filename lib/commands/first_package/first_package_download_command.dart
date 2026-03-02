@@ -155,7 +155,13 @@ class FirstPackageDownloadCommand extends Command {
     }
     targetDir.createSync(recursive: true);
 
-    // 9. 下载所有文件到目标目录
+    // 9. 按 MD5（fileId）缓存的目录，命中则直接拷贝，否则下载后写入缓存再拷贝
+    final fileCacheDir = getFirstPackageFileCacheDir();
+    if (!fileCacheDir.existsSync()) {
+      fileCacheDir.createSync(recursive: true);
+    }
+
+    // 10. 下载或从缓存拷贝所有文件到目标目录
     for (final fileId in fileIds) {
       String? desiredName;
       try {
@@ -170,11 +176,6 @@ class FirstPackageDownloadCommand extends Command {
       } catch (_) {
         // ignore: best-effort to keep original filename
       }
-
-      final bytes = await storage.getFileDownload(
-        bucketId: bucketId,
-        fileId: fileId,
-      );
       desiredName ??= '$fileId.zip';
 
       var outPath = p.join(targetDir.path, desiredName);
@@ -184,9 +185,20 @@ class FirstPackageDownloadCommand extends Command {
         outPath = p.join(targetDir.path, '$base-$fileId$ext');
       }
 
-      final outFile = File(outPath);
-      await outFile.writeAsBytes(bytes, flush: true);
-      loggerSuccess('已下载首包文件: ${outFile.path}');
+      final cacheFile = File(p.join(fileCacheDir.path, fileId));
+      if (cacheFile.existsSync()) {
+        await cacheFile.copy(outPath);
+        loggerSuccess('从缓存拷贝首包文件: ${p.basename(outPath)} (md5=$fileId)');
+      } else {
+        final bytes = await storage.getFileDownload(
+          bucketId: bucketId,
+          fileId: fileId,
+        );
+        await cacheFile.writeAsBytes(bytes, flush: true);
+        final outFile = File(outPath);
+        await outFile.writeAsBytes(bytes, flush: true);
+        loggerSuccess('已下载并缓存首包文件: ${outFile.path} (md5=$fileId)');
+      }
     }
 
     loggerSuccess(

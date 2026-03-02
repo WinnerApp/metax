@@ -48,6 +48,12 @@ File getFirstPackageConfigFile() {
   return File(join(cacheDir.path, 'first_package_cache.env'));
 }
 
+/// 首包按 MD5 缓存的下载文件目录（用于下载时命中缓存则直接拷贝，避免重复下载）
+Directory getFirstPackageFileCacheDir() {
+  final cacheDir = _getFirstPackageCacheDir();
+  return Directory(join(cacheDir.path, 'files'));
+}
+
 /// 首包 iOS 上传成功后的飞书机器人通知 webhook URL（可选）
 const String firstPackageIosNotifyUrlKey = 'FIRST_PACKAGE_IOS_NOTIFY_URL';
 
