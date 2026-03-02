@@ -9,8 +9,7 @@ import 'package:process_runner/process_runner.dart';
 /// 根据指定 Unity 分支导出 Unity 缓存，并按平台打包对应产物（iOS Framework / Android AAR）并上传
 class UnityBranchBuildCommand extends Command {
   @override
-  String get description =>
-      '根据指定 Unity 分支导出 Unity 缓存，并按平台打包对应产物并上传';
+  String get description => '根据指定 Unity 分支导出 Unity 缓存，并按平台打包对应产物并上传';
 
   @override
   String get name => 'unity_branch_build';
@@ -46,7 +45,7 @@ class UnityBranchBuildCommand extends Command {
     );
 
     if (platform == 'ios') {
-      /// 1. iOS：先根据分支导出最新 UnityLibrary（不上传缓存）
+      /// 1. iOS：先根据分支导出最新 UnityLibrary 并上传缓存
       await runner.runProcess(
         [
           'metax',
@@ -55,7 +54,7 @@ class UnityBranchBuildCommand extends Command {
           'ios',
           '--unityBranch',
           unityBranch,
-          '--no-isUpload',
+          '--isUpload',
           '--forceUpdate',
         ],
         workingDirectory: appHomeDir.directory,
@@ -82,16 +81,14 @@ class UnityBranchBuildCommand extends Command {
         '根据 Unity 分支 $unityBranch 打包并上传 Unity Framework 完成!',
       );
     } else if (platform == 'android') {
-      /// 1. Android：先根据分支导出最新 unityLibrary（不上传缓存）
+      /// 1. Android：先根据分支导出最新 unityLibrary 并上传缓存
       await runner.runProcess(
         [
           'metax',
           'build',
           'unity_cache',
           'android',
-          '--unityBranch',
-          unityBranch,
-          '--no-isUpload',
+          '--isUpload',
           '--forceUpdate',
         ],
         workingDirectory: appHomeDir.directory,
@@ -105,8 +102,6 @@ class UnityBranchBuildCommand extends Command {
           'build',
           'aar',
           'unity',
-          '--unityBranch',
-          unityBranch,
           '--forceUpdate',
           '--isUpload',
         ],
@@ -122,4 +117,3 @@ class UnityBranchBuildCommand extends Command {
     }
   }
 }
-
