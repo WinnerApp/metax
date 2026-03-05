@@ -7,6 +7,8 @@ import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
+import 'package:meta_tool/upload_sentry.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -97,9 +99,40 @@ abstract class BuildCacheCommand extends Command {
         commitHash: commitHash,
         commitTime: commitTime,
       );
+      if (cache.buildPlatform == BuildPlatform.android) {
+        // /Users/winner/Documents/meta_app_2.0/android/unityLibrary/symbols
+        /// 分别上传到测试和生产环境
+        await uploadAndroidUnitySymbols(true);
+        await uploadAndroidUnitySymbols(false);
+      }
     }
     final endTime = DateTime.now();
     loggerInfo('🔍 编译完成，用时: ${endTime.difference(startTime).inSeconds}秒');
+  }
+
+  Future<void> uploadAndroidUnitySymbols(bool isStore) async {
+    final unitySymbolsPath = join(
+      appHomeDir.androidDir.path,
+      'unityLibrary',
+      'symbols',
+    );
+
+    final sentryUrl =
+        readBuildAppEnv('SENTRY_URL', appHomeDir, isStore: isStore);
+    final sentryAuthToken =
+        readBuildAppEnv('SENTRY_AUTH_TOKEN', appHomeDir, isStore: isStore);
+    final sentryOrg =
+        readBuildAppEnv('SENTRY_ORG', appHomeDir, isStore: isStore);
+    final sentryProject =
+        readBuildAppEnv('SENTRY_PROJECT', appHomeDir, isStore: isStore);
+
+    await UploadAndroidSymbols(
+      url: sentryUrl,
+      authToken: sentryAuthToken,
+      org: sentryOrg,
+      project: sentryProject,
+      symbolsPath: unitySymbolsPath,
+    ).run();
   }
 
   /// 写入到缓存系统

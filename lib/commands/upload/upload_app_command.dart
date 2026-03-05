@@ -516,18 +516,44 @@ $changeLog
       buildBranchConfigs: buildBranchConfigs,
     );
 
-    /// 上传sentry符号
-    await UploadSentrySymbols(
-      flutterProjectPath: appHomeDir.flutterDir.path,
-      project: environment.sentryProject,
-      url: environment.sentryUrl,
-      authToken: environment.sentryAuthToken,
-      org: environment.sentryOrg,
-      dist: environment.sentryDist,
-      release: environment.buildName,
-    ).run().catchError((e, stackTrace) {
-      loggerError('上传sentry符号失败:${e.toString()} ${stackTrace.toString()}');
-    });
+    // /Users/winner/Documents/meta_app_2.0/ios/build/ios/Runner.xcarchive/dSYMs
+    Future? uploadSymbolsFuture;
+    if (platform == 'ios') {
+      final dsymsPath = join(
+          appHomeDir.iosDir.path, 'build', 'ios', 'Runner.xcarchive', 'dSYMs');
+      uploadSymbolsFuture = UploadIosDsym(
+        url: environment.sentryUrl,
+        authToken: environment.sentryAuthToken,
+        org: environment.sentryOrg,
+        project: environment.sentryProject,
+        dsymsPath: dsymsPath,
+      ).run();
+    } else if (platform == 'android') {
+      // /Users/winner/Documents/meta_app_2.0/build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
+      final symbolZipPath = join(
+        appHomeDir.directory.path,
+        'build',
+        'app',
+        'outputs',
+        'native-debug-symbols',
+        'release',
+        'native-debug-symbols.zip',
+      );
+      uploadSymbolsFuture = UploadAndroidSymbols(
+        url: environment.sentryUrl,
+        authToken: environment.sentryAuthToken,
+        org: environment.sentryOrg,
+        project: environment.sentryProject,
+        symbolsPath: symbolZipPath,
+      ).run();
+    }
+
+    if (uploadSymbolsFuture != null) {
+      /// 上传sentry符号
+      await uploadSymbolsFuture.catchError((e, stackTrace) {
+        loggerError('上传sentry符号失败:${e.toString()} ${stackTrace.toString()}');
+      });
+    }
   }
 
   /// 复制Unity静态库到指定位置

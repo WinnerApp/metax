@@ -45,6 +45,14 @@ class UploadSentrySymbols {
       }
     }
     await File(sentrypropertiesFile).writeAsString(properties.join('\n'));
+    /*
+    sentry-cli debug-files upload \
+  --auth-token ___ORG_AUTH_TOKEN___ \
+  --org ___ORG_SLUG___ \
+  --project ___PROJECT_SLUG___ \
+  --include-sources \
+  PATH_TO_DSYMS
+    */
     await ProcessRunner().runProcess(
       [
         'flutter',
@@ -54,6 +62,96 @@ class UploadSentrySymbols {
         'sentry_dart_plugin',
       ],
       workingDirectory: Directory(flutterProjectPath),
+      printOutput: true,
+    );
+  }
+}
+
+class UploadIosDsym {
+  final String url;
+  final String authToken;
+  final String org;
+  final String project;
+  final String dsymsPath;
+
+  UploadIosDsym({
+    required this.url,
+    required this.authToken,
+    required this.org,
+    required this.project,
+    required this.dsymsPath,
+  });
+
+  /*
+    sentry-cli debug-files upload \
+  --auth-token ___ORG_AUTH_TOKEN___ \
+  --org ___ORG_SLUG___ \
+  --project ___PROJECT_SLUG___ \
+  --include-sources \
+  PATH_TO_
+  */
+
+  Future<void> run() async {
+    await ProcessRunner().runProcess(
+      [
+        'sentry-cli',
+        '--url',
+        url,
+        'debug-files',
+        'upload',
+        '--auth-token',
+        authToken,
+        '--org',
+        org,
+        '--project',
+        project,
+        '--include-sources',
+        '--il2cpp-mapping',
+        dsymsPath,
+      ],
+      printOutput: true,
+    );
+  }
+}
+
+class UploadAndroidSymbols {
+  final String url;
+  final String authToken;
+  final String org;
+  final String project;
+  final String symbolsPath;
+
+  UploadAndroidSymbols({
+    required this.url,
+    required this.authToken,
+    required this.org,
+    required this.project,
+    required this.symbolsPath,
+  });
+  /*
+  sentry-cli debug-files upload \
+  --auth-token ___ORG_AUTH_TOKEN___ \
+  --org ___ORG_SLUG___ \
+  --project ___PROJECT_SLUG___ \
+  /path/to/android/symbols...
+  */
+
+  Future<void> run() async {
+    await ProcessRunner().runProcess(
+      [
+        'sentry-cli',
+        '--url',
+        url,
+        'debug-files',
+        'upload',
+        '--auth-token',
+        authToken,
+        '--org',
+        org,
+        '--project',
+        project,
+        symbolsPath,
+      ],
       printOutput: true,
     );
   }
