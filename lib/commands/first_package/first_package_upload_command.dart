@@ -88,7 +88,11 @@ class FirstPackageUploadCommand extends Command {
     // 4. 遍历目录下的 zip 文件，按 md5 去重上传，并收集所有 fileId
     final List<String> fileIds = [];
     await for (final entity in cacheDir.list()) {
-      if (entity is! File || !entity.path.toLowerCase().endsWith('.zip')) {
+      if (entity is! File) {
+        continue;
+      }
+      final lowerPath = entity.path.toLowerCase();
+      if (!lowerPath.endsWith('.zip') && !lowerPath.endsWith('.bytes')) {
         continue;
       }
 

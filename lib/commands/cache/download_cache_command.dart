@@ -181,8 +181,10 @@ class DownloadCacheCommand extends Command {
     loggerDebug('写入配置到本地!');
     if (!await metaxCache.isCacheExists(commitHash)) {
       loggerDebug('下载缓存到本地中，请稍等......');
+      // https://appwrite.winnermedical.com/v1/storage/buckets/67d26a1b002de170d9a0/files/69a93d0fa9b0386b39d6/download?project=677f626b0012252b422e&project=677f626b0012252b422e&mode=admin
       final downloadUrl =
-          '${appwriteEnvironment.endpoint}/storage/buckets/${appwriteEnvironment.bucketId}/files/$fileId/view?project=${appwriteEnvironment.projectId}&project=${appwriteEnvironment.projectId}&mode=admin';
+          '${appwriteEnvironment.endpoint}/storage/buckets/${appwriteEnvironment.bucketId}/files/$fileId/download?project=${appwriteEnvironment.projectId}&project=${appwriteEnvironment.projectId}&mode=admin';
+      loggerDebug('下载缓存地址: $downloadUrl');
       final fileInfo = await Storage(appwriteServer.client).getFile(
         bucketId: appwriteEnvironment.bucketId,
         fileId: fileId,
