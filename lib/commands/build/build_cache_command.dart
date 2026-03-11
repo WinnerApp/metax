@@ -132,7 +132,9 @@ abstract class BuildCacheCommand extends Command {
       org: sentryOrg,
       project: sentryProject,
       symbolsPath: unitySymbolsPath,
-    ).run();
+    ).run().catchError((e, stackTrace) {
+      loggerError('上传Android符号失败:${e.toString()} ${stackTrace.toString()}');
+    });
   }
 
   /// 写入到缓存系统
