@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:darty_json_safe/darty_json_safe.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
@@ -85,7 +84,10 @@ class FlutterEnvironmentCommand extends Command {
       ],
       defaultValue: 'Winner',
     );
-    final branchConfig = JSON(argResults?['branchConfig']).mapValue;
+    final branchConfigRaw = argResults?['branchConfig']?.toString();
+    final Map branchConfig = (branchConfigRaw == null || branchConfigRaw.isEmpty)
+        ? {}
+        : (jsonDecode(branchConfigRaw) as Map);
     if (argBuildType == 'framework') {
       await initFrameworkEnvironment(
         configuration: argConfiguration,
@@ -125,7 +127,7 @@ class FlutterEnvironmentCommand extends Command {
       'assets',
       'dart_define.json',
     ));
-    await modifyDartDefineJsonFile(
+    await updateDartDefineJsonFile(
       dartDefineJsonFile: dartDefineJsonFile,
       isStore: isStore,
       androidChannel: androidChannel,
@@ -191,7 +193,7 @@ class FlutterEnvironmentCommand extends Command {
       'assets',
       'dart_define.json',
     ));
-    await modifyDartDefineJsonFile(
+    await updateDartDefineJsonFile(
       dartDefineJsonFile: dartDefineJsonFile,
       isStore: isStore,
       androidChannel: androidChannel,
@@ -243,54 +245,5 @@ class FlutterEnvironmentCommand extends Command {
       printOutput: true,
     );
     loggerSuccess('初始化Flutter环境完成');
-  }
-
-  /// 修改dart_define.json文件
-  Future<void> modifyDartDefineJsonFile({
-    required File dartDefineJsonFile,
-    required bool isStore,
-    required String androidChannel,
-    required Map branchConfig,
-  }) async {
-    if (!dartDefineJsonFile.existsSync()) {
-      throw ArgumentError('dart_define.json文件不存在(${dartDefineJsonFile.path})');
-    }
-    final json = JSON(await dartDefineJsonFile.readAsString());
-    bool debugInvertOversizedImages = false;
-    bool isOpenDioLog = true;
-    bool debugYunDun = false;
-    bool enableLog = true;
-    bool showRestoreParams = false;
-    bool isStoreVersion = false;
-    String environment = 'sit';
-    String channel = androidChannel;
-    bool enableFlutterError = false;
-    bool enableUnityOpenTime = false;
-    bool enableSensorsLog = false;
-    if (isStore) {
-      isStoreVersion = true;
-      environment = 'release';
-    }
-    json['debugInvertOversizedImages'] = debugInvertOversizedImages;
-    json['isOpenDioLog'] = isOpenDioLog;
-    json['debugYunDun'] = debugYunDun;
-    json['enableLog'] = enableLog;
-    json['showRestoreParams'] = showRestoreParams;
-    json['isStoreVersion'] = isStoreVersion;
-    json['environment'] = environment;
-    json['androidChannel'] = channel;
-    json['enableFlutterError'] = enableFlutterError;
-    json['enableUnityOpenTime'] = enableUnityOpenTime;
-    json['enableSensorsLog'] = enableSensorsLog;
-    if (branchConfig.isNotEmpty) {
-      json['branchConfig'] = branchConfig;
-    }
-
-    loggerDebug('当前最新的Flutter环境配置:');
-    for (var key in json.mapValue.keys) {
-      loggerDebug('$key: ${json.mapValue[key]}');
-    }
-    await dartDefineJsonFile
-        .writeAsString(JsonEncoder.withIndent('  ').convert(json.mapValue));
   }
 }

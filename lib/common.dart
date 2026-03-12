@@ -11,6 +11,68 @@ import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
+/// 更新 Flutter 侧的 `assets/dart_define.json` 配置。
+///
+/// - 该文件通常由 `flutter pub run dart_define generate` 生成。
+/// - 这里会在原有 JSON 基础上覆盖/写入关键字段。
+/// - 若文件不存在将直接抛错（由调用方决定是否先生成）。
+Future<void> updateDartDefineJsonFile({
+  required File dartDefineJsonFile,
+  required bool isStore,
+  required String androidChannel,
+  required Map branchConfig,
+}) async {
+  if (!dartDefineJsonFile.existsSync()) {
+    throw ArgumentError('dart_define.json文件不存在(${dartDefineJsonFile.path})');
+  }
+
+  final raw = await dartDefineJsonFile.readAsString();
+  final decoded = jsonDecode(raw);
+  final Map<String, dynamic> json = decoded is Map<String, dynamic>
+      ? decoded
+      : <String, dynamic>{};
+
+  bool debugInvertOversizedImages = false;
+  bool isOpenDioLog = true;
+  bool debugYunDun = false;
+  bool enableLog = true;
+  bool showRestoreParams = false;
+  bool isStoreVersion = false;
+  String environment = 'sit';
+  String channel = androidChannel;
+  bool enableFlutterError = false;
+  bool enableUnityOpenTime = false;
+  bool enableSensorsLog = false;
+
+  if (isStore) {
+    isStoreVersion = true;
+    environment = 'release';
+  }
+
+  json['debugInvertOversizedImages'] = debugInvertOversizedImages;
+  json['isOpenDioLog'] = isOpenDioLog;
+  json['debugYunDun'] = debugYunDun;
+  json['enableLog'] = enableLog;
+  json['showRestoreParams'] = showRestoreParams;
+  json['isStoreVersion'] = isStoreVersion;
+  json['environment'] = environment;
+  json['androidChannel'] = channel;
+  json['enableFlutterError'] = enableFlutterError;
+  json['enableUnityOpenTime'] = enableUnityOpenTime;
+  json['enableSensorsLog'] = enableSensorsLog;
+  if (branchConfig.isNotEmpty) {
+    json['branchConfig'] = branchConfig;
+  }
+
+  loggerDebug('当前最新的Flutter环境配置:');
+  for (final key in json.keys) {
+    loggerDebug('$key: ${json[key]}');
+  }
+
+  await dartDefineJsonFile
+      .writeAsString(JsonEncoder.withIndent('  ').convert(json));
+}
+
 /// 判断是否是git仓库
 Future<bool> isGitRepository(String workingDirectory) async {
   final commands = ['git', 'rev-parse', '--is-inside-work-tree'];

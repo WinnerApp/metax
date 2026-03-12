@@ -284,8 +284,6 @@ abstract class UploadAppCommand extends Command {
       afterCommitId: afterCommitId,
     ).get();
 
-    String lineText = "----------------------------------------";
-
     if (unityChangeLog != null) {
       unityLogBuffer.writeln('''
 👉[Unity][${environment.unityBranchName}][$currentUnityCommitId]
@@ -405,18 +403,48 @@ $changeLog
 
     final dartDefineFile =
         io.File(join(appHomeDir.flutterDir.path, 'assets', 'dart_define.json'));
-    if (!dartDefineFile.existsSync()) {
-      loggerDebug("dart_define.json 不存在进行生成!");
-      await ProcessRunner().runProcess(
-        [
-          'flutter',
-          'pub',
-          'run',
-          'dart_define',
-          'generate',
-        ],
-        workingDirectory: appHomeDir.flutterDir,
+    final localPropertyFile =
+        io.File(join(appHomeDir.androidDir.path, 'local.properties'));
+    final localProperties = readEnvironmentFromFile(localPropertyFile.path);
+    final flutterSourceCompile =
+        (localProperties['flutterSourceCompile'] ?? 'false')
+            .toLowerCase()
+            .trim();
+
+    final flutterSourceCodeCompile =
+        (buildAppRunner.environment['FLUTTER_SOURCE_CODE_COMPILE'] ??
+                Platform.environment['FLUTTER_SOURCE_CODE_COMPILE'] ??
+                '')
+            .toLowerCase()
+            .trim();
+
+    final shouldModifyFlutterRepoDartDefineDirectly =
+        flutterSourceCodeCompile == 'false' && flutterSourceCompile == 'true';
+
+    if (shouldModifyFlutterRepoDartDefineDirectly) {
+      if (!dartDefineFile.existsSync()) {
+        throw ArgumentError('dart_define.json文件不存在(${dartDefineFile.path})');
+      }
+      await updateDartDefineJsonFile(
+        dartDefineJsonFile: dartDefineFile,
+        isStore: environment.isStore,
+        androidChannel: environment.androidChannel,
+        branchConfig: const {},
       );
+    } else {
+      if (!dartDefineFile.existsSync()) {
+        loggerDebug("dart_define.json 不存在进行生成!");
+        await ProcessRunner().runProcess(
+          [
+            'flutter',
+            'pub',
+            'run',
+            'dart_define',
+            'generate',
+          ],
+          workingDirectory: appHomeDir.flutterDir,
+        );
+      }
     }
 
     loggerDebug('开始复制Flutter静态库到指定位置');
