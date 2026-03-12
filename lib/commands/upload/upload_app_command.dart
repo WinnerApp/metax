@@ -527,7 +527,9 @@ $changeLog
         org: environment.sentryOrg,
         project: environment.sentryProject,
         dsymsPath: dsymsPath,
-      ).run();
+      ).run().catchError((e, stackTrace) {
+        loggerError('上传ios符号失败:${e.toString()} ${stackTrace.toString()}');
+      });
     } else if (platform == 'android') {
       // /Users/winner/Documents/meta_app_2.0/build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
       final symbolZipPath = join(
@@ -545,7 +547,9 @@ $changeLog
         org: environment.sentryOrg,
         project: environment.sentryProject,
         symbolsPath: symbolZipPath,
-      ).run();
+      ).run().catchError((e, stackTrace) {
+        loggerError('上传android符号失败:${e.toString()} ${stackTrace.toString()}');
+      });
     }
 
     if (uploadSymbolsFuture != null) {
