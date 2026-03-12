@@ -61,12 +61,28 @@ abstract class BuildCacheCommand extends Command {
       await cache.forceCleanCache();
     }
 
-    if (cacheModel != null &&
+    final bool disableAllCache = !isUseCache;
+    if (disableAllCache) {
+      // 用户显式传了 --no-isUseCache：不允许命中/复用任何本地缓存或“最新编译”判断
+      // 这里会强制重新编译并写入新的缓存产物（随后按原逻辑上传）
+      loggerWarning('🧹 检测到 --no-isUseCache，将强制全新编译，不使用任何本地缓存');
+
+      // 避免 buildCacheDir 里的旧产物/旧 cache.json 被当成“最新编译”
+      final buildDir = Directory(buildCacheDir);
+      if (buildDir.existsSync()) {
+        await buildDir.delete(recursive: true);
+      }
+      await cache.forceCleanCache();
+    }
+
+    if (!disableAllCache &&
+        cacheModel != null &&
         await cache.isCacheExists(cacheModel.commitHash) &&
         !forceUpdate) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
       commitHash = cacheModel.commitHash;
-    } else if (await isCacheExitsInBuildDir(buildModel, buildCacheDir) &&
+    } else if (!disableAllCache &&
+        await isCacheExitsInBuildDir(buildModel, buildCacheDir) &&
         !forceUpdate) {
       loggerInfo('🔍 当前编译已经是最新的,正在复制到本地缓存目录......');
 
