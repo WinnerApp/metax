@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:meta_tool/common.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -110,7 +111,9 @@ class UploadIosDsym {
         dsymsPath,
       ],
       printOutput: true,
-    );
+    ).catchError((e, stackTrace) {
+      loggerError('上传ios符号失败:${e.toString()} ${stackTrace.toString()}');
+    });
   }
 }
 
@@ -153,6 +156,8 @@ class UploadAndroidSymbols {
         symbolsPath,
       ],
       printOutput: true,
-    );
+    ).catchError((e, stackTrace) {
+      loggerError('上传android符号失败:${e.toString()} ${stackTrace.toString()}');
+    });
   }
 }
