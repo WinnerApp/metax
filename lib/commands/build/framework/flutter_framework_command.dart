@@ -167,7 +167,8 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
             '--no-profile',
             '--xcframework',
             '--cocoapods',
-            '--verbose'
+            '--no-pub',
+            '--no-tree-shake-icons'
           ],
           workingDirectory: appHomeDir.flutterDir,
           printOutput: true,

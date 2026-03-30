@@ -153,7 +153,7 @@ class AppwriteServer {
     ).then((e) {
       return e.documents.map((e) => e.data).toList();
     }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+      loggerError("${e.toString()} ${stackTrace.toString()}");
       return <Map<String, dynamic>>[];
     });
   }

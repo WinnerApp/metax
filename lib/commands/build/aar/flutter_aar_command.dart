@@ -151,7 +151,8 @@ class FlutterAarCommand extends BuildCacheCommand {
           '--no-debug',
           '--no-profile',
           '--target-platform=android-arm64',
-          '--verbose',
+          '--no-pub',
+          '--no-tree-shake-icons'
         ],
         workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
