@@ -88,6 +88,8 @@ class UnityFrameworkCommand extends BuildCacheCommand {
           'BUILD_DIR=./build',
           'BUILD_ROOT=./build',
           'DEBUG_INFORMATION_FORMAT=dwarf-with-dsym',
+          'BUILD_LIBRARY_FOR_DISTRIBUTION=NO',
+          'SKIP_SWIFT_INTERFACE_CHECK=YES',
           'clean',
           'build'
         ],
