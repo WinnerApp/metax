@@ -113,6 +113,16 @@ class UnityFrameworkCommand extends BuildCacheCommand {
         'Release-iphoneos',
         'UnityFramework.framework.dSYM',
       );
+      final swiftModuleDir = join(
+        frameworkDir,
+        'Modules',
+        'UnityFramework.swiftmodule',
+      );
+      final swiftModuleDirectory = Directory(swiftModuleDir);
+      if (await swiftModuleDirectory.exists()) {
+        loggerDebug('检测到UnityFramework.swiftmodule目录，正在删除...');
+        await swiftModuleDirectory.delete(recursive: true);
+      }
       await ProcessRunner().runProcess(
         [
           'xcodebuild',
