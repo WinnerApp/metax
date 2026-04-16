@@ -27,6 +27,13 @@ class FixIosUnityCache {
         );
         lineTexts[i] = newText;
       }
+      if (containsBuildLibraryForDistribution(lineText)) {
+        final newText = lineText.replaceAll(
+          'BUILD_LIBRARY_FOR_DISTRIBUTION = YES',
+          'BUILD_LIBRARY_FOR_DISTRIBUTION = NO',
+        );
+        lineTexts[i] = newText;
+      }
     }
     await File(projectPath).writeAsString(lineTexts.join('\n'));
     loggerSuccess('修复iOS不支持BitCode完毕!');
@@ -75,6 +82,10 @@ class FixIosUnityCache {
 
   bool containsBitCode(String content) {
     return content.contains('ENABLE_BITCODE = YES');
+  }
+
+  bool containsBuildLibraryForDistribution(String content) {
+    return content.contains('BUILD_LIBRARY_FOR_DISTRIBUTION = YES');
   }
 
   String get iosBuidDir => join(
