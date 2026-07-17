@@ -530,6 +530,9 @@ class UpgradeFlutterCommand extends Command {
       buffer
         ..writeln('  [iOS]')
         ..writeln('    metax build framework flutter -c release --forceUpdate')
+        ..writeln(
+          '    metax flutter verify <产物目录>  # 校验 Framework 与 engine 是否一致',
+        )
         ..writeln('    # 宿主重新集成 frameworks/flutter 后再打 IPA');
     }
     if (needAndroid) {
