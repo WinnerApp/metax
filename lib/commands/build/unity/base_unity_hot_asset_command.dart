@@ -10,7 +10,7 @@ import 'package:process_runner/process_runner.dart';
 
 class UnityHotAssetCommand extends Command {
   UnityHotAssetCommand() {
-    argParser.addOption('platform', help: '平台', allowed: ['ios', 'android']);
+    argParser.addOption('platform', help: '平台', allowed: ['ios', 'android', 'ohos']);
     argParser
         .addOption('build_type', help: '打包类型', allowed: ['Debug', 'Release']);
     argParser.addOption('jenkins_workspace', help: 'Jenkins 工作空间');
@@ -48,6 +48,7 @@ class UnityHotAssetCommand extends Command {
     final unityProjectPath = switch (platform) {
       'ios' => env['IOS_UNITY_PATH'],
       'android' => env['ANDROID_UNITY_PATH'],
+      'ohos' => env['OHOS_UNITY_PATH'],
       _ => throw '平台不支持',
     };
     if (unityProjectPath == null) {
@@ -60,9 +61,12 @@ class UnityHotAssetCommand extends Command {
     } else {
       await switchBranch(unityProjectPath, branch);
     }
-    final unityEnginePath = env['UNITY_ENGINE_PATH'];
+    final unityEnginePath = switch (platform) {
+      'ohos' => env['TUANJIE_ENGINE_PATH'],
+      _ => env['UNITY_ENGINE_PATH'],
+    };
     if (unityEnginePath == null) {
-      throw '找不到 Unity 引擎路径';
+      throw platform == 'ohos' ? '找不到团结引擎路径' : '找不到 Unity 引擎路径';
     }
     final methodName = switch (buildType) {
       'Debug' => 'ExportAppData.exportDebugHotAsset',
@@ -93,6 +97,7 @@ class UnityHotAssetCommand extends Command {
     final hotAssetPath = switch (platform) {
       'ios' => join(unityProjectPath, 'HotUpdate', buildType, 'IOS'),
       'android' => join(unityProjectPath, 'HotUpdate', buildType, 'Android'),
+      'ohos' => join(unityProjectPath, 'HotUpdate', buildType, 'OHOS'),
       _ => throw '平台不支持',
     };
     if (!Directory(hotAssetPath).existsSync()) {

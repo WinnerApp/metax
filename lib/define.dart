@@ -16,7 +16,8 @@ enum BuildConfiguration {
 
 enum BuildPlatform {
   ios('ios'),
-  android('android');
+  android('android'),
+  ohos('ohos');
 
   const BuildPlatform(this.value);
   final String value;

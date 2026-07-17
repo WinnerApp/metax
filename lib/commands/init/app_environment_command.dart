@@ -87,11 +87,34 @@ class AppEnvironmentCommand extends Command {
         return chooseUnityProject('请选择Android Unity工程');
       },
     );
+    await _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'OHOS_UNITY_PATH',
+      '请输入鸿蒙团结工程路径',
+      readValueHandler: () async {
+        return chooseUnityProject('请选择鸿蒙团结工程');
+      },
+    );
     final unityEnginePath = await _writeEnvironmentWithPrompt(
       environment,
       envFile,
       'UNITY_ENGINE_PATH',
       '请输入Unity引擎路径',
+    );
+    await _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'TUANJIE_ENGINE_PATH',
+      '请输入团结引擎路径',
+      readValueHandler: () async => _findDefaultTuanjieEnginePath(),
+      validator: (value) {
+        final engine = File(value);
+        if (!engine.existsSync()) {
+          throw Exception('团结引擎路径错误: $value');
+        }
+        return true;
+      },
     );
     await _writeEnvironmentWithPrompt(
       environment,
@@ -104,6 +127,12 @@ class AppEnvironmentCommand extends Command {
       envFile,
       'ANDROID_GIT_URL',
       '请输入Android Git URL',
+    );
+    await _writeEnvironmentWithPrompt(
+      environment,
+      envFile,
+      'OHOS_GIT_URL',
+      '请输入鸿蒙 Git URL',
     );
     await _writeEnvironmentWithPrompt(
       environment,
@@ -262,5 +291,35 @@ class AppEnvironmentCommand extends Command {
       }
     }
     return result;
+  }
+
+  /// 尝试发现本机已安装的团结引擎可执行文件。
+  /// 典型路径：/Applications/Tuanjie/Hub/Editor/<version>/Tuanjie.app/Contents/MacOS/Tuanjie
+  Future<String?> _findDefaultTuanjieEnginePath() async {
+    if (!Platform.isMacOS) return null;
+    final editorRoot = Directory('/Applications/Tuanjie/Hub/Editor');
+    if (!await editorRoot.exists()) return null;
+
+    final versions = await editorRoot
+        .list()
+        .where((e) => e is Directory)
+        .cast<Directory>()
+        .toList();
+    if (versions.isEmpty) return null;
+
+    versions.sort((a, b) => basename(b.path).compareTo(basename(a.path)));
+    for (final versionDir in versions) {
+      final engine = File(join(
+        versionDir.path,
+        'Tuanjie.app',
+        'Contents',
+        'MacOS',
+        'Tuanjie',
+      ));
+      if (await engine.exists()) {
+        return engine.path;
+      }
+    }
+    return null;
   }
 }

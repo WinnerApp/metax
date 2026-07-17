@@ -69,6 +69,7 @@ class UnityLocalBuildCommand extends Command {
       switch (platform) {
         BuildPlatform.ios => unityEnvironment.iosUnityWorkspace,
         BuildPlatform.android => unityEnvironment.androidUnityWorkspace,
+        BuildPlatform.ohos => unityEnvironment.ohosUnityWorkspace,
       },
     );
 
