@@ -6,6 +6,7 @@ import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/commands/build/build_command.dart';
 import 'package:meta_tool/commands/cache/cache_command.dart';
 import 'package:meta_tool/commands/first_package/first_package_command.dart';
+import 'package:meta_tool/commands/flutter/flutter_command.dart';
 import 'package:meta_tool/commands/init/init.dart';
 import 'package:meta_tool/commands/publish/publish_command.dart';
 import 'package:meta_tool/commands/test/test_command.dart';
@@ -24,6 +25,7 @@ Future<void> main(List<String> arguments) async {
     ..addCommand(BuildCommand())
     ..addCommand(UploadCommand())
     ..addCommand(CacheCommand())
+    ..addCommand(FlutterCommand())
     ..addCommand(PublishCommand())
     ..addCommand(TestCommand())
     ..addCommand(FirstPackageCommand());
