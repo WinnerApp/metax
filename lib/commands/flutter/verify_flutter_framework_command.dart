@@ -8,6 +8,10 @@ import 'package:process_runner/process_runner.dart';
 
 /// 校验已打出的 Flutter Framework / AAR 是否与期望 Engine 一致。
 ///
+/// 支持两种 iOS 集成形态：
+/// - 本地 Flutter.xcframework
+/// - 仅 Flutter.podspec（CocoaPods 拉取官方 engine 产物）
+///
 /// 示例:
 ///   metax flutter verify /path/to/frameworks/flutter/Release
 ///   metax flutter verify --dir /path/to/build/ios/framework/Release
@@ -16,7 +20,7 @@ import 'package:process_runner/process_runner.dart';
 class VerifyFlutterFrameworkCommand extends Command {
   @override
   String get description =>
-      '校验 Flutter Framework/AAR 产物结构，并对比 Engine 是否与当前 SDK（或指定值）一致';
+      '校验 Flutter Framework/AAR 产物（含官方 Flutter.podspec 依赖）与 Engine 是否一致';
 
   @override
   String get name => 'verify';
@@ -61,7 +65,8 @@ class VerifyFlutterFrameworkCommand extends Command {
       loggerError(issue);
     }
 
-    final artifactEngine = await _extractArtifactEngine(artifactDir, kind);
+    final artifactMeta = await _extractArtifactMeta(artifactDir, kind);
+    final artifactEngine = artifactMeta?.engineRevision;
     if (artifactEngine == null || artifactEngine.isEmpty) {
       final msg = '未能从产物中提取 engineRevision';
       if (strict) {
@@ -70,6 +75,9 @@ class VerifyFlutterFrameworkCommand extends Command {
       loggerWarning(msg);
     } else {
       loggerInfo('产物 engineRevision = $artifactEngine');
+    }
+    if (artifactMeta?.flutterVersion != null) {
+      loggerInfo('产物 Flutter 版本 = ${artifactMeta!.flutterVersion}');
     }
 
     final expected = await _resolveExpectedEngine();
@@ -87,6 +95,15 @@ class VerifyFlutterFrameworkCommand extends Command {
         artifactEngine != expected.engineRevision) {
       mismatches.add(
         'Engine 不一致: 产物=$artifactEngine, 期望=${expected.engineRevision}',
+      );
+    }
+
+    final artifactVersion = artifactMeta?.flutterVersion;
+    if (artifactVersion != null &&
+        expected.flutterVersion.isNotEmpty &&
+        !_flutterVersionCompatible(artifactVersion, expected.flutterVersion)) {
+      mismatches.add(
+        'Flutter 版本不一致: 产物=$artifactVersion, 期望=${expected.flutterVersion}',
       );
     }
 
@@ -128,7 +145,10 @@ class VerifyFlutterFrameworkCommand extends Command {
   _ArtifactKind _detectArtifactKind(Directory dir) {
     final flutterXc = Directory(join(dir.path, 'Flutter.xcframework'));
     final appXc = Directory(join(dir.path, 'App.xcframework'));
-    if (flutterXc.existsSync() || appXc.existsSync()) {
+    final flutterPodspec = File(join(dir.path, 'Flutter.podspec'));
+    if (flutterXc.existsSync() ||
+        appXc.existsSync() ||
+        flutterPodspec.existsSync()) {
       return _ArtifactKind.iosFramework;
     }
 
@@ -150,8 +170,8 @@ class VerifyFlutterFrameworkCommand extends Command {
     }
 
     throw Exception(
-      '无法识别产物类型（需要含 Flutter.xcframework / App.xcframework，或 Android aar/outputs）: '
-      '${dir.path}',
+      '无法识别产物类型（需要含 App.xcframework / Flutter.podspec / Flutter.xcframework，'
+      '或 Android aar/outputs）: ${dir.path}',
     );
   }
 
@@ -164,10 +184,13 @@ class VerifyFlutterFrameworkCommand extends Command {
       case _ArtifactKind.iosFramework:
         final flutterXc =
             Directory(join(dir.path, 'Flutter.xcframework'));
+        final flutterPodspec = File(join(dir.path, 'Flutter.podspec'));
         final appXc = Directory(join(dir.path, 'App.xcframework'));
-        if (!await flutterXc.exists()) {
-          issues.add('缺少 Flutter.xcframework');
-        } else {
+
+        // 业务常见两种形态：
+        // 1) 本地打出 Flutter.xcframework
+        // 2) 仅保留 Flutter.podspec，CocoaPods 拉取官方 engine 产物
+        if (await flutterXc.exists()) {
           final binary = await _findIosFlutterBinary(flutterXc);
           if (binary == null) {
             issues.add('Flutter.xcframework 内未找到 Flutter 二进制');
@@ -176,7 +199,14 @@ class VerifyFlutterFrameworkCommand extends Command {
           } else {
             loggerInfo('Flutter 二进制: ${binary.path}');
           }
+        } else if (await flutterPodspec.exists()) {
+          loggerInfo(
+            '未找到 Flutter.xcframework，使用官方产物依赖: ${flutterPodspec.path}',
+          );
+        } else {
+          issues.add('缺少 Flutter.xcframework 且缺少 Flutter.podspec');
         }
+
         if (!await appXc.exists()) {
           issues.add('缺少 App.xcframework');
         } else {
@@ -200,19 +230,25 @@ class VerifyFlutterFrameworkCommand extends Command {
     return issues;
   }
 
-  Future<String?> _extractArtifactEngine(
+  Future<_ArtifactMeta?> _extractArtifactMeta(
     Directory dir,
     _ArtifactKind kind,
   ) async {
     switch (kind) {
       case _ArtifactKind.iosFramework:
-        return _extractIosEngine(dir);
+        return _extractIosMeta(dir);
       case _ArtifactKind.androidAar:
-        return _extractAndroidEngine(dir);
+        final engine = await _extractAndroidEngine(dir);
+        if (engine == null) return null;
+        return _ArtifactMeta(engineRevision: engine);
     }
   }
 
-  Future<String?> _extractIosEngine(Directory dir) async {
+  Future<_ArtifactMeta?> _extractIosMeta(Directory dir) async {
+    // 优先从 Flutter.podspec 的官方下载 URL 解析（你们当前集成方式）
+    final fromPodspec = await _extractMetaFromFlutterPodspec(dir);
+    if (fromPodspec != null) return fromPodspec;
+
     final flutterXc = Directory(join(dir.path, 'Flutter.xcframework'));
     if (!await flutterXc.exists()) return null;
     final binary = await _findIosFlutterBinary(flutterXc);
@@ -230,12 +266,14 @@ class VerifyFlutterFrameworkCommand extends Command {
           .toSet()
           .toList();
       if (hashes.isEmpty) return null;
-      if (hashes.length == 1) return hashes.first;
+      if (hashes.length == 1) {
+        return _ArtifactMeta(engineRevision: hashes.first);
+      }
 
       // 多个 hash 时优先匹配当前期望 engine（若已能拿到）
       final expectOpt = argResults!['expect-engine'] as String?;
       if (expectOpt != null && hashes.contains(expectOpt.trim())) {
-        return expectOpt.trim();
+        return _ArtifactMeta(engineRevision: expectOpt.trim());
       }
       // 常见情况：engine hash 会出现多次；取出现次数最多的
       final counts = <String, int>{};
@@ -243,18 +281,94 @@ class VerifyFlutterFrameworkCommand extends Command {
         final h = m.group(0)!;
         counts[h] = (counts[h] ?? 0) + 1;
       }
-      counts.removeWhere((_, c) => c < 1);
       final sorted = counts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       loggerInfo(
         '从 Flutter 二进制解析到多个 hash，选用频次最高: '
         '${sorted.first.key} (x${sorted.first.value})',
       );
-      return sorted.first.key;
+      return _ArtifactMeta(engineRevision: sorted.first.key);
     } catch (e) {
       loggerWarning('strings 解析 Flutter 二进制失败: $e');
       return null;
     }
+  }
+
+  /// 从 Flutter.podspec 提取 engineRevision 与 Flutter 版本。
+  ///
+  /// 官方产物 URL 形如:
+  ///   .../flutter/<engineHash>/ios/...
+  ///   .../flutter/<engineHash>/ios-release/...
+  /// pod 版本约定: major.minor.(patch * 100 + hotfix) → 如 3.41.900 = 3.41.9
+  Future<_ArtifactMeta?> _extractMetaFromFlutterPodspec(Directory dir) async {
+    final candidates = [
+      File(join(dir.path, 'Flutter.podspec')),
+      File(join(dir.path, 'Flutter.podspec.json')),
+    ];
+    for (final file in candidates) {
+      if (!await file.exists()) continue;
+      final content = await file.readAsString();
+      loggerInfo('读取: ${file.path}');
+
+      String? engine;
+      // http(s)://.../flutter/<40hex>/...（含 storage.flutter-io.cn 镜像）
+      final urlMatch = RegExp(
+        r'https?://\S+/flutter/([0-9a-f]{40})/',
+        caseSensitive: false,
+      ).firstMatch(content);
+      if (urlMatch != null) {
+        engine = urlMatch.group(1)!;
+        loggerInfo('从 Flutter.podspec URL 解析 engine = $engine');
+      } else {
+        final hashes = RegExp(r'\b[0-9a-f]{40}\b')
+            .allMatches(content)
+            .map((m) => m.group(0)!)
+            .toSet();
+        if (hashes.length == 1) {
+          engine = hashes.first;
+          loggerInfo('从 Flutter.podspec 解析 engine = $engine');
+        } else if (hashes.length > 1) {
+          loggerWarning(
+            'Flutter.podspec 中发现多个 hash，无法唯一确定 engine: ${hashes.join(', ')}',
+          );
+        }
+      }
+
+      final flutterVersion = _parseFlutterVersionFromPodspec(content);
+      if (flutterVersion != null) {
+        loggerInfo('从 Flutter.podspec version 解析 Flutter = $flutterVersion');
+      }
+
+      if (engine == null) continue;
+      return _ArtifactMeta(
+        engineRevision: engine,
+        flutterVersion: flutterVersion,
+      );
+    }
+    return null;
+  }
+
+  /// podspec `s.version = '3.41.900'` → `3.41.9`
+  String? _parseFlutterVersionFromPodspec(String content) {
+    final match = RegExp(
+      r"""s\.version\s*=\s*['"](\d+)\.(\d+)\.(\d+)['"]""",
+    ).firstMatch(content);
+    if (match == null) return null;
+    final major = int.parse(match.group(1)!);
+    final minor = int.parse(match.group(2)!);
+    final encoded = int.parse(match.group(3)!);
+    final patch = encoded ~/ 100;
+    final hotfix = encoded % 100;
+    if (hotfix == 0) return '$major.$minor.$patch';
+    return '$major.$minor.$patch.$hotfix';
+  }
+
+  bool _flutterVersionCompatible(String artifact, String expected) {
+    if (artifact == expected) return true;
+    // 期望 3.41.9 / 3.41.9-xxx 与产物 3.41.9 视为兼容
+    return expected == artifact ||
+        expected.startsWith('$artifact-') ||
+        expected.startsWith('$artifact+');
   }
 
   Future<String?> _extractAndroidEngine(Directory dir) async {
@@ -481,5 +595,15 @@ class _ExpectedEngine {
     required this.engineRevision,
     required this.flutterVersion,
     required this.source,
+  });
+}
+
+class _ArtifactMeta {
+  final String engineRevision;
+  final String? flutterVersion;
+
+  const _ArtifactMeta({
+    required this.engineRevision,
+    this.flutterVersion,
   });
 }
