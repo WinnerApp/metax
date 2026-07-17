@@ -109,15 +109,25 @@ class UnityLocalBuildCommand extends Command {
         if (buildType == BuildType.aar.name) {
           loggerInfo('📦 开始强制编译Unity AAR...');
           await _forceCompileUnityAar(unityBranch, buildId ?? '');
+        } else if (buildType == BuildType.library.name) {
+          loggerInfo('📦 Android Unity Library 导出完成');
         } else {
-          throw Exception('Android平台只支持AAR构建类型');
+          throw Exception('Android平台只支持AAR/library构建类型');
         }
       } else if (buildPlatform == BuildPlatform.ios.name) {
         if (buildType == BuildType.framework.name) {
           loggerInfo('📦 开始强制编译Unity Framework...');
           await _forceCompileUnityFramework(unityBranch, buildId ?? '');
+        } else if (buildType == BuildType.library.name) {
+          loggerInfo('📦 iOS Unity Library 导出完成');
         } else {
-          throw Exception('iOS平台只支持Framework构建类型');
+          throw Exception('iOS平台只支持Framework/library构建类型');
+        }
+      } else if (buildPlatform == BuildPlatform.ohos.name) {
+        if (buildType == BuildType.library.name) {
+          loggerInfo('📦 鸿蒙 Unity Library 导出完成');
+        } else {
+          throw Exception('ohos平台只支持library构建类型');
         }
       }
 
@@ -129,6 +139,8 @@ class UnityLocalBuildCommand extends Command {
       } else if (buildPlatform == BuildPlatform.ios.name) {
         loggerInfo(
             '📁 Framework输出目录: ${appHomeDir.iosDir.path}/UnityLibrary/build/Release-iphoneos');
+      } else if (buildPlatform == BuildPlatform.ohos.name) {
+        loggerInfo('📁 Library输出目录: ${appHomeDir.ohosDir.path}/unityLibrary');
       }
     } catch (e) {
       loggerError('❌ Unity强制本地编译失败: $e');

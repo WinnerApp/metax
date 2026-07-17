@@ -6,7 +6,7 @@ import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:process_runner/process_runner.dart';
 
-/// 根据指定 Unity 分支导出 Unity 缓存，并按平台打包对应产物（iOS Framework / Android AAR）并上传
+/// 根据指定 Unity 分支导出 Unity 缓存，并按平台打包对应产物（iOS Framework / Android AAR / 鸿蒙 Library）并上传
 class UnityBranchBuildCommand extends Command {
   @override
   String get description => '根据指定 Unity 分支导出 Unity 缓存，并按平台打包对应产物并上传';
@@ -17,8 +17,8 @@ class UnityBranchBuildCommand extends Command {
   UnityBranchBuildCommand() {
     argParser.addOption(
       'platform',
-      help: '构建平台：ios / android',
-      allowed: ['ios', 'android'],
+      help: '构建平台：ios / android / ohos',
+      allowed: ['ios', 'android', 'ohos'],
     );
     argParser.addOption(
       'unityBranch',
@@ -30,8 +30,8 @@ class UnityBranchBuildCommand extends Command {
   FutureOr<void>? run() async {
     final platform = ArgumentGet(argResults).getString(
       'platform',
-      '请选择平台（ios / android）',
-      allowed: ['ios', 'android'],
+      '请选择平台（ios / android / ohos）',
+      allowed: ['ios', 'android', 'ohos'],
     );
     final unityBranch = argResults?['unityBranch'] as String?;
     if (unityBranch == null || unityBranch.isEmpty) {
@@ -111,6 +111,26 @@ class UnityBranchBuildCommand extends Command {
 
       loggerSuccess(
         '根据 Unity 分支 $unityBranch 打包并上传 Unity AAR 完成!',
+      );
+    } else if (platform == 'ohos') {
+      /// 鸿蒙：导出最新 unityLibrary 并上传缓存
+      await runner.runProcess(
+        [
+          'metax',
+          'build',
+          'unity_cache',
+          'ohos',
+          '--unityBranch',
+          unityBranch,
+          '--isUpload',
+          '--forceUpdate',
+        ],
+        workingDirectory: appHomeDir.directory,
+        printOutput: true,
+      );
+
+      loggerSuccess(
+        '根据 Unity 分支 $unityBranch 导出并上传鸿蒙 Unity Library 完成!',
       );
     } else {
       throw '不支持的平台: $platform';

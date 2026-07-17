@@ -31,6 +31,7 @@ class MockCommand extends Command {
             File(join(sourceCacheDir, 'UnityFramework', 'UnityFramework.h')),
           MockType.androidUnityLibrary =>
             File(join(sourceCacheDir, 'libs', 'unity-classes.jar')),
+          MockType.ohosUnityLibrary => Directory(sourceCacheDir),
           MockType.flutterAar => Directory(join(
               sourceCacheDir,
               'outputs',

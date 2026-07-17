@@ -1,6 +1,7 @@
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/build/unity/android_unity_cache_command.dart';
 import 'package:meta_tool/commands/build/unity/ios_unity_cache_command.dart';
+import 'package:meta_tool/commands/build/unity/ohos_unity_cache_command.dart';
 
 class UnityCacheCommand extends Command {
   @override
@@ -12,5 +13,6 @@ class UnityCacheCommand extends Command {
   UnityCacheCommand() {
     addSubcommand(IosUnityCacheCommand());
     addSubcommand(AndroidUnityCacheCommand());
+    addSubcommand(OhosUnityCacheCommand());
   }
 }

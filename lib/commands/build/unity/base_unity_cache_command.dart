@@ -39,6 +39,12 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       workspaceDirectory = unityEnvironment.androidUnityWorkspace;
       appWorkspace = join(unityEnvironment.unityWorkspace, 'android');
       unityCacheDir = join(appWorkspace, 'unityLibrary');
+    } else if (platform == BuildPlatform.ohos) {
+      workspaceDirectory = unityEnvironment.ohosUnityWorkspace;
+      appWorkspace = join(unityEnvironment.unityWorkspace, 'ohos');
+      unityCacheDir = join(appWorkspace, 'unityLibrary');
+    } else {
+      throw Exception('不支持的平台: ${platform.name}');
     }
 
     if (useMock) {
@@ -51,6 +57,11 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         await copyDirToDir(
           MockType.androidUnityLibrary.mockDir(appHomeDir),
           MockType.androidUnityLibrary.sourceCacheDir(appHomeDir),
+        );
+      } else if (platform == BuildPlatform.ohos) {
+        await copyDirToDir(
+          MockType.ohosUnityLibrary.mockDir(appHomeDir),
+          MockType.ohosUnityLibrary.sourceCacheDir(appHomeDir),
         );
       }
       loggerSuccess('导出Unity代码完成');
@@ -146,7 +157,7 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         '-p',
         platform.name,
         '-u',
-        unityEnvironment.unityEnginePath,
+        unityEnvironment.getEnginePath(platform.name),
       ],
       printOutput: true,
     );

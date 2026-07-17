@@ -106,6 +106,12 @@ mixin UseLocalCacheMixin {
       } else {
         throw Exception('不支持的构建类型: $buildType');
       }
+    } else if (buildPlatform == BuildPlatform.ohos.name) {
+      if (buildType == BuildType.library.name) {
+        return join(appHomeDir.ohosDir.path, 'unityLibrary');
+      } else {
+        throw Exception('ohos仅支持library构建类型: $buildType');
+      }
     } else {
       throw Exception('不支持的平台: $buildPlatform');
     }

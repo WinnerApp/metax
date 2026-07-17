@@ -79,6 +79,10 @@ class UseCacheCommand extends Command {
         !appHomeDir.androidDir.existsSync()) {
       throw Exception('目录[${appHomeDir.androidDir.path}]不存在,无法初始化缓存！');
     }
+    if (buildPlatform == BuildPlatform.ohos.name &&
+        !appHomeDir.ohosDir.existsSync()) {
+      throw Exception('目录[${appHomeDir.ohosDir.path}]不存在,无法初始化缓存！');
+    }
 
     buildLibrary = ArgumentGet(argResults).getString(
       'buildLibrary',
@@ -108,6 +112,11 @@ class UseCacheCommand extends Command {
           ],
         );
       }
+    } else if (buildPlatform == BuildPlatform.ohos.name) {
+      if (buildLibrary == BuildLibrary.flutter.name) {
+        throw Exception('ohos暂不支持flutter缓存');
+      }
+      buildType = BuildType.library.value;
     } else {
       if (buildLibrary == BuildLibrary.flutter.name) {
         buildType = BuildType.aar.value;
@@ -303,6 +312,12 @@ class UseCacheCommand extends Command {
         }
       } else {
         throw Exception('不支持的构建类型: $buildType');
+      }
+    } else if (buildPlatform == BuildPlatform.ohos.name) {
+      if (buildType == BuildType.library.name) {
+        return join(appHomeDir.ohosDir.path, 'unityLibrary');
+      } else {
+        throw Exception('ohos仅支持library构建类型: $buildType');
       }
     } else {
       throw Exception('不支持的平台: $buildPlatform');

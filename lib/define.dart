@@ -51,6 +51,7 @@ enum BuildPublish {
 enum MockType {
   iosUnityLibrary,
   androidUnityLibrary,
+  ohosUnityLibrary,
   flutterAar,
   flutterFramework,
   unityAar,
@@ -68,6 +69,10 @@ enum MockType {
       MockType.androidUnityLibrary => Directory(join(
           mockDir.path,
           'android_unity_library',
+        )),
+      MockType.ohosUnityLibrary => Directory(join(
+          mockDir.path,
+          'ohos_unity_library',
         )),
       MockType.flutterAar => Directory(join(
           mockDir.path,
@@ -98,6 +103,10 @@ enum MockType {
         )),
       MockType.androidUnityLibrary => Directory(join(
           appHomeDir.androidDir.path,
+          'unityLibrary',
+        )),
+      MockType.ohosUnityLibrary => Directory(join(
+          appHomeDir.ohosDir.path,
           'unityLibrary',
         )),
       MockType.flutterAar => Directory(join(
