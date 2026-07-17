@@ -97,7 +97,7 @@ class UnityHotAssetCommand extends Command {
     final hotAssetPath = switch (platform) {
       'ios' => join(unityProjectPath, 'HotUpdate', buildType, 'IOS'),
       'android' => join(unityProjectPath, 'HotUpdate', buildType, 'Android'),
-      'ohos' => join(unityProjectPath, 'HotUpdate', buildType, 'OHOS'),
+      'ohos' => join(unityProjectPath, 'HotUpdate', buildType, 'Harmony'),
       _ => throw '平台不支持',
     };
     if (!Directory(hotAssetPath).existsSync()) {
