@@ -108,6 +108,7 @@ class AppEnvironmentCommand extends Command {
       'TUANJIE_ENGINE_PATH',
       '请输入团结引擎路径',
       readValueHandler: () async => _findDefaultTuanjieEnginePath(),
+      alwaysPrompt: true,
       validator: (value) {
         final engine = File(value);
         if (!engine.existsSync()) {
@@ -243,10 +244,15 @@ class AppEnvironmentCommand extends Command {
     String prompt, {
     bool Function(String)? validator,
     Future<String?> Function()? readValueHandler,
+    bool alwaysPrompt = false,
   }) async {
-    String value = environment[name] ??
-        await readValueHandler?.call() ??
-        prompts.get(prompt);
+    final suggested = environment[name] ?? await readValueHandler?.call();
+    final String value;
+    if (alwaysPrompt) {
+      value = prompts.get(prompt, defaultsTo: suggested);
+    } else {
+      value = suggested ?? prompts.get(prompt);
+    }
     if (validator != null) {
       if (!validator(value)) {
         throw Exception('输入错误');
