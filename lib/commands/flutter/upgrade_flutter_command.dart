@@ -8,9 +8,10 @@ import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
-/// 打包机升级 Flutter（FVM）：安装、切换、预下载引擎、清理旧产物缓存。
+/// 打包机 Flutter 升级后处理（不含 fvm install，需自行先装好对应版本）。
 ///
 /// 示例:
+///   fvm install 3.41.9   # 自行安装
 ///   metax flutter upgrade --version 3.41.9
 ///   metax flutter upgrade 3.41.9 --platform all
 ///   metax --workspace /path/to/app flutter upgrade --version 3.41.9
@@ -18,14 +19,14 @@ import 'package:process_runner/process_runner.dart';
 class UpgradeFlutterCommand extends Command {
   @override
   String get description =>
-      '通过 FVM 升级打包机 Flutter 版本（支持 iOS/Android 引擎预下载与缓存清理）';
+      'FVM 安装完成后的打包机处理：切换版本、预下载引擎、清理旧产物缓存（不执行 fvm install）';
 
   @override
   String get name => 'upgrade';
 
   late ProcessRunner _runner;
 
-  /// 官方 Flutter git；升级时忽略环境里的中国区镜像变量
+  /// 官方 Flutter git；升级后处理时忽略环境里的中国区镜像变量
   static const _officialFlutterGitUrl =
       'https://github.com/flutter/flutter.git';
 
@@ -33,7 +34,7 @@ class UpgradeFlutterCommand extends Command {
     argParser.addOption(
       'version',
       abbr: 'v',
-      help: '目标 Flutter 版本，如 3.41.9；也可作为位置参数传入',
+      help: '目标 Flutter 版本（须已通过 fvm install 安装），如 3.41.9；也可作为位置参数传入',
     );
     argParser.addOption(
       'project',
@@ -64,7 +65,7 @@ class UpgradeFlutterCommand extends Command {
     );
     argParser.addFlag(
       'use-china-mirror',
-      help: '使用国内镜像（默认关闭，走官方 GitHub / Google 源；可通过代理访问）',
+      help: '使用国内镜像（默认关闭，走官方源；可通过代理访问）',
       defaultsTo: false,
       negatable: false,
     );
@@ -100,19 +101,11 @@ class UpgradeFlutterCommand extends Command {
     if (projectDir != null) {
       loggerInfo('Flutter 工程: ${projectDir.path}');
     } else {
-      loggerWarning('未指定工程目录，将只升级本机 FVM SDK（跳过工程内 fvm use / flutter clean）');
+      loggerWarning('未指定工程目录，将跳过工程内 fvm use / flutter clean');
     }
 
     await _ensureFvmAvailable();
-
-    await _removeIncompleteFvmVersion(version);
-
-    loggerInfo('安装 Flutter $version ...');
-    try {
-      await _run(['fvm', 'install', version]);
-    } catch (e) {
-      _throwInstallHint(version, e);
-    }
+    await _ensureFvmVersionInstalled(version);
 
     if (setGlobal) {
       try {
@@ -302,35 +295,27 @@ class UpgradeFlutterCommand extends Command {
     }
   }
 
-  Future<void> _removeIncompleteFvmVersion(String version) async {
+  Future<void> _ensureFvmVersionInstalled(String version) async {
+    final versionDir = _fvmVersionDir(version);
+    final binFlutter = File(join(versionDir.path, 'bin', 'flutter'));
+    if (await binFlutter.exists()) {
+      loggerInfo('已检测到本机 FVM 版本: ${versionDir.path}');
+      return;
+    }
+    throw Exception(
+      '未找到 FVM 版本 $version（${versionDir.path}）。\n'
+      '请先自行安装后再执行本命令:\n'
+      '  fvm install $version\n'
+      '  metax flutter upgrade --version $version',
+    );
+  }
+
+  Directory _fvmVersionDir(String version) {
     final home = Platform.environment['HOME'] ?? '';
     final cachePath = Platform.environment['FVM_CACHE_PATH'] ??
         Platform.environment['FVM_HOME'] ??
         join(home, 'fvm');
-    final versionDir = Directory(join(cachePath, 'versions', version));
-    if (!await versionDir.exists()) return;
-
-    // 不完整 clone 会导致后续 install 一直失败
-    final gitDir = Directory(join(versionDir.path, '.git'));
-    final binFlutter = File(join(versionDir.path, 'bin', 'flutter'));
-    if (!await gitDir.exists() || !await binFlutter.exists()) {
-      loggerWarning('发现不完整 FVM 版本目录，先删除: ${versionDir.path}');
-      await versionDir.delete(recursive: true);
-    }
-  }
-
-  Never _throwInstallHint(String version, Object error) {
-    final msg = error.toString();
-    final buffer = StringBuffer()
-      ..writeln('fvm install $version 失败。')
-      ..writeln(msg)
-      ..writeln()
-      ..writeln('若是 GitHub Connection reset，请确认：')
-      ..writeln('  1. 当前 shell 已 export 代理，且代理软件已开启')
-      ..writeln('  2. 删除残留: rm -rf "\$HOME/fvm/versions/$version"')
-      ..writeln('  3. 同 shell 重试: metax flutter upgrade --version $version')
-      ..writeln('  4. 先验证: git ls-remote https://github.com/flutter/flutter.git HEAD');
-    throw Exception(buffer.toString());
+    return Directory(join(cachePath, 'versions', version));
   }
 
   Future<void> _run(
