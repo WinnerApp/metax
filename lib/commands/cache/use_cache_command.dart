@@ -5,6 +5,7 @@ import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
+import 'package:meta_tool/cache/cache_cleaner.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
@@ -182,7 +183,9 @@ class UseCacheCommand extends Command {
     isUpload = argResults?['isUpload'] ?? true;
 
     CacheModel? useCacheModel;
-    if (isUseCache) {
+    final library = BuildLibrary.values.firstWhere((e) => e.name == buildLibrary);
+    final enableLibraryCache = isLibraryCacheEnabled(library);
+    if (enableLibraryCache) {
       loggerDebug('正在查询本地缓存...');
       final localCacheModel = await queryLocalCache();
       if (localCacheModel != null) {
@@ -216,6 +219,11 @@ class UseCacheCommand extends Command {
           );
         }
       }
+    } else {
+      await cleanCachesOnIgnore(
+        appHomeDir: appHomeDir,
+        library: library,
+      );
     }
     useCacheModel ??= await compileCache();
     if (useCacheModel == null) {
@@ -436,7 +444,7 @@ class UseCacheCommand extends Command {
           branch,
           isUpload ? '--isUpload' : '--no-isUpload',
           getUseMockCommand(),
-          isUseCache ? '--isUseCache' : '--no-isUseCache',
+          ...getUseCacheCommands(),
         ];
         if (buildId != null) {
           commandLine.add('--buildId');
@@ -467,7 +475,7 @@ class UseCacheCommand extends Command {
         branch,
         isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
-        isUseCache ? '--isUseCache' : '--no-isUseCache',
+        ...getUseCacheCommands(),
       ],
       printOutput: true,
     );
@@ -491,7 +499,7 @@ class UseCacheCommand extends Command {
         'unity',
         isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
-        isUseCache ? '--isUseCache' : '--no-isUseCache',
+        ...getUseCacheCommands(),
       ],
       workingDirectory: Directory(appHomeDir.workspace),
       printOutput: true,
@@ -518,7 +526,7 @@ class UseCacheCommand extends Command {
         buildConfiguration,
         isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
-        isUseCache ? '--isUseCache' : '--no-isUseCache',
+        ...getUseCacheCommands(),
       ],
       workingDirectory: appHomeDir.directory,
       printOutput: true,

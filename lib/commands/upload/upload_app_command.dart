@@ -623,7 +623,7 @@ $changeLog
         '--unityBranch',
         environment.unityBranchName,
         getUseMockCommand(),
-        isUseCache ? '--isUseCache' : '--no-isUseCache',
+        ...getUseCacheCommands(),
       ],
       printOutput: true,
     );
@@ -669,7 +669,9 @@ $changeLog
         '--commitHash',
         commitHash,
         getUseMockCommand(),
-        isUseCache && !needUpdateCache ? '--isUseCache' : '--no-isUseCache',
+        ...getUseCacheCommands(
+          flutterCache: isUseFlutterCache && !needUpdateCache,
+        ),
       ],
       printOutput: true,
     );

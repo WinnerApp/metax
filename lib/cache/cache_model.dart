@@ -10,6 +10,9 @@ class CacheModel {
   final String buildId;
   final DateTime commitTime;
 
+  /// Flutter SDK 指纹；Unity 等非 Flutter 产物为空字符串
+  final String flutterSdk;
+
   CacheModel({
     required this.buildPlatform,
     required this.buildLibrary,
@@ -19,6 +22,7 @@ class CacheModel {
     required this.commitHash,
     required this.buildId,
     required this.commitTime,
+    this.flutterSdk = '',
   });
 
   factory CacheModel.fromJson(Map<String, dynamic> map) {
@@ -32,6 +36,7 @@ class CacheModel {
       commitHash: json['commitHash'].stringValue,
       buildId: json['buildId'].stringValue,
       commitTime: DateTime.parse(json['commitTime'].stringValue),
+      flutterSdk: json['flutterSdk'].stringValue,
     );
   }
 
@@ -45,6 +50,7 @@ class CacheModel {
       'buildLibrary': buildLibrary,
       'buildType': buildType,
       'commitTime': commitTime.toUtc().toIso8601String(),
+      'flutterSdk': flutterSdk,
     };
   }
 
@@ -57,7 +63,8 @@ class CacheModel {
         buildId == other.buildId &&
         buildPlatform == other.buildPlatform &&
         buildLibrary == other.buildLibrary &&
-        buildType == other.buildType;
+        buildType == other.buildType &&
+        flutterSdk == other.flutterSdk;
   }
 
   @override
@@ -69,6 +76,7 @@ class CacheModel {
         buildPlatform,
         buildLibrary,
         buildType,
+        flutterSdk,
       );
 }
 
@@ -85,6 +93,7 @@ class ServerCacheModel extends CacheModel {
     required super.commitHash,
     required super.buildId,
     required super.commitTime,
+    super.flutterSdk,
   });
 
   factory ServerCacheModel.fromJson(Map<String, dynamic> map) {
@@ -99,6 +108,7 @@ class ServerCacheModel extends CacheModel {
       commitHash: json['commit_hash'].stringValue,
       buildId: json['build_id'].stringValue,
       commitTime: DateTime.parse(json['commit_time'].stringValue),
+      flutterSdk: json['flutter_sdk'].stringValue,
     );
   }
 }

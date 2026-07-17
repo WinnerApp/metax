@@ -780,6 +780,22 @@ String getUseMockCommand() {
   return useMock ? '--isUseMock' : '--no-isUseMock';
 }
 
+/// 透传缓存相关全局参数给子进程 metax 调用
+List<String> getUseCacheCommands({
+  bool? flutterCache,
+  bool? unityCache,
+}) {
+  return [
+    isUseCache ? '--isUseCache' : '--no-isUseCache',
+    (flutterCache ?? isUseFlutterCache)
+        ? '--isUseFlutterCache'
+        : '--no-isUseFlutterCache',
+    (unityCache ?? isUseUnityCache)
+        ? '--isUseUnityCache'
+        : '--no-isUseUnityCache',
+  ];
+}
+
 /// 获取Flutter命令路径
 Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
   final flutterBinPath = await ProcessRunner().runProcess(

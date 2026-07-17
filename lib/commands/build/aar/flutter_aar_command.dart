@@ -5,6 +5,7 @@ import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -29,6 +30,9 @@ class FlutterAarCommand extends BuildCacheCommand {
   }
 
   late String configuration;
+  late FlutterSdkInfo flutterSdk;
+  late List<String> flutterCommand;
+
   @override
   Future<void> run() async {
     await super.run();
@@ -59,6 +63,11 @@ class FlutterAarCommand extends BuildCacheCommand {
         await switchBranch(workspaceDir.path, argBranch);
       }
     }
+
+    final gate = await ensureFlutterSdkReady(workspaceDir);
+    flutterSdk = gate.sdk;
+    flutterCommand = flutterSdk.flutterCommand;
+
     final branch = await getCurrentBranch(workspaceDir.path);
     final commitHash = await getCurrentCommitHash(workspaceDir.path);
     final commitTime = await getCommitTime(workspaceDir.path, commitHash);
@@ -79,7 +88,12 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
-      forceUpdate: forceUpdate,
+      forceUpdate: forceUpdate || gate.didClean,
+      flutterSdk: flutterSdk.fingerprint,
+    );
+    await saveFlutterSdkFingerprint(
+      projectPath: workspaceDir.path,
+      sdk: flutterSdk,
     );
     loggerSuccess('导出Flutter AAR完成!');
     if (isUpload) {
@@ -102,7 +116,7 @@ class FlutterAarCommand extends BuildCacheCommand {
     await speedUpFlutterAarBuild();
     // flutter pub get
     await ProcessRunner().runProcess(
-      ['flutter', 'pub', 'get'],
+      [...flutterCommand, 'pub', 'get'],
       workingDirectory: appHomeDir.flutterDir,
       printOutput: true,
     );
@@ -130,7 +144,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       /// flutter build aar --no-profile --no-release --verbose
       await ProcessRunner().runProcess(
         [
-          'flutter',
+          ...flutterCommand,
           'build',
           'aar',
           '--no-profile',
@@ -145,7 +159,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       /// flutter build aar --no-debug --no-profile --verbose
       await ProcessRunner().runProcess(
         [
-          'flutter',
+          ...flutterCommand,
           'build',
           'aar',
           '--no-debug',
@@ -162,7 +176,7 @@ class FlutterAarCommand extends BuildCacheCommand {
 
   /// 提升Flutter aar编译速度
   Future<void> speedUpFlutterAarBuild() async {
-    final flutterCommandDir = await getFlutterCommandDir(appHomeDir);
+    final flutterCommandDir = flutterSdk.flutterRoot;
     final buildAarScriptFile = File(join(
       flutterCommandDir,
       'packages',
