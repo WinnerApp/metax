@@ -23,6 +23,12 @@ class UpgradeFlutterCommand extends Command {
   @override
   String get name => 'upgrade';
 
+  late ProcessRunner _runner;
+
+  /// 官方 Flutter git；升级时忽略环境里的中国区镜像变量
+  static const _officialFlutterGitUrl =
+      'https://github.com/flutter/flutter.git';
+
   UpgradeFlutterCommand() {
     argParser.addOption(
       'version',
@@ -56,6 +62,12 @@ class UpgradeFlutterCommand extends Command {
       help: '执行 fvm global 设置全局默认版本',
       defaultsTo: true,
     );
+    argParser.addFlag(
+      'use-china-mirror',
+      help: '使用国内镜像（默认关闭，走官方 GitHub / Google 源；可通过代理访问）',
+      defaultsTo: false,
+      negatable: false,
+    );
   }
 
   @override
@@ -65,13 +77,26 @@ class UpgradeFlutterCommand extends Command {
     final skipPrecache = argResults!['skip-precache'] as bool;
     final cleanMetax = argResults!['metax-clean'] as bool;
     final setGlobal = argResults!['set-global'] as bool;
+    final useChinaMirror = argResults!['use-china-mirror'] as bool;
     final needIos = platform == 'all' || platform == 'ios';
     final needAndroid = platform == 'all' || platform == 'android';
+
+    _runner = ProcessRunner(
+      environment: _buildProcessEnvironment(useChinaMirror),
+      // 必须 false：否则父进程里残留的中国区镜像变量仍会生效
+      includeParentEnvironment: false,
+    );
 
     final projectDir = _resolveProjectDir();
 
     loggerInfo('目标 Flutter 版本: $version');
     loggerInfo('目标平台: $platform');
+    loggerInfo(
+      useChinaMirror
+          ? '源站: 国内镜像'
+          : '源站: Flutter 官方（忽略中国区 FLUTTER_STORAGE / PUB_HOSTED / FVM_FLUTTER_URL）',
+    );
+    _logProxyStatus();
     if (projectDir != null) {
       loggerInfo('Flutter 工程: ${projectDir.path}');
     } else {
@@ -80,8 +105,14 @@ class UpgradeFlutterCommand extends Command {
 
     await _ensureFvmAvailable();
 
+    await _removeIncompleteFvmVersion(version);
+
     loggerInfo('安装 Flutter $version ...');
-    await _run(['fvm', 'install', version]);
+    try {
+      await _run(['fvm', 'install', version]);
+    } catch (e) {
+      _throwInstallHint(version, e);
+    }
 
     if (setGlobal) {
       try {
@@ -209,7 +240,7 @@ class UpgradeFlutterCommand extends Command {
 
   Future<void> _ensureFvmAvailable() async {
     try {
-      final result = await ProcessRunner().runProcess(
+      final result = await _runner.runProcess(
         ['which', 'fvm'],
         printOutput: false,
       );
@@ -226,11 +257,87 @@ class UpgradeFlutterCommand extends Command {
     return <String>['fvm', 'flutter'];
   }
 
+  /// 默认走官方源：清掉中国区镜像变量，保留代理；可选开启国内镜像。
+  Map<String, String> _buildProcessEnvironment(bool useChinaMirror) {
+    final env = Map<String, String>.from(Platform.environment);
+    if (useChinaMirror) {
+      env['PUB_HOSTED_URL'] = 'https://pub.flutter-io.cn';
+      env['FLUTTER_STORAGE_BASE_URL'] = 'https://storage.flutter-io.cn';
+      env['FVM_FLUTTER_URL'] =
+          'https://mirrors.tuna.tsinghua.edu.cn/git/flutter-sdk.git';
+      env['FLUTTER_GIT_URL'] = env['FVM_FLUTTER_URL']!;
+      return env;
+    }
+
+    // 忽略中国区 / 自定义镜像，强制官方
+    for (final key in [
+      'PUB_HOSTED_URL',
+      'FLUTTER_STORAGE_BASE_URL',
+      'FVM_FLUTTER_URL',
+      'FLUTTER_GIT_URL',
+    ]) {
+      env.remove(key);
+    }
+    env['FVM_FLUTTER_URL'] = _officialFlutterGitUrl;
+    env['FLUTTER_GIT_URL'] = _officialFlutterGitUrl;
+    return env;
+  }
+
+  void _logProxyStatus() {
+    final env = Platform.environment;
+    final keys = ['https_proxy', 'http_proxy', 'all_proxy', 'HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY'];
+    final found = <String>[];
+    for (final key in keys) {
+      final value = env[key];
+      if (value != null && value.isNotEmpty) {
+        found.add('$key=$value');
+      }
+    }
+    if (found.isEmpty) {
+      loggerWarning(
+        '未检测到代理环境变量；若 GitHub 不稳定，请在同一 shell 先 export http(s)_proxy / all_proxy',
+      );
+    } else {
+      loggerInfo('已检测到代理: ${found.join(', ')}');
+    }
+  }
+
+  Future<void> _removeIncompleteFvmVersion(String version) async {
+    final home = Platform.environment['HOME'] ?? '';
+    final cachePath = Platform.environment['FVM_CACHE_PATH'] ??
+        Platform.environment['FVM_HOME'] ??
+        join(home, 'fvm');
+    final versionDir = Directory(join(cachePath, 'versions', version));
+    if (!await versionDir.exists()) return;
+
+    // 不完整 clone 会导致后续 install 一直失败
+    final gitDir = Directory(join(versionDir.path, '.git'));
+    final binFlutter = File(join(versionDir.path, 'bin', 'flutter'));
+    if (!await gitDir.exists() || !await binFlutter.exists()) {
+      loggerWarning('发现不完整 FVM 版本目录，先删除: ${versionDir.path}');
+      await versionDir.delete(recursive: true);
+    }
+  }
+
+  Never _throwInstallHint(String version, Object error) {
+    final msg = error.toString();
+    final buffer = StringBuffer()
+      ..writeln('fvm install $version 失败。')
+      ..writeln(msg)
+      ..writeln()
+      ..writeln('若是 GitHub Connection reset，请确认：')
+      ..writeln('  1. 当前 shell 已 export 代理，且代理软件已开启')
+      ..writeln('  2. 删除残留: rm -rf "\$HOME/fvm/versions/$version"')
+      ..writeln('  3. 同 shell 重试: metax flutter upgrade --version $version')
+      ..writeln('  4. 先验证: git ls-remote https://github.com/flutter/flutter.git HEAD');
+    throw Exception(buffer.toString());
+  }
+
   Future<void> _run(
     List<String> command, {
     Directory? workingDirectory,
   }) async {
-    await ProcessRunner().runProcess(
+    await _runner.runProcess(
       command,
       workingDirectory: workingDirectory,
       printOutput: true,
@@ -241,7 +348,7 @@ class UpgradeFlutterCommand extends Command {
     List<String> flutterCommand,
     Directory? projectDir,
   ) async {
-    final result = await ProcessRunner().runProcess(
+    final result = await _runner.runProcess(
       [...flutterCommand, '--version', '--machine'],
       workingDirectory: projectDir,
       printOutput: true,
@@ -282,7 +389,7 @@ class UpgradeFlutterCommand extends Command {
     Directory? projectDir,
   ) async {
     try {
-      final which = await ProcessRunner().runProcess(
+      final which = await _runner.runProcess(
         projectDir != null
             ? <String>['fvm', 'exec', 'which', 'flutter']
             : <String>['which', 'flutter'],
@@ -295,7 +402,7 @@ class UpgradeFlutterCommand extends Command {
       }
     } catch (_) {}
 
-    final doctor = await ProcessRunner().runProcess(
+    final doctor = await _runner.runProcess(
       [...flutterCommand, 'doctor', '-v'],
       workingDirectory: projectDir,
       printOutput: false,
