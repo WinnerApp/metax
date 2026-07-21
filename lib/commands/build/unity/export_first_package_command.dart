@@ -17,7 +17,7 @@ class ExportFirstPackageCommand extends Command {
   String get name => 'export_first_package';
 
   ExportFirstPackageCommand() {
-    argParser.addOption('platform', help: '平台', allowed: ['ios', 'android']);
+    argParser.addOption('platform', help: '平台', allowed: ['ios', 'android', 'ohos']);
     argParser.addOption('unityBranch', help: 'Unity分支');
     argParser.addFlag('skipBuild', help: '是否跳过构建');
 
@@ -31,13 +31,14 @@ class ExportFirstPackageCommand extends Command {
     final platform = ArgumentGet(argResults).getString(
       'platform',
       '请选择平台',
-      allowed: ['ios', 'android'],
+      allowed: ['ios', 'android', 'ohos'],
     );
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
     final unityProjectDir = Directory(
       switch (platform) {
         'ios' => unityEnvironment.iosUnityWorkspace,
         'android' => unityEnvironment.androidUnityWorkspace,
+        'ohos' => unityEnvironment.ohosUnityWorkspace,
         String() => throw UnimplementedError(),
       },
     );
@@ -58,9 +59,12 @@ class ExportFirstPackageCommand extends Command {
     /// 切换分支
     await switchBranch(unityProjectDir.path, unityBranch);
     final env = loadAppEnvironment(appHomeDir);
-    final unityEnginePath = env['UNITY_ENGINE_PATH'];
+    final unityEnginePath = switch (platform) {
+      'ohos' => env['TUANJIE_ENGINE_PATH'],
+      _ => env['UNITY_ENGINE_PATH'],
+    };
     if (unityEnginePath == null) {
-      throw '找不到 Unity 引擎路径';
+      throw platform == 'ohos' ? '找不到团结引擎路径' : '找不到 Unity 引擎路径';
     }
 
     bool isSuccess = false;

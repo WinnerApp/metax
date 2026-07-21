@@ -9,6 +9,7 @@ class AppHomeDir {
 
   Directory get iosDir => Directory(join(workspace, 'ios'));
   Directory get androidDir => Directory(join(workspace, 'android'));
+  Directory get ohosDir => Directory(join(workspace, 'ohos'));
   Directory get flutterDir => Directory(join(workspace, 'metaapp_flutter'));
   Directory get directory => Directory(workspace);
 }

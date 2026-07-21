@@ -106,7 +106,9 @@ abstract class UploadAppCommand extends Command {
     loggerDebug('unityWorkspace:${unityEnvironment.unityWorkspace}');
     loggerDebug('iosUnityPath:${unityEnvironment.iosUnityPath}');
     loggerDebug('androidUnityPath:${unityEnvironment.androidUnityPath}');
+    loggerDebug('ohosUnityPath:${unityEnvironment.ohosUnityPath}');
     loggerDebug('unityEnginePath:${unityEnvironment.unityEnginePath}');
+    loggerDebug('tuanjieEnginePath:${unityEnvironment.tuanjieEnginePath}');
     loggerDebug('iosHookUrl:${environment.iosHookUrl}');
     loggerDebug('androidHookUrl:${environment.androidHookUrl}');
     loggerDebug(
@@ -254,6 +256,7 @@ abstract class UploadAppCommand extends Command {
     String unityWorkspace = switch (environment.platform) {
       'ios' => unityEnvironment.iosUnityWorkspace,
       'android' => unityEnvironment.androidUnityWorkspace,
+      'ohos' => unityEnvironment.ohosUnityWorkspace,
       _ => throw Exception('不支持的平台'),
     };
 

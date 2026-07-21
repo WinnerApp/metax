@@ -55,6 +55,10 @@ class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
         !appHomeDir.androidDir.existsSync()) {
       throw Exception('目录[${appHomeDir.androidDir.path}]不存在,无法初始化缓存！');
     }
+    if (buildPlatform == BuildPlatform.ohos.name &&
+        !appHomeDir.ohosDir.existsSync()) {
+      throw Exception('目录[${appHomeDir.ohosDir.path}]不存在,无法初始化缓存！');
+    }
 
     final buildLibrary = ArgumentGet(argResults).getString(
       'buildLibrary',
@@ -84,6 +88,11 @@ class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
           ],
         );
       }
+    } else if (buildPlatform == BuildPlatform.ohos.name) {
+      if (buildLibrary == BuildLibrary.flutter.name) {
+        throw Exception('ohos暂不支持flutter缓存');
+      }
+      buildType = BuildType.library.value;
     } else {
       if (buildLibrary == BuildLibrary.flutter.name) {
         buildType = BuildType.aar.value;
