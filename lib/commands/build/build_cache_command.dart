@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/cache/build_cache.dart';
+import 'package:meta_tool/cache/cache_cleaner.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
@@ -42,8 +43,12 @@ abstract class BuildCacheCommand extends Command {
     required DateTime commitTime,
     required String cacheId,
     required bool forceUpdate,
+    String flutterSdk = '',
   }) async {
-    final cacheModel = await cache.getCacheModelFromCacheId(cacheId);
+    final cacheModel = await cache.getCacheModelFromCacheId(
+      cacheId,
+      flutterSdk: flutterSdk,
+    );
     final startTime = DateTime.now();
     final buildModel = CacheModel(
       buildPlatform: cache.buildPlatform.value,
@@ -54,6 +59,7 @@ abstract class BuildCacheCommand extends Command {
       commitHash: commitHash,
       buildId: cache.buildId.toString(),
       commitTime: commitTime,
+      flutterSdk: flutterSdk,
     );
 
     if (forceUpdate) {
@@ -61,18 +67,28 @@ abstract class BuildCacheCommand extends Command {
       await cache.forceCleanCache();
     }
 
-    final bool disableAllCache = !isUseCache;
+    final bool disableAllCache = !isLibraryCacheEnabled(cache.buildLibrary);
     if (disableAllCache) {
-      // 用户显式传了 --no-isUseCache：不允许命中/复用任何本地缓存或“最新编译”判断
-      // 这里会强制重新编译并写入新的缓存产物（随后按原逻辑上传）
-      loggerWarning('🧹 检测到 --no-isUseCache，将强制全新编译，不使用任何本地缓存');
+      // 全局 --no-isUseCache，或分库 --no-isUseFlutterCache / --no-isUseUnityCache：
+      // 清理工程产物 + 宿主 frameworks/aar + ~/.metax，再强制全新编译
+      final reason = !isUseCache
+          ? '--no-isUseCache'
+          : cache.buildLibrary == BuildLibrary.flutter
+              ? '--no-isUseFlutterCache'
+              : '--no-isUseUnityCache';
+      loggerWarning('🧹 检测到 $reason，将强制全新编译，不使用任何本地缓存');
+
+      await cleanCachesOnIgnore(
+        appHomeDir: appHomeDir,
+        library: cache.buildLibrary,
+        metaxCache: cache,
+      );
 
       // 避免 buildCacheDir 里的旧产物/旧 cache.json 被当成“最新编译”
       final buildDir = Directory(buildCacheDir);
       if (buildDir.existsSync()) {
         await buildDir.delete(recursive: true);
       }
-      await cache.forceCleanCache();
     }
 
     if (!disableAllCache &&
@@ -91,6 +107,7 @@ abstract class BuildCacheCommand extends Command {
         cache: cache,
         commitHash: commitHash,
         commitTime: commitTime,
+        flutterSdk: flutterSdk,
       );
     } else {
       await buildCache();
@@ -107,6 +124,7 @@ abstract class BuildCacheCommand extends Command {
           commitHash: commitHash,
           buildId: cache.buildId.toString(),
           commitTime: commitTime,
+          flutterSdk: flutterSdk,
         ),
       ]);
       await writeToCacheSystem(
@@ -114,6 +132,7 @@ abstract class BuildCacheCommand extends Command {
         cache: cache,
         commitHash: commitHash,
         commitTime: commitTime,
+        flutterSdk: flutterSdk,
       );
       if (cache.buildPlatform == BuildPlatform.android) {
         // /Users/winner/Documents/meta_app_2.0/android/unityLibrary/symbols
@@ -159,6 +178,7 @@ abstract class BuildCacheCommand extends Command {
     required MetaxCache cache,
     required String commitHash,
     required DateTime commitTime,
+    String flutterSdk = '',
   }) async {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
     // final cacheBaseName = basename(buildCacheDir);
@@ -189,6 +209,7 @@ abstract class BuildCacheCommand extends Command {
         buildLibrary: cache.buildLibrary.value,
         buildType: cache.buildType.value,
         commitTime: commitTime,
+        flutterSdk: flutterSdk,
       ),
     );
     await zipFile.delete();

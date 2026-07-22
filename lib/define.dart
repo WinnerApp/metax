@@ -149,4 +149,15 @@ late AppHomeDir appHomeDir;
 late bool useMock;
 late String? customUnityPath;
 late bool isUseCache;
+late bool isUseFlutterCache;
+late bool isUseUnityCache;
 late bool skipGitPull;
+
+/// 当前构建库是否允许使用缓存（全局开关 + 分库开关同时生效）
+bool isLibraryCacheEnabled(BuildLibrary library) {
+  if (!isUseCache) return false;
+  return switch (library) {
+    BuildLibrary.flutter => isUseFlutterCache,
+    BuildLibrary.unity => isUseUnityCache,
+  };
+}

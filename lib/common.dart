@@ -780,8 +780,42 @@ String getUseMockCommand() {
   return useMock ? '--isUseMock' : '--no-isUseMock';
 }
 
-/// 获取Flutter命令路径
+/// 透传缓存相关全局参数给子进程 metax 调用
+List<String> getUseCacheCommands({
+  bool? flutterCache,
+  bool? unityCache,
+}) {
+  return [
+    isUseCache ? '--isUseCache' : '--no-isUseCache',
+    (flutterCache ?? isUseFlutterCache)
+        ? '--isUseFlutterCache'
+        : '--no-isUseFlutterCache',
+    (unityCache ?? isUseUnityCache)
+        ? '--isUseUnityCache'
+        : '--no-isUseUnityCache',
+  ];
+}
+
+/// 获取 Flutter SDK 根目录（优先工程 FVM 配置）
 Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
+  final projectDir = appHomeDir.flutterDir;
+  final hasFvm = File(join(projectDir.path, '.fvmrc')).existsSync() ||
+      File(join(projectDir.path, '.fvm', 'fvm_config.json')).existsSync();
+  if (hasFvm) {
+    try {
+      final which = await ProcessRunner().runProcess(
+        ['fvm', 'exec', 'which', 'flutter'],
+        workingDirectory: projectDir,
+        printOutput: false,
+      );
+      final flutterBin = which.stdout.trim().split('\n').first.trim();
+      if (flutterBin.isNotEmpty) {
+        return File(flutterBin).parent.parent.path;
+      }
+    } catch (_) {
+      loggerWarning('fvm exec which flutter 失败，回退到 PATH 中的 flutter');
+    }
+  }
   final flutterBinPath = await ProcessRunner().runProcess(
     ['which', 'flutter'],
     printOutput: true,

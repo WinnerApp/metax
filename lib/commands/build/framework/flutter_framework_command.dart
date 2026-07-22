@@ -5,6 +5,7 @@ import 'package:meta_tool/cache/framework_aar_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -29,6 +30,9 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
   }
 
   late String configuration;
+  late FlutterSdkInfo flutterSdk;
+  late List<String> flutterCommand;
+
   @override
   Future<void> run() async {
     await super.run();
@@ -57,6 +61,10 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       }
     }
 
+    final gate = await ensureFlutterSdkReady(flutterDir);
+    flutterSdk = gate.sdk;
+    flutterCommand = flutterSdk.flutterCommand;
+
     final branch = await getCurrentBranch(flutterDir.path);
     final commitHash = await getCurrentCommitHash(flutterDir.path);
     final commitTime = await getCommitTime(flutterDir.path, commitHash);
@@ -84,7 +92,12 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildCacheDir: buildCacheDir,
       commitTime: commitTime,
       cacheId: commitHash,
-      forceUpdate: forceUpdate,
+      forceUpdate: forceUpdate || gate.didClean,
+      flutterSdk: flutterSdk.fingerprint,
+    );
+    await saveFlutterSdkFingerprint(
+      projectPath: flutterDir.path,
+      sdk: flutterSdk,
     );
     loggerSuccess('导出Flutter Framework完成!');
     if (isUpload) {
@@ -112,7 +125,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     } else {
       /// flutter pub get
       await ProcessRunner().runProcess(
-        ['flutter', 'pub', 'get'],
+        [...flutterCommand, 'pub', 'get'],
         workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
@@ -144,7 +157,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
         await ProcessRunner().runProcess(
           [
-            'flutter',
+            ...flutterCommand,
             'build',
             'ios-framework',
             '--no-profile',
@@ -160,7 +173,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
         await ProcessRunner().runProcess(
           [
-            'flutter',
+            ...flutterCommand,
             'build',
             'ios-framework',
             '--no-debug',

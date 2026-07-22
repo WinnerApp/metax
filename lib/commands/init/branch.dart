@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 class BranchCommand extends Command {
@@ -23,6 +24,8 @@ class BranchCommand extends Command {
     }
     if (appHomeDir.flutterDir.existsSync()) {
       await _initBranch(appHomeDir.flutterDir, '请选择Flutter分支');
+      // 切 Flutter 分支后按 .fvmrc 对齐 SDK（安装缺失版本 / 重建软链 / SDK 变化则清理）
+      await ensureFlutterSdkReady(appHomeDir.flutterDir);
     }
   }
 

@@ -37,7 +37,10 @@ class MetaxCache extends Cache {
 
   Future<String?> getCommitHashFromCacheId(String cacheId) async => cacheId;
 
-  Future<CacheModel?> getCacheModelFromCacheId(String cacheId) async {
+  Future<CacheModel?> getCacheModelFromCacheId(
+    String cacheId, {
+    String flutterSdk = '',
+  }) async {
     final commitHash = await getCommitHashFromCacheId(cacheId);
     final models = await cacheManager.read().then((e) {
       return e
@@ -48,6 +51,7 @@ class MetaxCache extends Cache {
           .where((e) => e.buildId == buildId.toString())
           .where((e) => e.configuration == buildConfiguration.name)
           .where((e) => e.commitHash == commitHash)
+          .where((e) => e.flutterSdk == flutterSdk)
           .toList();
     });
     return models.firstOrNull;
@@ -58,15 +62,11 @@ class MetaxCache extends Cache {
     loggerDebug(
         '🧹 强制清理缓存: ${buildPlatform.name}/${buildLibrary.name}/${buildType.name}/$branch/$buildId');
 
-    // 删除缓存目录下的所有ZIP文件
+    // 删除整个缓存目录（含 zip 与残留文件）
     final cacheDir = Directory(cacheHomeDir);
     if (await cacheDir.exists()) {
-      await for (final entity in cacheDir.list()) {
-        if (entity is File && entity.path.endsWith('.zip')) {
-          await entity.delete();
-          loggerDebug('删除缓存文件: ${entity.path}');
-        }
-      }
+      await cacheDir.delete(recursive: true);
+      loggerDebug('删除缓存目录: ${cacheDir.path}');
     }
 
     // 从全局缓存索引中移除相关条目

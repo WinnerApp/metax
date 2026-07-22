@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
@@ -173,7 +174,22 @@ class AppEnvironmentCommand extends Command {
       'FLUTTER_DIR',
       '请输入Flutter路径',
       readValueHandler: () async {
-        /// 通过 whci
+        // 优先使用工程 FVM 配置对应的 SDK，避免写入 global PATH 版本
+        try {
+          final flutterProjectDir = appHomeDir.flutterDir;
+          if (flutterProjectDir.existsSync() &&
+              hasFvmConfig(flutterProjectDir)) {
+            await ensureFvmFlutterReady(flutterProjectDir);
+            final sdk = await resolveFlutterSdk(flutterProjectDir);
+            if (sdk.flutterRoot.isNotEmpty) {
+              loggerInfo('使用工程 FVM Flutter: ${sdk.flutterRoot}');
+              return sdk.flutterRoot;
+            }
+          }
+        } catch (e) {
+          loggerWarning('通过 FVM 解析 Flutter 路径失败，回退 which flutter: $e');
+        }
+
         final flutterPath = await ProcessRunner().runProcess(
           ['which', 'flutter'],
           printOutput: true,

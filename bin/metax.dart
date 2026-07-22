@@ -54,10 +54,26 @@ Future<void> main(List<String> arguments) async {
   );
   runner.argParser.addFlag(
     'isUseCache',
-    help: '是否使用缓存',
+    help: '是否使用缓存（全局开关，关闭后 Flutter/Unity 均不使用缓存）',
     defaultsTo: true,
     callback: (value) {
       isUseCache = value;
+    },
+  );
+  runner.argParser.addFlag(
+    'isUseFlutterCache',
+    help: '是否使用 Flutter 缓存（需同时开启 --isUseCache）',
+    defaultsTo: true,
+    callback: (value) {
+      isUseFlutterCache = value;
+    },
+  );
+  runner.argParser.addFlag(
+    'isUseUnityCache',
+    help: '是否使用 Unity 缓存（需同时开启 --isUseCache）',
+    defaultsTo: true,
+    callback: (value) {
+      isUseUnityCache = value;
     },
   );
   runner.argParser.addFlag(
