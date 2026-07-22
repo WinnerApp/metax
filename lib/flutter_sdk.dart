@@ -19,11 +19,15 @@ class FlutterSdkInfo {
   /// 是否通过 FVM 解析
   final bool usedFvm;
 
+  /// 工程 `.fvmrc` / `fvm_config.json` 中配置的版本名（若有）
+  final String? configuredVersion;
+
   const FlutterSdkInfo({
     required this.fingerprint,
     required this.flutterRoot,
     required this.flutterCommand,
     required this.usedFvm,
+    this.configuredVersion,
   });
 }
 
@@ -44,7 +48,65 @@ bool hasFvmConfig(Directory projectDir) {
   return fvmrc.existsSync() || fvmConfig.existsSync();
 }
 
-Future<bool> _isFvmAvailable() async {
+/// 读取工程配置的 FVM Flutter 版本名
+String? readConfiguredFvmVersion(Directory projectDir) {
+  final fvmrc = File(join(projectDir.path, '.fvmrc'));
+  if (fvmrc.existsSync()) {
+    final content = fvmrc.readAsStringSync().trim();
+    if (content.isEmpty) {
+      // fall through
+    } else if (content.startsWith('{')) {
+      try {
+        final json = jsonDecode(content);
+        if (json is Map) {
+          final version = json['flutter'] ?? json['flutterSdkVersion'];
+          if (version != null && version.toString().trim().isNotEmpty) {
+            return version.toString().trim();
+          }
+        }
+      } catch (_) {
+        // fall through to plain text
+      }
+    } else {
+      return content;
+    }
+  }
+
+  final fvmConfig = File(join(projectDir.path, '.fvm', 'fvm_config.json'));
+  if (fvmConfig.existsSync()) {
+    try {
+      final json = jsonDecode(fvmConfig.readAsStringSync());
+      if (json is Map) {
+        final version = json['flutterSdkVersion'] ?? json['flutter'];
+        if (version != null && version.toString().trim().isNotEmpty) {
+          return version.toString().trim();
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
+Directory fvmVersionsRoot() {
+  final home = Platform.environment['HOME'] ?? '';
+  final cachePath = Platform.environment['FVM_CACHE_PATH'] ??
+      Platform.environment['FVM_HOME'] ??
+      join(home, 'fvm');
+  return Directory(join(cachePath, 'versions'));
+}
+
+Directory fvmVersionDir(String version) {
+  return Directory(join(fvmVersionsRoot().path, version));
+}
+
+bool isFvmVersionInstalled(String version) {
+  final binFlutter = File(join(fvmVersionDir(version).path, 'bin', 'flutter'));
+  return binFlutter.existsSync();
+}
+
+Future<bool> isFvmAvailable() async {
   try {
     final result = await ProcessRunner().runProcess(
       ['which', 'fvm'],
@@ -56,14 +118,89 @@ Future<bool> _isFvmAvailable() async {
   }
 }
 
+/// 确保工程 `.fvmrc` 对应的 Flutter 版本已安装，并完成本地 `fvm use`
+///
+/// - 官方版本缺失时会尝试 `fvm install`
+/// - 鸿蒙/定制 SDK 无法从官方 channel 安装时，给出明确错误提示
+Future<String?> ensureFvmFlutterReady(Directory projectDir) async {
+  if (!hasFvmConfig(projectDir)) {
+    return null;
+  }
+
+  final version = readConfiguredFvmVersion(projectDir);
+  if (version == null || version.isEmpty) {
+    loggerWarning('⚠️ 检测到 FVM 配置文件，但无法解析 Flutter 版本号');
+    return null;
+  }
+
+  if (!await isFvmAvailable()) {
+    loggerWarning(
+      '⚠️ 工程配置了 FVM 版本 $version，但本机没有 fvm 命令；'
+      '将回退到 PATH 中的 flutter。请安装: dart pub global activate fvm',
+    );
+    return version;
+  }
+
+  if (!isFvmVersionInstalled(version)) {
+    loggerInfo('📦 FVM 版本未安装: $version，尝试 fvm install ...');
+    try {
+      await ProcessRunner().runProcess(
+        ['fvm', 'install', version],
+        workingDirectory: projectDir,
+        printOutput: true,
+      );
+    } catch (e) {
+      throw Exception(
+        'FVM 版本 $version 未安装，且自动安装失败。\n'
+        '期望路径: ${fvmVersionDir(version).path}\n'
+        '官方版本可执行: fvm install $version\n'
+        '鸿蒙/定制 Flutter 需事先手动安装到 FVM 缓存（无法从官方 channel 拉取），例如:\n'
+        '  将 SDK 放到 ${fvmVersionDir(version).path}\n'
+        '  或使用 fvm 自定义 git 源安装后再重试\n'
+        '原始错误: $e',
+      );
+    }
+    if (!isFvmVersionInstalled(version)) {
+      throw Exception(
+        'fvm install $version 已执行，但仍未找到 '
+        '${join(fvmVersionDir(version).path, 'bin', 'flutter')}',
+      );
+    }
+    loggerSuccess('✅ FVM 版本已安装: $version');
+  } else {
+    loggerInfo('✅ 已检测到 FVM 版本: $version (${fvmVersionDir(version).path})');
+  }
+
+  // 切分支后 .fvm/flutter_sdk 软链可能缺失或指向旧版本，强制对齐到配置版本
+  loggerInfo('🔗 对齐工程 FVM 软链: fvm use $version --force');
+  try {
+    await ProcessRunner().runProcess(
+      ['fvm', 'use', version, '--force'],
+      workingDirectory: projectDir,
+      printOutput: true,
+    );
+  } catch (e) {
+    throw Exception(
+      'fvm use $version --force 失败，无法将工程对齐到目标 Flutter 版本: $e',
+    );
+  }
+
+  return version;
+}
+
 /// 解析项目当前应使用的 Flutter SDK（优先 FVM）
 Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
-  final preferFvm = hasFvmConfig(projectDir) && await _isFvmAvailable();
+  final configuredVersion = readConfiguredFvmVersion(projectDir);
+  final preferFvm = hasFvmConfig(projectDir) && await isFvmAvailable();
   final flutterCommand =
       preferFvm ? <String>['fvm', 'flutter'] : <String>['flutter'];
 
   if (preferFvm) {
-    loggerInfo('🔍 检测到 FVM 配置，使用 fvm flutter');
+    loggerInfo(
+      configuredVersion == null
+          ? '🔍 检测到 FVM 配置，使用 fvm flutter'
+          : '🔍 检测到 FVM 配置 ($configuredVersion)，使用 fvm flutter',
+    );
   } else if (hasFvmConfig(projectDir)) {
     loggerWarning('⚠️ 检测到 FVM 配置但 fvm 命令不可用，回退到 PATH 中的 flutter');
   }
@@ -94,6 +231,7 @@ Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
     flutterRoot: flutterRoot,
     flutterCommand: flutterCommand,
     usedFvm: preferFvm,
+    configuredVersion: configuredVersion,
   );
 }
 
@@ -150,9 +288,7 @@ Future<String> _resolveFlutterRoot(
 
 File _fingerprintFile(String projectPath) {
   final home = readEnv('HOME');
-  final key = base64Url
-      .encode(utf8.encode(projectPath))
-      .replaceAll('=', '');
+  final key = base64Url.encode(utf8.encode(projectPath)).replaceAll('=', '');
   return File(join(home, '.metax', 'flutter_sdk', '$key.json'));
 }
 
@@ -181,6 +317,7 @@ Future<void> saveFlutterSdkFingerprint({
       'fingerprint': sdk.fingerprint,
       'flutterRoot': sdk.flutterRoot,
       'usedFvm': sdk.usedFvm,
+      'configuredVersion': sdk.configuredVersion,
       'projectPath': projectPath,
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
     }),
@@ -225,14 +362,16 @@ Future<void> cleanFlutterProjectCaches({
   }
 }
 
-/// 打包前版本闸门：SDK 变化则清理并强制重编；相同则跳过清理
+/// 打包前版本闸门：对齐 FVM → 解析 SDK → 变化则清理
 Future<FlutterSdkGateResult> ensureFlutterSdkReady(
   Directory projectDir,
 ) async {
+  await ensureFvmFlutterReady(projectDir);
   final sdk = await resolveFlutterSdk(projectDir);
   final last = await readLastFlutterSdkFingerprint(projectDir.path);
   if (last == null) {
     loggerInfo('🔍 首次记录 Flutter SDK 指纹: ${sdk.fingerprint}');
+    await saveFlutterSdkFingerprint(projectPath: projectDir.path, sdk: sdk);
     return FlutterSdkGateResult(sdk: sdk, didClean: false);
   }
   if (last == sdk.fingerprint) {
@@ -242,5 +381,6 @@ Future<FlutterSdkGateResult> ensureFlutterSdkReady(
 
   loggerWarning('⚠️ Flutter SDK 变化: $last -> ${sdk.fingerprint}');
   await cleanFlutterProjectCaches(projectDir: projectDir, sdk: sdk);
+  await saveFlutterSdkFingerprint(projectPath: projectDir.path, sdk: sdk);
   return FlutterSdkGateResult(sdk: sdk, didClean: true);
 }

@@ -8,6 +8,7 @@ import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:meta_tool/flutter_web_version_data.dart';
 import 'package:meta_tool/get_git_log.dart';
 import 'package:meta_tool/git_submodule_parse.dart';
@@ -434,9 +435,10 @@ $changeLog
     } else {
       if (!dartDefineFile.existsSync()) {
         loggerDebug("dart_define.json 不存在进行生成!");
+        final gate = await ensureFlutterSdkReady(appHomeDir.flutterDir);
         await ProcessRunner().runProcess(
           [
-            'flutter',
+            ...gate.sdk.flutterCommand,
             'pub',
             'run',
             'dart_define',

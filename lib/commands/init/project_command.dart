@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 import 'package:prompts/prompts.dart' as prompts;
@@ -106,9 +107,11 @@ flutter.sdk=$flutterDir
       //   ],
       //   workingDirectory: appHomeDir.directory,
       // );
+      final gate = await ensureFlutterSdkReady(flutterProjectDir);
+      final flutterCommand = gate.sdk.flutterCommand;
       await ProcessRunner().runProcess(
         [
-          'flutter',
+          ...flutterCommand,
           'pub',
           'get',
         ],
@@ -116,7 +119,7 @@ flutter.sdk=$flutterDir
       );
       await ProcessRunner().runProcess(
         [
-          'flutter',
+          ...flutterCommand,
           'pub',
           'run',
           'dart_define',
