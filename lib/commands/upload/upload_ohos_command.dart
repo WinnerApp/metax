@@ -24,6 +24,12 @@ class UploadOhosCommand extends Command {
       defaultsTo: false,
       negatable: false,
     );
+    argParser.addFlag(
+      'skip-submit',
+      help: '仅上传，不提交审核/测试分发',
+      defaultsTo: false,
+      negatable: false,
+    );
   }
 
   @override
@@ -41,6 +47,8 @@ class UploadOhosCommand extends Command {
     }
 
     final formal = argResults?['formal'] as bool? ?? false;
+    final skipSubmit = argResults?['skip-submit'] as bool? ?? false;
+
     if (formal) {
       final uploadCommands = <String>[
         'fastlane',
@@ -55,12 +63,14 @@ class UploadOhosCommand extends Command {
         workingDirectory: ohosDir,
         printOutput: true,
       );
-      await ProcessRunner().runProcess(
-        ['fastlane', 'harmony', 'submit_review'],
-        workingDirectory: ohosDir,
-        printOutput: true,
-      );
-    } else {
+      if (!skipSubmit) {
+        await ProcessRunner().runProcess(
+          ['fastlane', 'harmony', 'submit_review'],
+          workingDirectory: ohosDir,
+          printOutput: true,
+        );
+      }
+    } else if (!skipSubmit) {
       final commands = <String>[
         'fastlane',
         'harmony',
@@ -74,6 +84,8 @@ class UploadOhosCommand extends Command {
         workingDirectory: ohosDir,
         printOutput: true,
       );
+    } else {
+      loggerWarning('已跳过测试分发提交（--skip-submit）');
     }
 
     loggerSuccess('鸿蒙上传成功');

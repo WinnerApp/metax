@@ -112,6 +112,7 @@ abstract class UploadAppCommand extends Command {
     loggerDebug('tuanjieEnginePath:${unityEnvironment.tuanjieEnginePath}');
     loggerDebug('iosHookUrl:${environment.iosHookUrl}');
     loggerDebug('androidHookUrl:${environment.androidHookUrl}');
+    loggerDebug('ohosHookUrl:${environment.ohosHookUrl}');
     loggerDebug(
         'appStoreConnectApiKeyFilepath:${environment.appStoreConnectApiKeyFilepath}');
     loggerDebug(
@@ -457,7 +458,10 @@ $changeLog
         flutterCurrentCommitId, environment, isFlutterBuild, flutterBranch);
 
     final isInitFlutterEnvironment =
-        argResults?['initFlutterEnvironment'] == 'true';
+        argResults?['initFlutterEnvironment'] == 'true' && platform != 'ohos';
+    if (platform == 'ohos') {
+      loggerDebug('ohos暂不支持flutter_environment初始化，已跳过');
+    }
     if (isInitFlutterEnvironment) {
       final pages = Directory(join(
               appHomeDir.directory.path, 'packages', 'flutter_metax_pages'))
@@ -604,6 +608,7 @@ $changeLog
         io.Directory(join(appHomeDir.iosDir.path, 'frameworks', 'unity')),
       'android' =>
         io.Directory(join(appHomeDir.androidDir.path, 'aar', 'unity')),
+      'ohos' => io.Directory(join(appHomeDir.ohosDir.path, 'unityLibrary')),
       _ => throw Exception('不支持的平台:${environment.platform}')
     };
     if (cacheDir.existsSync()) {
@@ -640,6 +645,10 @@ $changeLog
     bool needUpdateCache,
     String flutterBranch,
   ) async {
+    if (environment.platform == 'ohos') {
+      loggerDebug('ohos暂不支持flutter缓存，跳过复制Flutter静态库');
+      return;
+    }
     final cacheDir = switch (environment.platform) {
       'ios' => io.Directory(join(
           appHomeDir.iosDir.path,

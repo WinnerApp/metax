@@ -20,6 +20,7 @@ class UploadAppEnvironment {
   final UnityEnvironment unityEnvironment;
   final String iosHookUrl;
   final String androidHookUrl;
+  final String ohosHookUrl;
   final String appStoreConnectApiKeyFilepath;
   final String appStoreConnectApiKeyId;
   final String appStoreConnectApiIssuerId;
@@ -59,6 +60,7 @@ class UploadAppEnvironment {
             readBuildAppEnv('IOS_HOOK_URL', appHomeDir, isStore: isStore),
         androidHookUrl =
             readBuildAppEnv('ANDROID_HOOK_URL', appHomeDir, isStore: isStore),
+        ohosHookUrl = _readOhosHookUrl(appHomeDir, isStore),
         appStoreConnectApiKeyFilepath = readBuildAppEnv(
             'APP_STORE_CONNECT_API_KEY_FILEPATH', appHomeDir,
             isStore: isStore),
@@ -129,6 +131,14 @@ class UploadAppEnvironment {
       androidChannel: androidChannel,
     );
   }
+}
+
+String _readOhosHookUrl(AppHomeDir appHomeDir, bool isStore) {
+  final environment = loadBuildAppEnvironment(appHomeDir, isStore);
+  final merged = {...Platform.environment, ...environment};
+  return merged['OHOS_HOOK_URL'] ??
+      readBuildAppEnv('ANDROID_HOOK_URL', appHomeDir,
+          environment: environment, isStore: isStore);
 }
 
 String _autoTag(bool isStore) {
