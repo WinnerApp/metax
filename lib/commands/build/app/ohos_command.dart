@@ -16,7 +16,7 @@ class OhosCommand extends Command {
   OhosCommand() {
     argParser.addOption(
       'version-name',
-      help: '版本号 versionName，不传则由 fastlane 交互询问',
+      help: '版本号 versionName；不传则沿用 ohos/AppScope/app.json5 当前值',
     );
   }
 
