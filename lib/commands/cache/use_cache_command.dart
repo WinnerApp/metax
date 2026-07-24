@@ -438,6 +438,7 @@ class UseCacheCommand extends Command {
   /// 编译缓存
   Future<CacheModel?> compileCache() async {
     loggerDebug('缓存不存在,正在编译...');
+    final unityCompileWorkspace = resolveUnityCompileWorkspace();
     if (buildType == BuildType.library.name) {
       await compileUnityLibrary();
     } else {
@@ -448,6 +449,9 @@ class UseCacheCommand extends Command {
           'metax',
           'cache',
           'use',
+          '--workspace',
+          unityCompileWorkspace,
+          ...getUnityWorkspaceCommands(),
           '--buildPlatform',
           buildPlatform,
           '--buildConfiguration',
@@ -469,7 +473,7 @@ class UseCacheCommand extends Command {
         await ProcessRunner().runProcess(
           commandLine,
           printOutput: true,
-          workingDirectory: Directory(appHomeDir.workspace),
+          workingDirectory: Directory(unityCompileWorkspace),
         );
         await compileUnity();
       } else {
@@ -481,12 +485,17 @@ class UseCacheCommand extends Command {
 
   /// 编译Unity Library
   Future<void> compileUnityLibrary() async {
+    final unityCompileWorkspace = resolveUnityCompileWorkspace();
+    loggerDebug('Unity编译目录: $unityCompileWorkspace');
     await ProcessRunner().runProcess(
       [
         'metax',
         'build',
         'unity_cache',
         buildPlatform,
+        '--workspace',
+        unityCompileWorkspace,
+        ...getUnityWorkspaceCommands(),
         '--unityBranch',
         branch,
         isUpload ? '--isUpload' : '--no-isUpload',
@@ -494,6 +503,7 @@ class UseCacheCommand extends Command {
         ...getUseCacheCommands(),
       ],
       printOutput: true,
+      workingDirectory: Directory(unityCompileWorkspace),
     );
   }
 
@@ -507,17 +517,22 @@ class UseCacheCommand extends Command {
     } else {
       throw UnimplementedError();
     }
+    final unityCompileWorkspace = resolveUnityCompileWorkspace();
+    loggerDebug('Unity二次打包目录: $unityCompileWorkspace');
     await ProcessRunner().runProcess(
       [
         'metax',
         'build',
         buildType,
         'unity',
+        '--workspace',
+        unityCompileWorkspace,
+        ...getUnityWorkspaceCommands(),
         isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
         ...getUseCacheCommands(),
       ],
-      workingDirectory: Directory(appHomeDir.workspace),
+      workingDirectory: Directory(unityCompileWorkspace),
       printOutput: true,
     );
   }

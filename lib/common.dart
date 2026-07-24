@@ -673,7 +673,26 @@ Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
       throw UnimplementedError('暂未支持非MacOS环境');
     }
   }
+  if (customUnityWorkspace != null && customUnityWorkspace!.isNotEmpty) {
+    environment['UNITY_WORKSPACE'] = customUnityWorkspace!;
+  }
   return environment;
+}
+
+/// Unity 编译使用的 APP 主目录：优先 --unityWorkspace，否则当前 --workspace
+String resolveUnityCompileWorkspace([AppHomeDir? home]) {
+  if (customUnityWorkspace != null && customUnityWorkspace!.isNotEmpty) {
+    return customUnityWorkspace!;
+  }
+  return (home ?? appHomeDir).workspace;
+}
+
+/// 透传 --unityWorkspace 给子进程 metax 调用
+List<String> getUnityWorkspaceCommands() {
+  if (customUnityWorkspace == null || customUnityWorkspace!.isEmpty) {
+    return const [];
+  }
+  return ['--unityWorkspace', customUnityWorkspace!];
 }
 
 Map<String, String> loadBuildAppEnvironment(

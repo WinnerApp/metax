@@ -105,6 +105,8 @@ abstract class UploadAppCommand extends Command {
     loggerDebug('isStore:${environment.isStore}');
     loggerDebug('buildNumber:${environment.buildNumber}');
     loggerDebug('unityWorkspace:${unityEnvironment.unityWorkspace}');
+    loggerDebug(
+        'unityCompileWorkspace:${resolveUnityCompileWorkspace(appHomeDir)}');
     loggerDebug('iosUnityPath:${unityEnvironment.iosUnityPath}');
     loggerDebug('androidUnityPath:${unityEnvironment.androidUnityPath}');
     loggerDebug('ohosUnityPath:${unityEnvironment.ohosUnityPath}');
@@ -620,6 +622,9 @@ $changeLog
         'metax',
         'cache',
         'use',
+        '--workspace',
+        appHomeDir.workspace,
+        ...getUnityWorkspaceCommands(),
         '--buildPlatform',
         environment.platform,
         '--buildConfiguration',
