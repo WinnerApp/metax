@@ -190,10 +190,20 @@ class DownloadCacheCommand extends Command {
         fileId: fileId,
       );
 
+      DateTime? lastProgressLogAt;
       await Dio().download(
         downloadUrl,
         cacheFile,
         onReceiveProgress: (int count, int total) {
+          final now = DateTime.now();
+          final isComplete = count >= fileInfo.sizeOriginal;
+          final shouldLog = lastProgressLogAt == null ||
+              now.difference(lastProgressLogAt!).inSeconds >= 1 ||
+              isComplete;
+          if (!shouldLog) {
+            return;
+          }
+          lastProgressLogAt = now;
           loggerDebug(
               '下载缓存中，已下载: ${(count / fileInfo.sizeOriginal * 100).toStringAsFixed(2)}%');
         },
