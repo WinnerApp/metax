@@ -53,6 +53,7 @@ class IpaCommand extends Command {
           xcarchivePath,
           '-configuration',
           'Release',
+          '-allowProvisioningUpdates',
           'archive'
         ],
         workingDirectory: iosDir,
@@ -68,7 +69,8 @@ class IpaCommand extends Command {
           '-exportPath',
           join(iosDir.path, 'build', 'ios', 'ipa'),
           '-exportOptionsPlist',
-          'ExportOptions.plist'
+          'ExportOptions.plist',
+          '-allowProvisioningUpdates'
         ],
         workingDirectory: iosDir,
         printOutput: true,
