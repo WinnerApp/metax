@@ -314,18 +314,20 @@ $unityChangeLog
 
     /// 将submodule代码切换到对应的分支（可能存在多余）
     for (var submodule in gitSubmodules) {
-      final branch = submodule.branch;
+      final rawBranch = submodule.branch;
       final path = submodule.path;
       final name = submodule.name;
       if (name == null) {
         throw Exception("submodule name is null");
       }
-      if (branch == null) {
+      if (rawBranch == null) {
         throw Exception("[${submodule.name}]submodule branch is null");
       }
       if (path == null) {
         throw Exception("[${submodule.name}]submodule path is null");
       }
+      // MAIN_BRANCH / $MAIN_BRANCH → 跟随主项目（melos）当前分支
+      final branch = getBranchName(rawBranch, mainBranch: melosBranch);
       final submodulePath = join(environment.workspace, path);
       await switchBranch(submodulePath, branch);
 

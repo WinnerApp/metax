@@ -246,8 +246,20 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
   loggerSuccess('成功切换到分支: $switchBranch');
 }
 
-String getBranchName(String branch) {
-  return branch.split('/').last;
+/// 解析分支名。
+///
+/// - 去掉 `origin/` 等远程前缀
+/// - 若为 `MAIN_BRANCH` / `$MAIN_BRANCH`，则替换为主项目分支 [mainBranch]
+String getBranchName(String branch, {String? mainBranch}) {
+  final name = branch.split('/').last;
+  final placeholder = name.startsWith(r'$') ? name.substring(1) : name;
+  if (placeholder == 'MAIN_BRANCH') {
+    if (mainBranch == null || mainBranch.isEmpty) {
+      throw Exception('分支为 \$MAIN_BRANCH，但未提供主项目分支名称');
+    }
+    return getBranchName(mainBranch);
+  }
+  return name;
 }
 
 /// 获取当前的commit hash
