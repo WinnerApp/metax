@@ -20,7 +20,7 @@ class FirstPackageDownloadCommand extends Command {
     argParser.addOption(
       'platform',
       help: '平台',
-      allowed: ['ios', 'android'],
+      allowed: ['ios', 'android', 'ohos'],
     );
     argParser.addOption(
       'branch',
@@ -44,7 +44,7 @@ class FirstPackageDownloadCommand extends Command {
     final platform = ArgumentGet(argResults).getString(
       'platform',
       '请选择平台',
-      allowed: ['ios', 'android'],
+      allowed: ['ios', 'android', 'ohos'],
     );
 
     // 3. 初始化 Appwrite 客户端（从首包配置文件读取连接参数）
@@ -136,7 +136,12 @@ class FirstPackageDownloadCommand extends Command {
       targetDir = Directory(targetDirArg);
     } else {
       final workspace = Directory.current.path;
-      final platformDirName = platform == 'ios' ? 'IOS' : 'Android';
+      final platformDirName = switch (platform) {
+        'ios' => 'IOS',
+        'android' => 'Android',
+        'ohos' => 'Harmony',
+        _ => throw '不支持的平台: $platform',
+      };
       targetDir = Directory(
         p.join(
           workspace,

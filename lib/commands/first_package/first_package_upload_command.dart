@@ -21,7 +21,7 @@ class FirstPackageUploadCommand extends Command {
     argParser.addOption(
       'platform',
       help: '平台',
-      allowed: ['ios', 'android'],
+      allowed: ['ios', 'android', 'ohos'],
     );
     argParser.addOption(
       'branch',
@@ -46,7 +46,7 @@ class FirstPackageUploadCommand extends Command {
     final platform = ArgumentGet(argResults).getString(
       'platform',
       '请选择平台',
-      allowed: ['ios', 'android'],
+      allowed: ['ios', 'android', 'ohos'],
     );
     final branch = ArgumentGet(argResults).getString(
       'branch',
@@ -154,12 +154,21 @@ class FirstPackageUploadCommand extends Command {
     loggerSuccess('首包上传流程完成');
 
     // 6. 若配置了首包飞书通知链接，则按平台发送通知
-    final notifyUrlKey = platform == 'ios'
-        ? firstPackageIosNotifyUrlKey
-        : firstPackageAndroidNotifyUrlKey;
-    final notifyUrl = cacheConfig[notifyUrlKey]?.trim();
+    final notifyUrlKey = switch (platform) {
+      'ios' => firstPackageIosNotifyUrlKey,
+      'android' => firstPackageAndroidNotifyUrlKey,
+      'ohos' => firstPackageOhosNotifyUrlKey,
+      _ => null,
+    };
+    final notifyUrl =
+        notifyUrlKey == null ? null : cacheConfig[notifyUrlKey]?.trim();
     if (notifyUrl != null && notifyUrl.isNotEmpty) {
-      final platformLabel = platform == 'ios' ? 'iOS' : 'Android';
+      final platformLabel = switch (platform) {
+        'ios' => 'iOS',
+        'android' => 'Android',
+        'ohos' => 'OHOS',
+        _ => platform,
+      };
       final msg = '【首包上传成功】\n平台：$platformLabel\n分支：$branch\n文件数：${fileIds.length}';
       try {
         await sendTextToWeixinWebhooks(msg, notifyUrl);

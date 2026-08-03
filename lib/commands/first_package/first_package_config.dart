@@ -60,6 +60,9 @@ const String firstPackageIosNotifyUrlKey = 'FIRST_PACKAGE_IOS_NOTIFY_URL';
 /// 首包 Android 上传成功后的飞书机器人通知 webhook URL（可选）
 const String firstPackageAndroidNotifyUrlKey = 'FIRST_PACKAGE_ANDROID_NOTIFY_URL';
 
+/// 首包 OHOS 上传成功后的飞书机器人通知 webhook URL（可选）
+const String firstPackageOhosNotifyUrlKey = 'FIRST_PACKAGE_OHOS_NOTIFY_URL';
+
 /// 确保首包缓存目录的配置文件存在
 /// - 如果存在：打印配置内容并返回环境 Map
 /// - 如果不存在：提示用户通过初始化命令进行配置
