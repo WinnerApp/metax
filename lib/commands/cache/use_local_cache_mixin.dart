@@ -109,8 +109,19 @@ mixin UseLocalCacheMixin {
     } else if (buildPlatform == BuildPlatform.ohos.name) {
       if (buildType == BuildType.library.name) {
         return join(appHomeDir.ohosDir.path, 'unityLibrary');
+      } else if (buildType == BuildType.har.name) {
+        if (buildLibrary == BuildLibrary.flutter.name) {
+          final mode =
+              buildConfiguration == BuildConfiguration.debug.name
+                  ? 'debug'
+                  : 'release';
+          return join(appHomeDir.ohosDir.path, 'aar', 'flutter', mode);
+        } else if (buildLibrary == BuildLibrary.unity.name) {
+          return join(appHomeDir.ohosDir.path, 'aar', 'unity');
+        }
+        throw Exception('不支持的构建库: $buildLibrary');
       } else {
-        throw Exception('ohos仅支持library构建类型: $buildType');
+        throw Exception('ohos仅支持 library/har 构建类型: $buildType');
       }
     } else {
       throw Exception('不支持的平台: $buildPlatform');

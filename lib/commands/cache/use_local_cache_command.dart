@@ -90,9 +90,17 @@ class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
       }
     } else if (buildPlatform == BuildPlatform.ohos.name) {
       if (buildLibrary == BuildLibrary.flutter.name) {
-        throw Exception('ohos暂不支持flutter缓存');
+        buildType = BuildType.har.value;
+      } else {
+        buildType = ArgumentGet(argResults).getString(
+          'buildType',
+          '请选择构建类型',
+          allowed: [
+            BuildType.har.value,
+            BuildType.library.value,
+          ],
+        );
       }
-      buildType = BuildType.library.value;
     } else {
       if (buildLibrary == BuildLibrary.flutter.name) {
         buildType = BuildType.aar.value;

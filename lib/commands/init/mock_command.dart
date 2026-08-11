@@ -40,12 +40,14 @@ class MockCommand extends Command {
               'winner',
               'meta_flutter',
             )),
+          MockType.flutterHar => Directory(sourceCacheDir),
           MockType.flutterFramework =>
             Directory(join(sourceCacheDir, 'App.xcframework')),
           MockType.unityAar => File(join(
               sourceCacheDir,
               'unityLibrary-release.aar',
             )),
+          MockType.unityHar => Directory(sourceCacheDir),
           MockType.unityFramework =>
             Directory(join(sourceCacheDir, 'UnityFramework.xcframework')),
           MockType.ipa => File(join(sourceCacheDir, 'meta_winner_app.ipa')),

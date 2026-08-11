@@ -542,6 +542,10 @@ class UpgradeFlutterCommand extends Command {
         ..writeln('    # 宿主重新集成 aar/flutter 后再打 APK/AAB');
     }
     buffer
+      ..writeln('  [鸿蒙]')
+      ..writeln('    metax build har flutter -c release --forceUpdate')
+      ..writeln('    # 宿主重新集成 ohos/aar/flutter/release 后再打 .app');
+    buffer
       ..writeln('     也可临时关闭 Flutter 缓存: metax ... --no-isUseCache')
       ..writeln()
       ..writeln('当前指纹（可与报错里的 engine 对照）:')

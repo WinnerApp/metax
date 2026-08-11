@@ -115,9 +115,17 @@ class UseCacheCommand extends Command {
       }
     } else if (buildPlatform == BuildPlatform.ohos.name) {
       if (buildLibrary == BuildLibrary.flutter.name) {
-        throw Exception('ohos暂不支持flutter缓存');
+        buildType = BuildType.har.value;
+      } else {
+        buildType = ArgumentGet(argResults).getString(
+          'buildType',
+          '请选择构建类型',
+          allowed: [
+            BuildType.har.value,
+            BuildType.library.value,
+          ],
+        );
       }
-      buildType = BuildType.library.value;
     } else {
       if (buildLibrary == BuildLibrary.flutter.name) {
         buildType = BuildType.aar.value;
@@ -324,8 +332,19 @@ class UseCacheCommand extends Command {
     } else if (buildPlatform == BuildPlatform.ohos.name) {
       if (buildType == BuildType.library.name) {
         return join(appHomeDir.ohosDir.path, 'unityLibrary');
+      } else if (buildType == BuildType.har.name) {
+        if (buildLibrary == BuildLibrary.flutter.name) {
+          final mode =
+              buildConfiguration == BuildConfiguration.debug.name
+                  ? 'debug'
+                  : 'release';
+          return join(appHomeDir.ohosDir.path, 'aar', 'flutter', mode);
+        } else if (buildLibrary == BuildLibrary.unity.name) {
+          return join(appHomeDir.ohosDir.path, 'aar', 'unity');
+        }
+        throw Exception('不支持的构建库: $buildLibrary');
       } else {
-        throw Exception('ohos仅支持library构建类型: $buildType');
+        throw Exception('ohos仅支持 library/har 构建类型: $buildType');
       }
     } else {
       throw Exception('不支持的平台: $buildPlatform');
@@ -514,6 +533,8 @@ class UseCacheCommand extends Command {
       buildType = BuildType.framework.name;
     } else if (buildPlatform == BuildPlatform.android.name) {
       buildType = BuildType.aar.name;
+    } else if (buildPlatform == BuildPlatform.ohos.name) {
+      buildType = BuildType.har.name;
     } else {
       throw UnimplementedError();
     }
@@ -544,6 +565,8 @@ class UseCacheCommand extends Command {
       buildType = BuildType.framework.name;
     } else if (buildPlatform == BuildPlatform.android.name) {
       buildType = BuildType.aar.name;
+    } else if (buildPlatform == BuildPlatform.ohos.name) {
+      buildType = BuildType.har.name;
     } else {
       throw UnimplementedError();
     }

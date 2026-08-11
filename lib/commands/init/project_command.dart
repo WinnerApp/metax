@@ -128,6 +128,47 @@ flutter.sdk=$flutterDir
         workingDirectory: flutterProjectDir,
       );
     }
+
+    final isInitOhos = prompts.choose(
+      '是否需要初始化鸿蒙工程',
+      ['需要', '不需要'],
+    );
+    if (isInitOhos == '需要') {
+      final ohosGitUrl = readAppEnv('OHOS_GIT_URL', appHomeDir);
+      final ohosProjectDir = appHomeDir.ohosDir;
+      await _initGitProject(ohosProjectDir, ohosGitUrl);
+      await _initOhosLocalProperties(ohosProjectDir);
+    }
+  }
+
+  /// 从 Flutter `.ohos/local.properties` 复制到 ohos 目录，并写入打包相关开关。
+  Future<void> _initOhosLocalProperties(Directory ohosProjectDir) async {
+    final sourceLocalProperties = File(join(
+      appHomeDir.flutterDir.path,
+      '.ohos',
+      'local.properties',
+    ));
+    if (!sourceLocalProperties.existsSync()) {
+      throw Exception(
+        '找不到 ${sourceLocalProperties.path}，请先初始化 Flutter 工程并确保已生成 .ohos/local.properties',
+      );
+    }
+    final targetLocalProperties = File(join(
+      ohosProjectDir.path,
+      'local.properties',
+    ));
+    await copyFile(sourceLocalProperties, targetLocalProperties);
+    await writeEnvironmentValueInFile(
+      targetLocalProperties.path,
+      'flutterSourceCompile',
+      'false',
+    );
+    await writeEnvironmentValueInFile(
+      targetLocalProperties.path,
+      'useUnityAarBuild',
+      'true',
+    );
+    loggerSuccess('已从 Flutter .ohos 复制 local.properties 并写入鸿蒙打包配置');
   }
 
   Future<void> _initGitProject(Directory projectDir, String gitUrl) async {

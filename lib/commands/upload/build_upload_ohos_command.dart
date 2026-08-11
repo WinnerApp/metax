@@ -18,7 +18,7 @@ class BuildUploadOhosCommand extends UploadAppCommand {
   String get name => 'build_upload_ohos';
 
   @override
-  String get buildType => 'library';
+  String get buildType => 'har';
 
   BuildUploadOhosCommand() {
     argParser.addFlag(
@@ -74,6 +74,10 @@ class BuildUploadOhosCommand extends UploadAppCommand {
     final appPath = _findLatestOhosApp();
     if (appPath != null) {
       commands.addAll(['--app', appPath]);
+    }
+    final trimmedLog = log.trim();
+    if (trimmedLog.isNotEmpty) {
+      commands.addAll(['--log', trimmedLog]);
     }
     await buildAppRunner.runProcess(
       commands,

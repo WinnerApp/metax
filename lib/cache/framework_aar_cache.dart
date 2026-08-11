@@ -24,3 +24,15 @@ class AarCache extends MetaxCache {
           buildPlatform: BuildPlatform.android,
         );
 }
+
+class HarCache extends MetaxCache {
+  HarCache({
+    required super.branch,
+    required super.buildConfiguration,
+    required super.buildLibrary,
+    required super.buildId,
+  }) : super(
+          buildType: BuildType.har,
+          buildPlatform: BuildPlatform.ohos,
+        );
+}

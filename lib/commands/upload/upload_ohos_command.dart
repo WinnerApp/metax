@@ -13,10 +13,17 @@ class UploadOhosCommand extends Command {
   @override
   String get name => 'ohos';
 
+  /// AGC testDesc 最长 50 字符
+  static const int _maxTestDescLength = 50;
+
   UploadOhosCommand() {
     argParser.addOption(
       'app',
       help: '已签名的 .app 文件路径；不传则由 fastlane 自动查找最新产物',
+    );
+    argParser.addOption(
+      'log',
+      help: '测试版本描述（来自自动化打包日志）；AGC 最长 50 字符，超长截断',
     );
     argParser.addFlag(
       'formal',
@@ -48,6 +55,7 @@ class UploadOhosCommand extends Command {
 
     final formal = argResults?['formal'] as bool? ?? false;
     final skipSubmit = argResults?['skip-submit'] as bool? ?? false;
+    final testDesc = _normalizeTestDesc(argResults?['log'] as String?);
 
     if (formal) {
       final uploadCommands = <String>[
@@ -79,6 +87,10 @@ class UploadOhosCommand extends Command {
       if (appPath != null && appPath.isNotEmpty) {
         commands.add('app_path:$appPath');
       }
+      if (testDesc != null) {
+        commands.add('test_desc:$testDesc');
+        loggerDebug('AGC testDesc: $testDesc');
+      }
       await ProcessRunner().runProcess(
         commands,
         workingDirectory: ohosDir,
@@ -89,5 +101,21 @@ class UploadOhosCommand extends Command {
     }
 
     loggerSuccess('鸿蒙上传成功');
+  }
+
+  /// 去掉首尾空白；超长截断到 AGC 上限；空则返回 null（走脚本默认 CI 包名）
+  String? _normalizeTestDesc(String? raw) {
+    final trimmed = raw?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    if (trimmed.length <= _maxTestDescLength) {
+      return trimmed;
+    }
+    final truncated = trimmed.substring(0, _maxTestDescLength);
+    loggerWarning(
+      '测试描述超过 $_maxTestDescLength 字符，已截断: $truncated',
+    );
+    return truncated;
   }
 }

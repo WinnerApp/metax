@@ -63,12 +63,13 @@ Future<void> cleanFlutterModuleCaches(AppHomeDir appHomeDir) async {
   await deleteDirIfExists(Directory(join(flutterDir.path, '.ios', 'Pods')));
   await deleteDirIfExists(Directory(join(flutterDir.path, '.ios', '.symlinks')));
   await deleteDirIfExists(Directory(join(flutterDir.path, '.android')));
+  await deleteDirIfExists(Directory(join(flutterDir.path, '.ohos', 'har')));
   await deleteFileIfExists(
     File(join(flutterDir.path, '.ios', 'Podfile.lock')),
   );
 }
 
-/// iOS / Android 宿主侧 Flutter 产物缓存
+/// iOS / Android / 鸿蒙宿主侧 Flutter 产物缓存
 Future<void> cleanFlutterHostCaches(AppHomeDir appHomeDir) async {
   if (await appHomeDir.iosDir.exists()) {
     await deleteDirIfExists(
@@ -81,6 +82,11 @@ Future<void> cleanFlutterHostCaches(AppHomeDir appHomeDir) async {
   if (await appHomeDir.androidDir.exists()) {
     await deleteDirIfExists(
       Directory(join(appHomeDir.androidDir.path, 'aar', 'flutter')),
+    );
+  }
+  if (await appHomeDir.ohosDir.exists()) {
+    await deleteDirIfExists(
+      Directory(join(appHomeDir.ohosDir.path, 'aar', 'flutter')),
     );
   }
 }
@@ -110,6 +116,11 @@ Future<void> cleanUnityHostCaches(AppHomeDir appHomeDir) async {
         'outputs',
         'aar',
       )),
+    );
+  }
+  if (await appHomeDir.ohosDir.exists()) {
+    await deleteDirIfExists(
+      Directory(join(appHomeDir.ohosDir.path, 'aar', 'unity')),
     );
   }
   await deleteDirIfExists(

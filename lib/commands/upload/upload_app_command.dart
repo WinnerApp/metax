@@ -400,8 +400,29 @@ $changeLog
       return;
     }
 
+    final dartDefineFile =
+        io.File(join(appHomeDir.flutterDir.path, 'assets', 'dart_define.json'));
+    final localProperties = _readPlatformLocalProperties(environment.platform);
+    final flutterSourceCompile =
+        (localProperties['flutterSourceCompile'] ?? 'false')
+            .toLowerCase()
+            .trim() ==
+        'true';
+    final useUnityAarBuild =
+        (localProperties['useUnityAarBuild'] ?? 'true').toLowerCase().trim() !=
+        'false';
+
+    loggerDebug(
+      'local.properties: flutterSourceCompile=$flutterSourceCompile, '
+      'useUnityAarBuild=$useUnityAarBuild',
+    );
+
     loggerDebug('开始复制Unity静态库到指定位置');
-    await copyUnityStaticLibrary(currentUnityBuildVersionId, environment);
+    await copyUnityStaticLibrary(
+      currentUnityBuildVersionId,
+      environment,
+      useUnityAarBuild: useUnityAarBuild,
+    );
 
     final flutterCurrentCommitId = await getCurrentCommitHash(
       join(environment.workspace, 'metaapp_flutter'),
@@ -409,16 +430,6 @@ $changeLog
     final flutterBranch = await getCurrentBranch(
       join(environment.workspace, 'metaapp_flutter'),
     );
-
-    final dartDefineFile =
-        io.File(join(appHomeDir.flutterDir.path, 'assets', 'dart_define.json'));
-    final localPropertyFile =
-        io.File(join(appHomeDir.androidDir.path, 'local.properties'));
-    final localProperties = readEnvironmentFromFile(localPropertyFile.path);
-    final flutterSourceCompile =
-        (localProperties['flutterSourceCompile'] ?? 'false')
-            .toLowerCase()
-            .trim();
 
     final flutterSourceCodeCompile =
         (buildAppRunner.environment['FLUTTER_SOURCE_CODE_COMPILE'] ??
@@ -428,7 +439,7 @@ $changeLog
             .trim();
 
     final shouldModifyFlutterRepoDartDefineDirectly =
-        flutterSourceCodeCompile == 'false' && flutterSourceCompile == 'true';
+        flutterSourceCodeCompile == 'false' && flutterSourceCompile;
 
     if (shouldModifyFlutterRepoDartDefineDirectly) {
       if (!dartDefineFile.existsSync()) {
@@ -459,7 +470,12 @@ $changeLog
 
     loggerDebug('开始复制Flutter静态库到指定位置');
     await copyFlutterStaticLibrary(
-        flutterCurrentCommitId, environment, isFlutterBuild, flutterBranch);
+      flutterCurrentCommitId,
+      environment,
+      isFlutterBuild,
+      flutterBranch,
+      flutterSourceCompile: flutterSourceCompile,
+    );
 
     final isInitFlutterEnvironment =
         argResults?['initFlutterEnvironment'] == 'true' && platform != 'ohos';
@@ -601,18 +617,70 @@ $changeLog
     }
   }
 
+  /// 读取当前平台 local.properties（android / ohos）；iOS 返回空 Map
+  Map<String, String> _readPlatformLocalProperties(String platform) {
+    final file = switch (platform) {
+      'android' =>
+        io.File(join(appHomeDir.androidDir.path, 'local.properties')),
+      'ohos' => io.File(join(appHomeDir.ohosDir.path, 'local.properties')),
+      _ => null,
+    };
+    if (file == null || !file.existsSync()) {
+      return {};
+    }
+    return readEnvironmentFromFile(file.path);
+  }
+
+  /// Unity 产物类型：预编译 aar/har/framework，或源码 library
+  String _resolveUnityBuildType({
+    required String platform,
+    required bool useUnityAarBuild,
+  }) {
+    return switch (platform) {
+      'ios' => useUnityAarBuild ? BuildType.framework.value : BuildType.library.value,
+      'android' => useUnityAarBuild ? BuildType.aar.value : BuildType.library.value,
+      'ohos' => useUnityAarBuild ? BuildType.har.value : BuildType.library.value,
+      _ => throw Exception('不支持的平台:$platform'),
+    };
+  }
+
+  /// Flutter 产物类型
+  String _resolveFlutterBuildType(String platform) {
+    return switch (platform) {
+      'ios' => BuildType.framework.value,
+      'android' => BuildType.aar.value,
+      'ohos' => BuildType.har.value,
+      _ => throw Exception('不支持的平台:$platform'),
+    };
+  }
+
   /// 复制Unity静态库到指定位置
   Future<void> copyUnityStaticLibrary(
-      int buildVersionId, UploadAppEnvironment environment) async {
+    int buildVersionId,
+    UploadAppEnvironment environment, {
+    required bool useUnityAarBuild,
+  }) async {
+    final unityBuildType = _resolveUnityBuildType(
+      platform: environment.platform,
+      useUnityAarBuild: useUnityAarBuild,
+    );
+    loggerDebug(
+      'Unity 构建方式: ${useUnityAarBuild ? '预编译($unityBuildType)' : '源码(library)'}',
+    );
+
     final appRunner = await createAppRunner(appHomeDir);
 
     /// 删除之前的缓存
     final cacheDir = switch (environment.platform) {
-      'ios' =>
-        io.Directory(join(appHomeDir.iosDir.path, 'frameworks', 'unity')),
-      'android' =>
-        io.Directory(join(appHomeDir.androidDir.path, 'aar', 'unity')),
-      'ohos' => io.Directory(join(appHomeDir.ohosDir.path, 'unityLibrary')),
+      'ios' => useUnityAarBuild
+          ? io.Directory(join(appHomeDir.iosDir.path, 'frameworks', 'unity'))
+          : io.Directory(join(appHomeDir.iosDir.path, 'UnityLibrary')),
+      'android' => useUnityAarBuild
+          ? io.Directory(join(appHomeDir.androidDir.path, 'aar', 'unity'))
+          : io.Directory(join(appHomeDir.androidDir.path, 'unityLibrary')),
+      'ohos' => useUnityAarBuild
+          ? io.Directory(join(appHomeDir.ohosDir.path, 'aar', 'unity'))
+          : io.Directory(join(appHomeDir.ohosDir.path, 'unityLibrary')),
       _ => throw Exception('不支持的平台:${environment.platform}')
     };
     if (cacheDir.existsSync()) {
@@ -634,7 +702,7 @@ $changeLog
         '--buildLibrary',
         'unity',
         '--buildType',
-        buildType,
+        unityBuildType,
         '--buildId',
         buildVersionId.toString(),
         '--unityBranch',
@@ -650,12 +718,19 @@ $changeLog
     String commitHash,
     UploadAppEnvironment environment,
     bool needUpdateCache,
-    String flutterBranch,
-  ) async {
-    if (environment.platform == 'ohos') {
-      loggerDebug('ohos暂不支持flutter缓存，跳过复制Flutter静态库');
+    String flutterBranch, {
+    required bool flutterSourceCompile,
+  }) async {
+    if (flutterSourceCompile) {
+      loggerDebug(
+        'flutterSourceCompile=true，走 Flutter 源码编译，跳过预编译缓存',
+      );
       return;
     }
+
+    final flutterBuildType = _resolveFlutterBuildType(environment.platform);
+    loggerDebug('Flutter 构建方式: 预编译($flutterBuildType)');
+
     final cacheDir = switch (environment.platform) {
       'ios' => io.Directory(join(
           appHomeDir.iosDir.path,
@@ -664,6 +739,11 @@ $changeLog
         )),
       'android' => io.Directory(join(
           appHomeDir.androidDir.path,
+          'aar',
+          'flutter',
+        )),
+      'ohos' => io.Directory(join(
+          appHomeDir.ohosDir.path,
           'aar',
           'flutter',
         )),
@@ -684,7 +764,7 @@ $changeLog
         '--buildLibrary',
         'flutter',
         '--buildType',
-        buildType,
+        flutterBuildType,
         '--branch',
         flutterBranch,
         '--commitHash',

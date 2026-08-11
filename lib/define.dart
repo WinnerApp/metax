@@ -26,7 +26,8 @@ enum BuildPlatform {
 enum BuildType {
   framework('framework'),
   aar('aar'),
-  library('library');
+  library('library'),
+  har('har');
 
   const BuildType(this.value);
   final String value;
@@ -53,8 +54,10 @@ enum MockType {
   androidUnityLibrary,
   ohosUnityLibrary,
   flutterAar,
+  flutterHar,
   flutterFramework,
   unityAar,
+  unityHar,
   unityFramework,
   ipa,
   apk;
@@ -78,6 +81,10 @@ enum MockType {
           mockDir.path,
           'flutter_aar',
         )),
+      MockType.flutterHar => Directory(join(
+          mockDir.path,
+          'flutter_har',
+        )),
       MockType.flutterFramework => Directory(join(
           mockDir.path,
           'flutter_framework',
@@ -85,6 +92,10 @@ enum MockType {
       MockType.unityAar => Directory(join(
           mockDir.path,
           'unity_aar',
+        )),
+      MockType.unityHar => Directory(join(
+          mockDir.path,
+          'unity_har',
         )),
       MockType.unityFramework => Directory(join(
           mockDir.path,
@@ -114,6 +125,12 @@ enum MockType {
           'build',
           'hots',
         )),
+      MockType.flutterHar => Directory(join(
+          appHomeDir.ohosDir.path,
+          'aar',
+          'flutter',
+          'release',
+        )),
       MockType.flutterFramework => Directory(join(
           appHomeDir.flutterDir.path,
           'build',
@@ -127,6 +144,11 @@ enum MockType {
           'unityLibrary',
           'outputs',
           'aar',
+        )),
+      MockType.unityHar => Directory(join(
+          appHomeDir.ohosDir.path,
+          'aar',
+          'unity',
         )),
       MockType.unityFramework => Directory(join(
           appHomeDir.iosDir.path,
