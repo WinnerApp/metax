@@ -38,6 +38,7 @@ class UnityHarCommand extends BuildCacheCommand {
   late String module;
   late String product;
   late String configuration;
+  late String hvigorw;
 
   /// 稳定产物目录：ohos/aar/unity/tuanjieLib.har
   String get _stableHarDir => join(appHomeDir.ohosDir.path, 'aar', 'unity');
@@ -74,10 +75,7 @@ class UnityHarCommand extends BuildCacheCommand {
       return;
     }
 
-    final hvigorw = File(join(ohosDir.path, 'hvigorw'));
-    if (!hvigorw.existsSync()) {
-      throw Exception('找不到 hvigorw: ${hvigorw.path}');
-    }
+    hvigorw = await _resolveHvigorw(ohosDir);
 
     final cacheManager = BuildCacheManager(unityDir.path);
     final models = await cacheManager.read();
@@ -128,7 +126,7 @@ class UnityHarCommand extends BuildCacheCommand {
     final ohosDir = appHomeDir.ohosDir;
     await ProcessRunner().runProcess(
       [
-        './hvigorw',
+        hvigorw,
         'assembleHar',
         '-p',
         'module=$module',
@@ -161,6 +159,32 @@ class UnityHarCommand extends BuildCacheCommand {
     final targetHar = File(join(stableDir.path, _stableHarFileName));
     await copyFile(sourceHar, targetHar);
     loggerDebug('已收集 HAR 到 ${targetHar.path}');
+  }
+
+  /// 优先使用项目内 ohos/hvigorw，其次 PATH 中的全局 hvigorw。
+  Future<String> _resolveHvigorw(Directory ohosDir) async {
+    final local = File(join(ohosDir.path, 'hvigorw'));
+    if (local.existsSync()) {
+      return './hvigorw';
+    }
+
+    try {
+      final result = await ProcessRunner().runProcess(
+        ['which', 'hvigorw'],
+        printOutput: false,
+      );
+      final path = result.output.trim();
+      if (path.isNotEmpty && File(path).existsSync()) {
+        loggerDebug('使用全局 hvigorw: $path');
+        return path;
+      }
+    } catch (_) {
+      // which 失败时统一抛下方错误
+    }
+
+    throw Exception(
+      '找不到 hvigorw：项目 ohos 目录无本地脚本，且 PATH 中也没有全局命令',
+    );
   }
 
   /// 优先使用 ohos/unityLibrary（unity_cache 导出目录），其次模块同名目录
