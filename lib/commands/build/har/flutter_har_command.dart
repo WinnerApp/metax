@@ -150,10 +150,27 @@ class FlutterHarCommand extends BuildCacheCommand {
       printOutput: true,
     );
 
-    final sourceHarDir =
-        Directory(join(appHomeDir.flutterDir.path, '.ohos', 'har'));
+    // Newer Flutter OHOS SDKs emit HARs to build/ohos/har/{debug|release}.
+    // Older SDKs used .ohos/har — keep that as a fallback.
+    final candidates = [
+      Directory(join(
+        appHomeDir.flutterDir.path,
+        'build',
+        'ohos',
+        'har',
+        configuration,
+      )),
+      Directory(join(appHomeDir.flutterDir.path, '.ohos', 'har')),
+    ];
+    final sourceHarDir = candidates.firstWhere(
+      (dir) => dir.existsSync(),
+      orElse: () => candidates.first,
+    );
     if (!sourceHarDir.existsSync()) {
-      throw Exception('Flutter HAR 产物目录不存在: ${sourceHarDir.path}');
+      throw Exception(
+        'Flutter HAR 产物目录不存在，已检查: '
+        '${candidates.map((e) => e.path).join(', ')}',
+      );
     }
     final stableDir = Directory(join(
       appHomeDir.ohosDir.path,
