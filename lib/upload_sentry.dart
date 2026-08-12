@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -54,15 +55,17 @@ class UploadSentrySymbols {
   --include-sources \
   PATH_TO_DSYMS
     */
+    final projectDir = Directory(flutterProjectPath);
+    final sdk = await resolveFlutterSdk(projectDir);
     await ProcessRunner().runProcess(
       [
-        'flutter',
+        ...sdk.flutterCommand,
         'packages',
         'pub',
         'run',
         'sentry_dart_plugin',
       ],
-      workingDirectory: Directory(flutterProjectPath),
+      workingDirectory: projectDir,
       printOutput: true,
     );
   }

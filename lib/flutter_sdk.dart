@@ -118,6 +118,9 @@ Future<bool> isFvmAvailable() async {
   }
 }
 
+/// 一律使用 `fvm flutter`（版本由 FVM 按 cwd 向上找 `.fvmrc`）
+List<String> resolveFlutterCommand() => const ['fvm', 'flutter'];
+
 /// 确保工程 `.fvmrc` 对应的 Flutter 版本已安装，并完成本地 `fvm use`
 ///
 /// - 官方版本缺失时会尝试 `fvm install`
@@ -134,11 +137,10 @@ Future<String?> ensureFvmFlutterReady(Directory projectDir) async {
   }
 
   if (!await isFvmAvailable()) {
-    loggerWarning(
-      '⚠️ 工程配置了 FVM 版本 $version，但本机没有 fvm 命令；'
-      '将回退到 PATH 中的 flutter。请安装: dart pub global activate fvm',
+    throw Exception(
+      '工程配置了 FVM 版本 $version，但本机没有 fvm 命令。'
+      '请安装: dart pub global activate fvm',
     );
-    return version;
   }
 
   if (!isFvmVersionInstalled(version)) {
@@ -188,22 +190,15 @@ Future<String?> ensureFvmFlutterReady(Directory projectDir) async {
   return version;
 }
 
-/// 解析项目当前应使用的 Flutter SDK（优先 FVM）
+/// 解析项目当前应使用的 Flutter SDK（一律 `fvm flutter`）
 Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
   final configuredVersion = readConfiguredFvmVersion(projectDir);
-  final preferFvm = hasFvmConfig(projectDir) && await isFvmAvailable();
-  final flutterCommand =
-      preferFvm ? <String>['fvm', 'flutter'] : <String>['flutter'];
-
-  if (preferFvm) {
-    loggerInfo(
-      configuredVersion == null
-          ? '🔍 检测到 FVM 配置，使用 fvm flutter'
-          : '🔍 检测到 FVM 配置 ($configuredVersion)，使用 fvm flutter',
-    );
-  } else if (hasFvmConfig(projectDir)) {
-    loggerWarning('⚠️ 检测到 FVM 配置但 fvm 命令不可用，回退到 PATH 中的 flutter');
-  }
+  final flutterCommand = resolveFlutterCommand();
+  loggerInfo(
+    configuredVersion == null
+        ? '🔍 使用 fvm flutter'
+        : '🔍 检测到 FVM 配置 ($configuredVersion)，使用 fvm flutter',
+  );
 
   final versionMachine = await ProcessRunner().runProcess(
     [...flutterCommand, '--version', '--machine'],
@@ -222,7 +217,7 @@ Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
       engineRevision.isEmpty ? version : '$version@$engineRevision';
 
   final flutterRoot =
-      await _resolveFlutterRoot(projectDir, flutterCommand, preferFvm);
+      await _resolveFlutterRoot(projectDir, flutterCommand, true);
   loggerInfo('🔍 Flutter SDK: $fingerprint');
   loggerDebug('Flutter Root: $flutterRoot');
 
@@ -230,7 +225,7 @@ Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
     fingerprint: fingerprint,
     flutterRoot: flutterRoot,
     flutterCommand: flutterCommand,
-    usedFvm: preferFvm,
+    usedFvm: true,
     configuredVersion: configuredVersion,
   );
 }

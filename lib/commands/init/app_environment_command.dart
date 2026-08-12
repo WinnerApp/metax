@@ -174,11 +174,10 @@ class AppEnvironmentCommand extends Command {
       'FLUTTER_DIR',
       '请输入Flutter路径',
       readValueHandler: () async {
-        // 优先使用工程 FVM 配置对应的 SDK，避免写入 global PATH 版本
+        // 优先使用工程 FVM（fvm flutter 会向上找 .fvmrc）
         try {
           final flutterProjectDir = appHomeDir.flutterDir;
-          if (flutterProjectDir.existsSync() &&
-              hasFvmConfig(flutterProjectDir)) {
+          if (flutterProjectDir.existsSync()) {
             await ensureFvmFlutterReady(flutterProjectDir);
             final sdk = await resolveFlutterSdk(flutterProjectDir);
             if (sdk.flutterRoot.isNotEmpty) {
@@ -215,13 +214,9 @@ class AppEnvironmentCommand extends Command {
       '请输入Android SDK路径',
       readValueHandler: () async {
         if (Platform.isMacOS) {
-          final isExitFlutter = await ProcessRunner().runProcess(
-            ['which', 'flutter'],
-            printOutput: true,
-          ).then((e) => e.stdout.trim().isNotEmpty);
-          if (!isExitFlutter) return null;
+          final flutterCommand = resolveFlutterCommand();
           final flutterDoctorVerbose = await ProcessRunner().runProcess(
-            ['flutter', 'doctor', '-v'],
+            [...flutterCommand, 'doctor', '-v'],
             printOutput: true,
           ).then((e) => e.stdout.trim());
           if (flutterDoctorVerbose.isEmpty) return null;

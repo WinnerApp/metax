@@ -11,6 +11,7 @@ import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart' as p;
 import 'package:path/path.dart';
@@ -109,9 +110,13 @@ class FlutterWebCacheCommand extends Command {
     }
 
     // 第三步：执行Flutter构建Web命令
+    final webProjectDir = Directory(
+      p.join(Directory.current.path, 'apps', 'flutter_metax_web'),
+    );
+    final flutterSdk = await resolveFlutterSdk(webProjectDir);
     final buildResult = await ProcessRunner().runProcess(
       [
-        'flutter',
+        ...flutterSdk.flutterCommand,
         'build',
         'web',
         '--release',
@@ -120,8 +125,7 @@ class FlutterWebCacheCommand extends Command {
       ],
       printOutput: true,
       runInShell: true,
-      workingDirectory: Directory(
-          p.join(Directory.current.path, 'apps', 'flutter_metax_web')),
+      workingDirectory: webProjectDir,
     );
 
     if (buildResult.exitCode != 0) {

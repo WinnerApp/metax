@@ -6,6 +6,7 @@ import 'package:color_logger/color_logger.dart';
 import 'package:dio/dio.dart';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:meta_tool/flutter_web_version_data.dart';
 import 'package:meta_tool/git_submodule_parse.dart';
 import 'package:path/path.dart';
@@ -827,25 +828,16 @@ List<String> getUseCacheCommands({
   ];
 }
 
-/// 获取 Flutter SDK 根目录（优先工程 FVM 配置）
+/// 获取 Flutter SDK 根目录（优先工程 FVM：fvm flutter 自动向上找 .fvmrc）
 Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
   final projectDir = appHomeDir.flutterDir;
-  final hasFvm = File(join(projectDir.path, '.fvmrc')).existsSync() ||
-      File(join(projectDir.path, '.fvm', 'fvm_config.json')).existsSync();
-  if (hasFvm) {
-    try {
-      final which = await ProcessRunner().runProcess(
-        ['fvm', 'exec', 'which', 'flutter'],
-        workingDirectory: projectDir,
-        printOutput: false,
-      );
-      final flutterBin = which.stdout.trim().split('\n').first.trim();
-      if (flutterBin.isNotEmpty) {
-        return File(flutterBin).parent.parent.path;
-      }
-    } catch (_) {
-      loggerWarning('fvm exec which flutter 失败，回退到 PATH 中的 flutter');
+  try {
+    final sdk = await resolveFlutterSdk(projectDir);
+    if (sdk.flutterRoot.isNotEmpty) {
+      return sdk.flutterRoot;
     }
+  } catch (e) {
+    loggerWarning('resolveFlutterSdk 失败，回退 which flutter: $e');
   }
   final flutterBinPath = await ProcessRunner().runProcess(
     ['which', 'flutter'],
