@@ -175,6 +175,16 @@ class UnityHarCommand extends BuildCacheCommand {
 
   List<String> _harOutputCandidates(Directory ohosDir) {
     return [
+      // 团结导出：ohos/unityLibrary/tuanjieLib/build/default/outputs/default/
+      join(
+        ohosDir.path,
+        'unityLibrary',
+        module,
+        'build',
+        product,
+        'outputs',
+        product,
+      ),
       join(ohosDir.path, module, 'build', product, 'outputs', product),
       join(ohosDir.path, 'unityLibrary', 'build', product, 'outputs', product),
     ];
