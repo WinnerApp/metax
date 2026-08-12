@@ -208,46 +208,46 @@ class AppwriteServer {
   }) async {
     final Storage storage = Storage(client);
     final fileId = ID.unique();
-    final isUploadSuccess = await storage
-        .createFile(
-      bucketId: bucketId,
-      fileId: fileId,
-      file: zipFile,
-      onProgress: (progress) {
-        loggerDebug('上传进度: ${progress.progress}%-[${zipFile.filename}]');
-      },
-    )
-        .then((e) {
-      return true;
-    }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
+    try {
+      await storage.createFile(
+        bucketId: bucketId,
+        fileId: fileId,
+        file: zipFile,
+        onProgress: (progress) {
+          loggerDebug('上传进度: ${progress.progress}%-[${zipFile.filename}]');
+        },
+      );
+    } catch (e, stackTrace) {
+      loggerError("${e.toString()} ${stackTrace.toString()}");
       return false;
-    });
-    if (!isUploadSuccess) return false;
+    }
 
-    return databases.createDocument(
-      databaseId: databaseId,
-      collectionId: collectionId,
-      documentId: ID.unique(),
-      data: {
-        'platform': platform,
-        'is_store': false,
-        'configuration': buildConfiguration,
-        'library': buildLibrary,
-        'type': buildType,
-        'branch': branch,
-        'build_id': buildId,
-        'commit_hash': commitHash,
-        'file_id': fileId,
-        'commit_time': commitTime.toUtc().toIso8601String(),
-      },
-    ).then((e) {
+    try {
+      await databases.createDocument(
+        databaseId: databaseId,
+        collectionId: collectionId,
+        documentId: ID.unique(),
+        data: {
+          'platform': platform,
+          'is_store': false,
+          'configuration': buildConfiguration,
+          'library': buildLibrary,
+          'type': buildType,
+          'branch': branch,
+          'build_id': buildId,
+          'commit_hash': commitHash,
+          'file_id': fileId,
+          'commit_time': commitTime.toUtc().toIso8601String(),
+        },
+      );
       return true;
-    }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
-      storage.deleteFile(bucketId: bucketId, fileId: fileId);
+    } catch (e, stackTrace) {
+      loggerError("${e.toString()} ${stackTrace.toString()}");
+      try {
+        await storage.deleteFile(bucketId: bucketId, fileId: fileId);
+      } catch (_) {}
       return false;
-    });
+    }
   }
 
   Future<Uint8List> downloadFile({

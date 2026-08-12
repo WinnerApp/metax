@@ -148,28 +148,50 @@ class UploadCacheCommand extends Command {
     }
 
     /// 存储上传失败的commitHash
-    final failedCommitHashs = [];
-    for (var commitHash in needUploadCommitModels) {
-      final isUploadSuccess = await uploadCache(metaxCache, commitHash);
+    final failedCommitHashs = <String>[];
+    for (final model in needUploadCommitModels) {
+      final isUploadSuccess = await uploadCache(metaxCache, model);
       if (!isUploadSuccess) {
-        failedCommitHashs.add(commitHash);
+        failedCommitHashs.add(model.commitHash);
       }
     }
     if (failedCommitHashs.isNotEmpty) {
       loggerError('上传失败: ${failedCommitHashs.join(', ')}');
-    } else {
-      loggerSuccess('上传成功');
+      throw Exception('缓存上传失败: ${failedCommitHashs.join(', ')}');
     }
+    loggerSuccess('上传成功');
   }
 
-  Future<bool> uploadCache(MetaxCache metaxCache, CacheModel model) async {
-    final AppwriteServer appwriteServer = AppwriteServer(
+  AppwriteServer _createAppwriteServer() {
+    return AppwriteServer(
       endpoint: appwriteCacheEnvironment.endpoint,
       projectId: appwriteCacheEnvironment.projectId,
       apiKey: appwriteCacheEnvironment.apiKey,
     );
+  }
 
-    final isAlreadyUploaded = await appwriteServer.isCacheExists(
+  /// 捕获分片上传后 HttpClient keep-alive 上迟到的连接异常，避免进程被打成 exit 255
+  Future<bool> _uploadInGuardedZone(Future<bool> Function() action) {
+    final completer = Completer<bool>();
+    runZonedGuarded(() {
+      action().then((value) async {
+        // 给连接层一点时间抛出迟到的 HttpException
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!completer.isCompleted) completer.complete(value);
+      }).catchError((Object e, StackTrace stackTrace) {
+        loggerError('${e.toString()} $stackTrace');
+        if (!completer.isCompleted) completer.complete(false);
+      });
+    }, (error, stack) {
+      loggerError('上传连接异常: $error\n$stack');
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    return completer.future;
+  }
+
+  Future<bool> uploadCache(MetaxCache metaxCache, CacheModel model) async {
+    final probeServer = _createAppwriteServer();
+    final isAlreadyUploaded = await probeServer.isCacheExists(
       databaseId: appwriteCacheEnvironment.databaseId,
       collectionId: appwriteCacheEnvironment.collectionId,
       platform: metaxCache.buildPlatform.name,
@@ -186,22 +208,43 @@ class UploadCacheCommand extends Command {
     }
 
     final zipFilePath = metaxCache.getZipCachePath(model.commitHash);
-    return await appwriteServer.uploadCache(
-      databaseId: appwriteCacheEnvironment.databaseId,
-      collectionId: appwriteCacheEnvironment.collectionId,
-      bucketId: appwriteCacheEnvironment.bucketId,
-      platform: metaxCache.buildPlatform.name,
-      branch: metaxCache.branch,
-      buildConfiguration: metaxCache.buildConfiguration.name,
-      buildLibrary: metaxCache.buildLibrary.name,
-      buildType: metaxCache.buildType.name,
-      buildId: metaxCache.buildId,
-      commitHash: model.commitHash,
-      commitTime: model.commitTime,
-      zipFile: InputFile.fromBytes(
-        bytes: File(zipFilePath).readAsBytesSync(),
-        filename: '${model.commitHash}.zip',
-      ),
-    );
+    if (!File(zipFilePath).existsSync()) {
+      loggerError('缓存文件不存在: $zipFilePath');
+      return false;
+    }
+
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      final isUploadSuccess = await _uploadInGuardedZone(() {
+        // 每次重试使用新 Client，避免被污染的 keep-alive 连接继续失败
+        final appwriteServer = _createAppwriteServer();
+        return appwriteServer.uploadCache(
+          databaseId: appwriteCacheEnvironment.databaseId,
+          collectionId: appwriteCacheEnvironment.collectionId,
+          bucketId: appwriteCacheEnvironment.bucketId,
+          platform: metaxCache.buildPlatform.name,
+          branch: metaxCache.branch,
+          buildConfiguration: metaxCache.buildConfiguration.name,
+          buildLibrary: metaxCache.buildLibrary.name,
+          buildType: metaxCache.buildType.name,
+          buildId: metaxCache.buildId,
+          commitHash: model.commitHash,
+          commitTime: model.commitTime,
+          zipFile: InputFile.fromPath(
+            path: zipFilePath,
+            filename: '${model.commitHash}.zip',
+          ),
+        );
+      });
+      if (isUploadSuccess) return true;
+      if (attempt < maxAttempts) {
+        final delay = Duration(seconds: attempt * 2);
+        loggerWarning(
+          '上传失败(${model.commitHash})，${delay.inSeconds}s 后重试 ($attempt/$maxAttempts)',
+        );
+        await Future.delayed(delay);
+      }
+    }
+    return false;
   }
 }
