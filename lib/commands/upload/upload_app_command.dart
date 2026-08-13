@@ -474,7 +474,6 @@ $changeLog
     await copyFlutterStaticLibrary(
       flutterCurrentCommitId,
       environment,
-      isFlutterBuild,
       flutterBranch,
       flutterSourceCompile: flutterSourceCompile,
     );
@@ -718,7 +717,6 @@ $changeLog
   Future<void> copyFlutterStaticLibrary(
     String commitHash,
     UploadAppEnvironment environment,
-    bool needUpdateCache,
     String flutterBranch, {
     required bool flutterSourceCompile,
   }) async {
@@ -753,6 +751,8 @@ $changeLog
     if (cacheDir.existsSync()) {
       cacheDir.deleteSync(recursive: true);
     }
+    // 始终按 commitHash 查本地/网络缓存：命中则跳过编译，未命中再编译。
+    // 不要用 isFlutterBuild 关掉 Flutter 缓存，否则即使产物 commit 已一致也会强制重编。
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -771,9 +771,7 @@ $changeLog
         '--commitHash',
         commitHash,
         getUseMockCommand(),
-        ...getUseCacheCommands(
-          flutterCache: isUseFlutterCache && !needUpdateCache,
-        ),
+        ...getUseCacheCommands(),
       ],
       printOutput: true,
     );

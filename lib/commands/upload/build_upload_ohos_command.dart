@@ -75,6 +75,12 @@ class BuildUploadOhosCommand extends UploadAppCommand {
     if (appPath != null) {
       commands.addAll(['--app', appPath]);
     }
+    // 测试描述：仅标识测试包 / 生产包
+    commands.addAll([
+      '--test-desc',
+      environment.isStore ? '生产包' : '测试包',
+    ]);
+    // 测试说明：与 iOS/Android 一致的分支日志
     final trimmedLog = log.trim();
     if (trimmedLog.isNotEmpty) {
       commands.addAll(['--log', trimmedLog]);

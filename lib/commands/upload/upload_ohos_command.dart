@@ -13,8 +13,11 @@ class UploadOhosCommand extends Command {
   @override
   String get name => 'ohos';
 
-  /// AGC testDesc 最长 50 字符
+  /// 新建版本 testDesc 最长 50 字符
   static const int _maxTestDescLength = 50;
+
+  /// 测试说明 newFeatures 最长 500 字符
+  static const int _maxNewFeaturesLength = 500;
 
   UploadOhosCommand() {
     argParser.addOption(
@@ -22,8 +25,13 @@ class UploadOhosCommand extends Command {
       help: '已签名的 .app 文件路径；不传则由 fastlane 自动查找最新产物',
     );
     argParser.addOption(
+      'test-desc',
+      help: '测试描述（新建版本 testDesc）：测试包 / 生产包；AGC 最长 50 字符',
+    );
+    argParser.addOption(
       'log',
-      help: '测试版本描述（来自自动化打包日志）；AGC 最长 50 字符，超长截断',
+      help:
+          '测试说明（newFeatures）：分支日志等，替换默认固定文案；AGC 最长 500 字符',
     );
     argParser.addFlag(
       'formal',
@@ -55,7 +63,16 @@ class UploadOhosCommand extends Command {
 
     final formal = argResults?['formal'] as bool? ?? false;
     final skipSubmit = argResults?['skip-submit'] as bool? ?? false;
-    final testDesc = _normalizeTestDesc(argResults?['log'] as String?);
+    final testDesc = _normalizeDesc(
+      argResults?['test-desc'] as String?,
+      label: '测试描述',
+      maxLength: _maxTestDescLength,
+    );
+    final openTestDesc = _normalizeDesc(
+      argResults?['log'] as String?,
+      label: '测试说明',
+      maxLength: _maxNewFeaturesLength,
+    );
 
     if (formal) {
       final uploadCommands = <String>[
@@ -89,7 +106,11 @@ class UploadOhosCommand extends Command {
       }
       if (testDesc != null) {
         commands.add('test_desc:$testDesc');
-        loggerDebug('AGC testDesc: $testDesc');
+        loggerDebug('AGC 测试描述(testDesc): $testDesc');
+      }
+      if (openTestDesc != null) {
+        commands.add('open_test_desc:$openTestDesc');
+        loggerDebug('AGC 测试说明(newFeatures): $openTestDesc');
       }
       await ProcessRunner().runProcess(
         commands,
@@ -103,18 +124,22 @@ class UploadOhosCommand extends Command {
     loggerSuccess('鸿蒙上传成功');
   }
 
-  /// 去掉首尾空白；超长截断到 AGC 上限；空则返回 null（走脚本默认 CI 包名）
-  String? _normalizeTestDesc(String? raw) {
+  /// 去掉首尾空白；超长截断到上限；空则返回 null
+  String? _normalizeDesc(
+    String? raw, {
+    required String label,
+    required int maxLength,
+  }) {
     final trimmed = raw?.trim();
     if (trimmed == null || trimmed.isEmpty) {
       return null;
     }
-    if (trimmed.length <= _maxTestDescLength) {
+    if (trimmed.length <= maxLength) {
       return trimmed;
     }
-    final truncated = trimmed.substring(0, _maxTestDescLength);
+    final truncated = trimmed.substring(0, maxLength);
     loggerWarning(
-      '测试描述超过 $_maxTestDescLength 字符，已截断: $truncated',
+      '$label超过 $maxLength 字符，已截断: $truncated',
     );
     return truncated;
   }
