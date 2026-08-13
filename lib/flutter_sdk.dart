@@ -216,8 +216,23 @@ Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
   final fingerprint =
       engineRevision.isEmpty ? version : '$version@$engineRevision';
 
-  final flutterRoot =
-      await _resolveFlutterRoot(projectDir, flutterCommand, true);
+  // Prefer flutterRoot from --machine (reliable); which/fvm exec can return a bare
+  // "flutter" and File('flutter').parent.parent.path becomes ".".
+  var flutterRoot = (versionJson['flutterRoot'] ?? '').toString().trim();
+  if (!_isValidFlutterRoot(flutterRoot)) {
+    flutterRoot =
+        await _resolveFlutterRoot(projectDir, flutterCommand, true);
+  }
+  if (!_isValidFlutterRoot(flutterRoot) &&
+      configuredVersion != null &&
+      configuredVersion.isNotEmpty &&
+      isFvmVersionInstalled(configuredVersion)) {
+    flutterRoot = fvmVersionDir(configuredVersion).path;
+  }
+  if (!_isValidFlutterRoot(flutterRoot)) {
+    throw Exception('无法解析有效的 Flutter SDK 根目录: $flutterRoot');
+  }
+
   loggerInfo('🔍 Flutter SDK: $fingerprint');
   loggerDebug('Flutter Root: $flutterRoot');
 
@@ -228,6 +243,14 @@ Future<FlutterSdkInfo> resolveFlutterSdk(Directory projectDir) async {
     usedFvm: true,
     configuredVersion: configuredVersion,
   );
+}
+
+bool _isValidFlutterRoot(String path) {
+  if (path.isEmpty || path == '.' || path == './') return false;
+  final root = Directory(path);
+  if (!root.existsSync()) return false;
+  return File(join(path, 'bin', 'flutter')).existsSync() &&
+      File(join(path, 'bin', 'dart')).existsSync();
 }
 
 Map<String, dynamic> _parseVersionMachineJson(String stdout) {
@@ -260,11 +283,19 @@ Future<String> _resolveFlutterRoot(
       printOutput: false,
     );
     final flutterBin = whichResult.stdout.trim().split('\n').first.trim();
-    if (flutterBin.isNotEmpty) {
-      return File(flutterBin).parent.parent.path;
+    // Bare names like "flutter" yield File('flutter').parent.parent == "."
+    if (flutterBin.isNotEmpty && flutterBin.contains(Platform.pathSeparator)) {
+      final root = File(flutterBin).parent.parent.path;
+      if (_isValidFlutterRoot(root)) return root;
     }
   } catch (_) {
     // fall through
+  }
+
+  // Local FVM symlink: <project>/.fvm/flutter_sdk
+  final fvmSdkLink = join(projectDir.path, '.fvm', 'flutter_sdk');
+  if (_isValidFlutterRoot(fvmSdkLink)) {
+    return Directory(fvmSdkLink).resolveSymbolicLinksSync();
   }
 
   final doctor = await ProcessRunner().runProcess(
@@ -275,7 +306,8 @@ Future<String> _resolveFlutterRoot(
   for (final line in doctor.stdout.split('\n')) {
     final match = RegExp(r'at (/.*)').firstMatch(line);
     if (match != null && line.contains('Flutter version')) {
-      return match.group(1)!.trim();
+      final root = match.group(1)!.trim();
+      if (_isValidFlutterRoot(root)) return root;
     }
   }
   throw Exception('无法解析 Flutter SDK 根目录');

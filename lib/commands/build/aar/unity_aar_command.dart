@@ -147,6 +147,29 @@ class UnityAarCommand extends BuildCacheCommand {
       );
       await androidArchieveFile.delete();
     }
+
+    // 将 unityLibrary/libs 放到 aar 同级，随 outputs/aar 一并压缩上传；
+    // 使用缓存时解压到 android/aar/unity，与 aar 同目录。
+    await _copyUnityLibsBesideAar(unityDir);
+  }
+
+  Future<void> _copyUnityLibsBesideAar(Directory unityDir) async {
+    final sourceLibsDir = Directory(join(unityDir.path, 'libs'));
+    if (!sourceLibsDir.existsSync()) {
+      loggerWarning('unityLibrary/libs 不存在，跳过复制: ${sourceLibsDir.path}');
+      return;
+    }
+
+    final targetLibsDir = Directory(join(
+      appHomeDir.workspace,
+      'build',
+      'unityLibrary',
+      'outputs',
+      'aar',
+      'libs',
+    ));
+    loggerDebug('复制 unityLibrary/libs 到 AAR 同级目录: ${targetLibsDir.path}');
+    await copyDirToDir(sourceLibsDir, targetLibsDir);
   }
 
   Future<void> fixUnityBuildGradleFile() async {

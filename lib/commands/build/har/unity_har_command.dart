@@ -54,9 +54,9 @@ class UnityHarCommand extends BuildCacheCommand {
     configuration = argResults?['configuration'] as String? ??
         BuildConfiguration.release.name;
 
-    final ohosDir = appHomeDir.ohosDir;
-    if (!ohosDir.existsSync()) {
-      throw Exception('ohos 目录不存在: ${ohosDir.path}');
+    final unityOhosDir = appHomeDir.unityOhosDir;
+    if (!unityOhosDir.existsSync()) {
+      throw Exception('unityOhos 目录不存在: ${unityOhosDir.path}');
     }
 
     final unityDir = _resolveUnityLibraryDir();
@@ -75,7 +75,7 @@ class UnityHarCommand extends BuildCacheCommand {
       return;
     }
 
-    hvigorw = await _resolveHvigorw(ohosDir);
+    hvigorw = await _resolveHvigorw(unityOhosDir);
 
     final cacheManager = BuildCacheManager(unityDir.path);
     final models = await cacheManager.read();
@@ -123,7 +123,16 @@ class UnityHarCommand extends BuildCacheCommand {
 
   @override
   Future<void> buildCache() async {
+    final unityOhosDir = appHomeDir.unityOhosDir;
     final ohosDir = appHomeDir.ohosDir;
+
+    // 依赖 tuanjieLib 通过 build-profile 引用 ../ohos/unityLibrary/tuanjieLib
+    await ProcessRunner().runProcess(
+      ['ohpm', 'install'],
+      workingDirectory: unityOhosDir,
+      printOutput: true,
+    );
+
     await ProcessRunner().runProcess(
       [
         hvigorw,
@@ -136,7 +145,7 @@ class UnityHarCommand extends BuildCacheCommand {
         'buildMode=$configuration',
         '--no-daemon',
       ],
-      workingDirectory: ohosDir,
+      workingDirectory: unityOhosDir,
       printOutput: true,
     );
 
@@ -161,9 +170,9 @@ class UnityHarCommand extends BuildCacheCommand {
     loggerDebug('已收集 HAR 到 ${targetHar.path}');
   }
 
-  /// 优先使用项目内 ohos/hvigorw，其次 PATH 中的全局 hvigorw。
-  Future<String> _resolveHvigorw(Directory ohosDir) async {
-    final local = File(join(ohosDir.path, 'hvigorw'));
+  /// 优先 unityOhos/hvigorw，其次 PATH，再尝试 local.properties 的 sdk.dir。
+  Future<String> _resolveHvigorw(Directory unityOhosDir) async {
+    final local = File(join(unityOhosDir.path, 'hvigorw'));
     if (local.existsSync()) {
       return './hvigorw';
     }
@@ -179,12 +188,51 @@ class UnityHarCommand extends BuildCacheCommand {
         return path;
       }
     } catch (_) {
-      // which 失败时统一抛下方错误
+      // which 失败时继续尝试 SDK 路径
+    }
+
+    final sdkHvigorw = _resolveSdkHvigorw(unityOhosDir);
+    if (sdkHvigorw != null) {
+      loggerDebug('使用 SDK hvigorw: $sdkHvigorw');
+      return sdkHvigorw;
     }
 
     throw Exception(
-      '找不到 hvigorw：项目 ohos 目录无本地脚本，且 PATH 中也没有全局命令',
+      '找不到 hvigorw：unityOhos 无本地脚本，PATH 与 OpenHarmony SDK 中也没有',
     );
+  }
+
+  String? _resolveSdkHvigorw(Directory unityOhosDir) {
+    final candidates = <String>[];
+
+    final localProperties =
+        File(join(unityOhosDir.path, 'local.properties'));
+    if (localProperties.existsSync()) {
+      for (final line in localProperties.readAsLinesSync()) {
+        final trimmed = line.trim();
+        if (trimmed.startsWith('sdk.dir=') ||
+            trimmed.startsWith('hwsdk.dir=')) {
+          final sdkDir = trimmed.split('=').skip(1).join('=').trim();
+          if (sdkDir.isNotEmpty) {
+            candidates.add(join(sdkDir, 'hvigor', 'bin', 'hvigorw'));
+          }
+        }
+      }
+    }
+
+    final home = Platform.environment['HOME'];
+    if (home != null && home.isNotEmpty) {
+      candidates.add(
+        join(home, 'Library', 'OpenHarmony', 'Sdk', 'hvigor', 'bin', 'hvigorw'),
+      );
+    }
+
+    for (final path in candidates) {
+      if (File(path).existsSync()) {
+        return path;
+      }
+    }
+    return null;
   }
 
   /// 优先使用 ohos/unityLibrary（unity_cache 导出目录），其次模块同名目录

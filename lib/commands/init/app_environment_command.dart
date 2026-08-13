@@ -174,16 +174,25 @@ class AppEnvironmentCommand extends Command {
       'FLUTTER_DIR',
       '请输入Flutter路径',
       readValueHandler: () async {
+        bool isValidFlutterDir(String path) {
+          if (path.isEmpty || path == '.' || path == './') return false;
+          return File(join(path, 'bin', 'dart')).existsSync() &&
+              File(join(path, 'bin', 'flutter')).existsSync();
+        }
+
         // 优先使用工程 FVM（fvm flutter 会向上找 .fvmrc）
         try {
           final flutterProjectDir = appHomeDir.flutterDir;
           if (flutterProjectDir.existsSync()) {
             await ensureFvmFlutterReady(flutterProjectDir);
             final sdk = await resolveFlutterSdk(flutterProjectDir);
-            if (sdk.flutterRoot.isNotEmpty) {
+            if (isValidFlutterDir(sdk.flutterRoot)) {
               loggerInfo('使用工程 FVM Flutter: ${sdk.flutterRoot}');
               return sdk.flutterRoot;
             }
+            loggerWarning(
+              'FVM 解析到无效 Flutter 路径: ${sdk.flutterRoot}，回退 which flutter',
+            );
           }
         } catch (e) {
           loggerWarning('通过 FVM 解析 Flutter 路径失败，回退 which flutter: $e');
@@ -199,7 +208,7 @@ class AppEnvironmentCommand extends Command {
           ['readlink', '-f', flutterPath],
           printOutput: true,
         ).then((e) => e.stdout.trim().trim());
-        return realPath;
+        return isValidFlutterDir(realPath) ? realPath : null;
       },
       validator: (value) {
         final dartFile = File(join(value, 'bin', 'dart'));
@@ -264,10 +273,17 @@ class AppEnvironmentCommand extends Command {
     } else {
       value = suggested ?? prompts.get(prompt);
     }
-    if (validator != null) {
-      if (!validator(value)) {
-        throw Exception('输入错误');
+    if (validator != null && !validator(value)) {
+      // Auto-detected values can be wrong; ask again instead of aborting.
+      if (suggested != null && !alwaysPrompt && value == suggested) {
+        loggerWarning('$name 自动检测值无效: $value，请手动输入');
+        final retry = prompts.get(prompt);
+        if (!validator(retry)) {
+          throw Exception('$name 输入错误: $retry');
+        }
+        return _writeEnvironment(environment, name, retry, envFile);
       }
+      throw Exception('$name 输入错误: $value');
     }
     return _writeEnvironment(environment, name, value, envFile);
   }

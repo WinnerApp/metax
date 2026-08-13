@@ -170,9 +170,6 @@ enum MockType {
 late AppHomeDir appHomeDir;
 late bool useMock;
 late String? customUnityPath;
-/// Unity 打包主目录（含 Unity 仓库的 APP 根目录）。
-/// 与 [--workspace] 分离时：Flutter/鸿蒙工程用 workspace，Unity 编译在此目录执行。
-String? customUnityWorkspace;
 late bool isUseCache;
 late bool isUseFlutterCache;
 late bool isUseUnityCache;

@@ -457,7 +457,6 @@ class UseCacheCommand extends Command {
   /// 编译缓存
   Future<CacheModel?> compileCache() async {
     loggerDebug('缓存不存在,正在编译...');
-    final unityCompileWorkspace = resolveUnityCompileWorkspace();
     if (buildType == BuildType.library.name) {
       await compileUnityLibrary();
     } else {
@@ -469,8 +468,7 @@ class UseCacheCommand extends Command {
           'cache',
           'use',
           '--workspace',
-          unityCompileWorkspace,
-          ...getUnityWorkspaceCommands(),
+          appHomeDir.workspace,
           '--buildPlatform',
           buildPlatform,
           '--buildConfiguration',
@@ -492,7 +490,7 @@ class UseCacheCommand extends Command {
         await ProcessRunner().runProcess(
           commandLine,
           printOutput: true,
-          workingDirectory: Directory(unityCompileWorkspace),
+          workingDirectory: appHomeDir.directory,
         );
         await compileUnity();
       } else {
@@ -504,8 +502,7 @@ class UseCacheCommand extends Command {
 
   /// 编译Unity Library
   Future<void> compileUnityLibrary() async {
-    final unityCompileWorkspace = resolveUnityCompileWorkspace();
-    loggerDebug('Unity编译目录: $unityCompileWorkspace');
+    loggerDebug('Unity编译目录: ${appHomeDir.workspace}');
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -513,8 +510,7 @@ class UseCacheCommand extends Command {
         'unity_cache',
         buildPlatform,
         '--workspace',
-        unityCompileWorkspace,
-        ...getUnityWorkspaceCommands(),
+        appHomeDir.workspace,
         '--unityBranch',
         branch,
         isUpload ? '--isUpload' : '--no-isUpload',
@@ -522,11 +518,11 @@ class UseCacheCommand extends Command {
         ...getUseCacheCommands(),
       ],
       printOutput: true,
-      workingDirectory: Directory(unityCompileWorkspace),
+      workingDirectory: appHomeDir.directory,
     );
   }
 
-  /// 编译Unity
+  /// 编译Unity（HAR/AAR/Framework 二次打包）
   Future<void> compileUnity() async {
     late String buildType;
     if (buildPlatform == BuildPlatform.ios.name) {
@@ -538,8 +534,7 @@ class UseCacheCommand extends Command {
     } else {
       throw UnimplementedError();
     }
-    final unityCompileWorkspace = resolveUnityCompileWorkspace();
-    loggerDebug('Unity二次打包目录: $unityCompileWorkspace');
+    loggerDebug('Unity二次打包目录: ${appHomeDir.workspace}');
     await ProcessRunner().runProcess(
       [
         'metax',
@@ -547,13 +542,12 @@ class UseCacheCommand extends Command {
         buildType,
         'unity',
         '--workspace',
-        unityCompileWorkspace,
-        ...getUnityWorkspaceCommands(),
+        appHomeDir.workspace,
         isUpload ? '--isUpload' : '--no-isUpload',
         getUseMockCommand(),
         ...getUseCacheCommands(),
       ],
-      workingDirectory: Directory(unityCompileWorkspace),
+      workingDirectory: appHomeDir.directory,
       printOutput: true,
     );
   }

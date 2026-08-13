@@ -52,14 +52,6 @@ Future<void> main(List<String> arguments) async {
       customUnityPath = p0;
     },
   );
-  runner.argParser.addOption(
-    'unityWorkspace',
-    help:
-        'Unity打包主目录（含Unity仓库的APP根目录）。与--workspace分离时，Unity编译在此目录执行，产物缓存仍应用到--workspace',
-    callback: (p0) {
-      customUnityWorkspace = p0;
-    },
-  );
   runner.argParser.addFlag(
     'isUseCache',
     help: '是否使用缓存（全局开关，关闭后 Flutter/Unity 均不使用缓存）',
