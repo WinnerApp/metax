@@ -823,7 +823,10 @@ Future<String> getFlutterCommandDir(AppHomeDir appHomeDir) async {
   final flutterBinPath = await ProcessRunner().runProcess(
     ['which', 'flutter'],
     printOutput: true,
-  ).then((e) => e.output.split('\n').first.trim());
+  ).then((e) => pickFlutterBinPath(e.output) ?? e.output.split('\n').first.trim());
+  if (!flutterBinPath.contains(Platform.pathSeparator)) {
+    throw Exception('无法从 which flutter 解析绝对路径: $flutterBinPath');
+  }
   return File(flutterBinPath).parent.parent.path;
 }
 

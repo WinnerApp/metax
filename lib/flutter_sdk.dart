@@ -253,6 +253,30 @@ bool _isValidFlutterRoot(String path) {
       File(join(path, 'bin', 'dart')).existsSync();
 }
 
+/// Pick absolute `.../bin/flutter` from `which` / `fvm exec which` stdout.
+///
+/// fvm 3.x prints a banner before the real path, e.g.:
+/// ```
+/// fvm: Running version: "3.41.9"
+///
+/// /Users/.../fvm/versions/3.41.9/bin/flutter
+/// ```
+String? pickFlutterBinPath(String stdout) {
+  final lines = stdout
+      .trim()
+      .split('\n')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty);
+  for (final line in lines.toList().reversed) {
+    if (line.contains(Platform.pathSeparator) &&
+        basename(line) == 'flutter' &&
+        !line.contains(' ')) {
+      return line;
+    }
+  }
+  return null;
+}
+
 Map<String, dynamic> _parseVersionMachineJson(String stdout) {
   final trimmed = stdout.trim();
   // 有些环境下日志会混在前面，尝试截取最后一个 JSON 对象
@@ -282,9 +306,10 @@ Future<String> _resolveFlutterRoot(
       workingDirectory: projectDir,
       printOutput: false,
     );
-    final flutterBin = whichResult.stdout.trim().split('\n').first.trim();
+    // fvm exec prefixes stdout with "fvm: Running version: ..." — skip non-path lines.
+    final flutterBin = pickFlutterBinPath(whichResult.stdout);
     // Bare names like "flutter" yield File('flutter').parent.parent == "."
-    if (flutterBin.isNotEmpty && flutterBin.contains(Platform.pathSeparator)) {
+    if (flutterBin != null) {
       final root = File(flutterBin).parent.parent.path;
       if (_isValidFlutterRoot(root)) return root;
     }

@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -343,8 +344,8 @@ class UpgradeFlutterCommand extends Command {
         .toString();
     final engineRevision = (json['engineRevision'] ?? '').toString();
     final frameworkRevision = (json['frameworkRevision'] ?? '').toString();
-    var flutterRoot = (json['flutterRoot'] ?? '').toString();
-    if (flutterRoot.isEmpty) {
+    var flutterRoot = (json['flutterRoot'] ?? '').toString().trim();
+    if (flutterRoot.isEmpty || flutterRoot == '.' || flutterRoot == './') {
       flutterRoot = await _resolveFlutterRoot(flutterCommand, projectDir);
     }
     return _SdkInfo(
@@ -381,8 +382,8 @@ class UpgradeFlutterCommand extends Command {
         workingDirectory: projectDir,
         printOutput: false,
       );
-      final flutterBin = which.stdout.trim().split('\n').first.trim();
-      if (flutterBin.isNotEmpty) {
+      final flutterBin = pickFlutterBinPath(which.stdout);
+      if (flutterBin != null) {
         return File(flutterBin).parent.parent.path;
       }
     } catch (_) {}
