@@ -85,6 +85,10 @@ class FlutterWebCacheCommand extends Command {
     // 第二步：执行melos bootstrap
     final melosResult = await ProcessRunner().runProcess(
       [
+        'fvm',
+        'dart',
+        'pub',
+        'run',
         'melos',
         'bootstrap',
       ],

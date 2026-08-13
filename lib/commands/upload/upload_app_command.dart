@@ -372,6 +372,10 @@ $changeLog
     /// 执行melos bootstrap
     await buildAppRunner.runProcess(
       [
+        'fvm',
+        'dart',
+        'pub',
+        'run',
         'melos',
         "bootstrap",
       ],
