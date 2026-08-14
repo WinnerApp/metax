@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/cache/unity_cache.dart';
@@ -28,24 +29,9 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       throw '请先通过brew install cmake 安装cmake';
     }
 
-    late String workspaceDirectory;
-    late String appWorkspace;
-    late String unityCacheDir;
-    if (platform == BuildPlatform.ios) {
-      workspaceDirectory = unityEnvironment.iosUnityWorkspace;
-      appWorkspace = join(unityEnvironment.unityWorkspace, 'ios');
-      unityCacheDir = join(appWorkspace, 'UnityLibrary');
-    } else if (platform == BuildPlatform.android) {
-      workspaceDirectory = unityEnvironment.androidUnityWorkspace;
-      appWorkspace = join(unityEnvironment.unityWorkspace, 'android');
-      unityCacheDir = join(appWorkspace, 'unityLibrary');
-    } else if (platform == BuildPlatform.ohos) {
-      workspaceDirectory = unityEnvironment.ohosUnityWorkspace;
-      appWorkspace = join(unityEnvironment.unityWorkspace, 'ohos');
-      unityCacheDir = join(appWorkspace, 'unityLibrary');
-    } else {
-      throw Exception('不支持的平台: ${platform.name}');
-    }
+    final workspaceDirectory =
+        unityEnvironment.getPlatfromUnityWorkspace(platform.name);
+    final unityCacheDir = _getUnityCacheDir(unityEnvironment);
 
     if (useMock) {
       if (platform == BuildPlatform.ios) {
@@ -161,5 +147,46 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
       ],
       printOutput: true,
     );
+    // Unity 导出后，把产物从 Unity 实际导出位置复制到 metax 期望的缓存目录
+    await _copyExportedUnityToCacheDir(unityEnvironment);
+  }
+
+  /// 计算 metax 期望的 Unity 缓存目录
+  String _getUnityCacheDir(UnityEnvironment unityEnvironment) {
+    final appWorkspace = join(unityEnvironment.unityWorkspace, platform.name);
+    return switch (platform) {
+      BuildPlatform.ios => join(appWorkspace, 'UnityLibrary'),
+      BuildPlatform.android => join(appWorkspace, 'unityLibrary'),
+      BuildPlatform.ohos => join(appWorkspace, 'unityLibrary'),
+    };
+  }
+
+  /// Unity 导出后，把产物从 Unity 实际导出位置复制到 metax 期望的缓存目录。
+  ///
+  /// Unity 侧导出路径为相对 Unity 工程真实路径的 ../../{platform}/unityLibrary
+  /// （iOS 为 UnityLibrary）。Unity 工程外移（项目内软链共享）后，该相对路径
+  /// 会解析到项目外（如 ~/Documents/{platform}/unityLibrary），与 metax 期望的
+  /// 缓存目录不一致，需在此对齐。
+  Future<void> _copyExportedUnityToCacheDir(
+      UnityEnvironment unityEnvironment) async {
+    final workspaceDirectory =
+        unityEnvironment.getPlatfromUnityWorkspace(platform.name);
+    // Unity 的 Application.dataPath 返回真实路径（软链已解析），这里同样解析
+    final realWorkspace =
+        Directory(workspaceDirectory).resolveSymbolicLinksSync();
+    final exportRelativePath = platform == BuildPlatform.ios
+        ? '../../ios/UnityLibrary'
+        : '../../${platform.name}/unityLibrary';
+    final unityExportDir = normalize(join(realWorkspace, exportRelativePath));
+    final unityCacheDir = _getUnityCacheDir(unityEnvironment);
+
+    if (normalize(unityExportDir) == normalize(unityCacheDir)) {
+      return;
+    }
+    if (!Directory(unityExportDir).existsSync()) {
+      throw Exception('Unity 导出目录不存在: $unityExportDir');
+    }
+    loggerInfo('📦 复制 Unity 导出产物: $unityExportDir -> $unityCacheDir');
+    await copyDirToDir(Directory(unityExportDir), Directory(unityCacheDir));
   }
 }
