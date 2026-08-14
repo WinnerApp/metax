@@ -7,26 +7,27 @@ import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
 
-/// 忽略缓存时，按库清理工程产物与 ~/.metax 缓存
+/// 忽略缓存时，只清理「当前正在处理的库」的工程产物与 ~/.metax 缓存。
+///
+/// 即使是全局 `--no-isUseCache`，也只清 [library]，避免 Flutter 阶段误删已落地的 Unity 产物（或反之）。
 Future<void> cleanCachesOnIgnore({
   required AppHomeDir appHomeDir,
   required BuildLibrary library,
   MetaxCache? metaxCache,
 }) async {
-  final cleanFlutter = !isUseCache || library == BuildLibrary.flutter;
-  final cleanUnity = !isUseCache || library == BuildLibrary.unity;
+  final reason = !isUseCache
+      ? '全局 --no-isUseCache，仅清理 ${library.name}'
+      : library == BuildLibrary.flutter
+          ? '--no-isUseFlutterCache'
+          : '--no-isUseUnityCache';
 
-  loggerWarning(
-    '🧹 忽略缓存，开始清理本地产物'
-    '${!isUseCache ? '（全局 --no-isUseCache）' : library == BuildLibrary.flutter ? '（--no-isUseFlutterCache）' : '（--no-isUseUnityCache）'}...',
-  );
+  loggerWarning('🧹 忽略缓存，开始清理本地产物（$reason）...');
 
-  if (cleanFlutter) {
+  if (library == BuildLibrary.flutter) {
     await cleanFlutterModuleCaches(appHomeDir);
     await cleanFlutterHostCaches(appHomeDir);
     await cleanMetaxLibraryCaches(BuildLibrary.flutter);
-  }
-  if (cleanUnity) {
+  } else if (library == BuildLibrary.unity) {
     await cleanUnityHostCaches(appHomeDir);
     await cleanMetaxLibraryCaches(BuildLibrary.unity);
   }

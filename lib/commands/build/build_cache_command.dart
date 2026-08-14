@@ -70,13 +70,13 @@ abstract class BuildCacheCommand extends Command {
     final bool disableAllCache = !isLibraryCacheEnabled(cache.buildLibrary);
     if (disableAllCache) {
       // 全局 --no-isUseCache，或分库 --no-isUseFlutterCache / --no-isUseUnityCache：
-      // 清理工程产物 + 宿主 frameworks/aar + ~/.metax，再强制全新编译
+      // 仅清理当前库的工程产物 + 宿主 frameworks/aar + ~/.metax，再强制全新编译
       final reason = !isUseCache
-          ? '--no-isUseCache'
+          ? '--no-isUseCache（仅 ${cache.buildLibrary.name}）'
           : cache.buildLibrary == BuildLibrary.flutter
               ? '--no-isUseFlutterCache'
               : '--no-isUseUnityCache';
-      loggerWarning('🧹 检测到 $reason，将强制全新编译，不使用任何本地缓存');
+      loggerWarning('🧹 检测到 $reason，将强制全新编译，不使用该库本地缓存');
 
       await cleanCachesOnIgnore(
         appHomeDir: appHomeDir,
