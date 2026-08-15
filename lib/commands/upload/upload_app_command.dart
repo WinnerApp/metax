@@ -678,9 +678,7 @@ $changeLog
           : io.Directory(join(appHomeDir.iosDir.path, 'UnityLibrary')),
       'android' => useUnityAarBuild
           ? io.Directory(join(appHomeDir.androidDir.path, 'aar', 'unity'))
-          : io.Directory(
-              join(appHomeDir.unityAndroidDir.path, 'unityLibrary'),
-            ),
+          : io.Directory(join(appHomeDir.androidDir.path, 'unityLibrary')),
       'ohos' => useUnityAarBuild
           ? io.Directory(join(appHomeDir.ohosDir.path, 'aar', 'unity'))
           : io.Directory(join(appHomeDir.ohosDir.path, 'unityLibrary')),

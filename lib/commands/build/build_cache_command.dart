@@ -135,7 +135,7 @@ abstract class BuildCacheCommand extends Command {
         flutterSdk: flutterSdk,
       );
       if (cache.buildPlatform == BuildPlatform.android) {
-        // unityAndroid/unityLibrary/symbols
+        // android/unityLibrary/symbols
         /// 分别上传到测试和生产环境
         await uploadAndroidUnitySymbols(true);
         await uploadAndroidUnitySymbols(false);
@@ -147,7 +147,7 @@ abstract class BuildCacheCommand extends Command {
 
   Future<void> uploadAndroidUnitySymbols(bool isStore) async {
     final unitySymbolsPath = join(
-      appHomeDir.unityAndroidDir.path,
+      appHomeDir.androidDir.path,
       'unityLibrary',
       'symbols',
     );

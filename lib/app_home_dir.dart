@@ -10,7 +10,7 @@ class AppHomeDir {
   Directory get iosDir => Directory(join(workspace, 'ios'));
   Directory get androidDir => Directory(join(workspace, 'android'));
   Directory get ohosDir => Directory(join(workspace, 'ohos'));
-  /// 独立打包 Unity AAR 的 Android 工程壳（与 android 宿主解耦）
+  /// 独立打包 Unity AAR 的 Android 工程壳（与 android 宿主解耦，使用 android/unityLibrary）
   Directory get unityAndroidDir => Directory(join(workspace, 'unityAndroid'));
   /// 独立打包 Unity HAR 的鸿蒙工程壳（与 ohos 宿主解耦）
   Directory get unityOhosDir => Directory(join(workspace, 'unityOhos'));

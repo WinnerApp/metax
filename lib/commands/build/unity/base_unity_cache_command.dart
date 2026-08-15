@@ -156,12 +156,8 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
     final appWorkspace = join(unityEnvironment.unityWorkspace, platform.name);
     return switch (platform) {
       BuildPlatform.ios => join(appWorkspace, 'UnityLibrary'),
-      // Android AAR 在独立壳工程 unityAndroid 中构建
-      BuildPlatform.android => join(
-          unityEnvironment.unityWorkspace,
-          'unityAndroid',
-          'unityLibrary',
-        ),
+      // Android Unity Library 导出到 android/unityLibrary（AAR 由 unityAndroid 壳引用）
+      BuildPlatform.android => join(appWorkspace, 'unityLibrary'),
       BuildPlatform.ohos => join(appWorkspace, 'unityLibrary'),
     };
   }

@@ -10,14 +10,14 @@ import 'package:process_runner/process_runner.dart';
 
 class UnityAarCommand extends BuildCacheCommand {
   @override
-  String get description => '打包unity aar（在 unityAndroid 执行 build_aar.sh）';
+  String get description => '打包unity aar（在 unityAndroid 执行 build_aar.sh，使用 android/unityLibrary）';
 
   @override
   String get name => 'unity';
 
-  /// Unity Library 模块：unityAndroid/unityLibrary
+  /// Unity Library 模块：android/unityLibrary（由 unityAndroid 壳引用）
   Directory get _unityLibraryDir => Directory(join(
-        appHomeDir.unityAndroidDir.path,
+        appHomeDir.androidDir.path,
         'unityLibrary',
       ));
 
@@ -30,7 +30,7 @@ class UnityAarCommand extends BuildCacheCommand {
         'aar',
       );
 
-  /// build_aar.sh 产物：unityAndroid/unityLibrary/build/outputs/aar/unityLibrary-release.aar
+  /// gradle 产物：android/unityLibrary/build/outputs/aar/unityLibrary-release.aar
   File get _gradleReleaseAar => File(join(
         _unityLibraryDir.path,
         'build',
@@ -108,7 +108,7 @@ class UnityAarCommand extends BuildCacheCommand {
     final unityAndroidDir = appHomeDir.unityAndroidDir;
     final unityDir = _unityLibraryDir;
     final archihiveName = 'Android_achieve.zip';
-    // unityAndroid/unityLibrary/src/main/assets/LocalBundle/Zips/Android_achieve.zip
+    // android/unityLibrary/src/main/assets/LocalBundle/Zips/Android_achieve.zip
     final unityArchieveFile = File(join(
       unityDir.path,
       'src',
@@ -140,7 +140,7 @@ class UnityAarCommand extends BuildCacheCommand {
       throw Exception('build_aar.sh 不存在: ${buildAarScript.path}');
     }
 
-    /// bash build_aar.sh（在 unityAndroid 下执行，脚本负责 JDK/NDK/gradle）
+    /// bash build_aar.sh（在 unityAndroid 下执行，脚本引用 android/unityLibrary）
     await ProcessRunner().runProcess(
       ['bash', 'build_aar.sh'],
       workingDirectory: unityAndroidDir,

@@ -113,7 +113,7 @@ enum MockType {
           'UnityLibrary',
         )),
       MockType.androidUnityLibrary => Directory(join(
-          appHomeDir.unityAndroidDir.path,
+          appHomeDir.androidDir.path,
           'unityLibrary',
         )),
       MockType.ohosUnityLibrary => Directory(join(
