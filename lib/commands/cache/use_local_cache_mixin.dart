@@ -94,7 +94,7 @@ mixin UseLocalCacheMixin {
       }
     } else if (buildPlatform == BuildPlatform.android.name) {
       if (buildType == BuildType.library.name) {
-        return join(appHomeDir.androidDir.path, 'unityLibrary');
+        return join(appHomeDir.unityAndroidDir.path, 'unityLibrary');
       } else if (buildType == BuildType.aar.name) {
         if (buildLibrary == BuildLibrary.unity.name) {
           return join(appHomeDir.androidDir.path, 'aar', 'unity');

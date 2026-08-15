@@ -119,6 +119,15 @@ Future<void> cleanUnityHostCaches(AppHomeDir appHomeDir) async {
       )),
     );
   }
+  if (await appHomeDir.unityAndroidDir.exists()) {
+    await deleteDirIfExists(
+      Directory(join(
+        appHomeDir.unityAndroidDir.path,
+        'unityLibrary',
+        'build',
+      )),
+    );
+  }
   if (await appHomeDir.ohosDir.exists()) {
     await deleteDirIfExists(
       Directory(join(appHomeDir.ohosDir.path, 'aar', 'unity')),
