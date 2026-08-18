@@ -43,7 +43,9 @@ class OhosCommand extends Command {
       commands.add('version_name:$versionName');
     }
 
-    await ProcessRunner().runProcess(
+    await ProcessRunner(
+      environment: envOverrideFromLocalProperties(ohosDir),
+    ).runProcess(
       commands,
       workingDirectory: ohosDir,
       printOutput: true,

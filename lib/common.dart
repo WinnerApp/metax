@@ -651,6 +651,35 @@ Map<String, String> readEnvironmentFromFile(String filePath) {
   return environment;
 }
 
+/// 从目标目录下 local.properties 读取 hvigor.nodeOptions，返回 NODE_OPTIONS 环境变量覆盖。
+/// 未配置时返回 null（ProcessRunner 会继承父环境，不影响内存充足的机器）。
+Map<String, String>? envOverrideFromLocalProperties(Directory dir) {
+  final propsFile = File(join(dir.path, 'local.properties'));
+  if (!propsFile.existsSync()) {
+    return null;
+  }
+  String? nodeOptions;
+  for (final line in propsFile.readAsLinesSync()) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) {
+      continue;
+    }
+    final eq = trimmed.indexOf('=');
+    if (eq <= 0) {
+      continue;
+    }
+    final key = trimmed.substring(0, eq).trim();
+    final value = trimmed.substring(eq + 1).trim();
+    if (key == 'hvigor.nodeOptions') {
+      nodeOptions = value;
+    }
+  }
+  if (nodeOptions == null || nodeOptions.isEmpty) {
+    return null;
+  }
+  return {'NODE_OPTIONS': nodeOptions};
+}
+
 Map<String, String> loadAppEnvironment(AppHomeDir appHomeDir) {
   final appEnvFile = File(join(
     appHomeDir.workspace,

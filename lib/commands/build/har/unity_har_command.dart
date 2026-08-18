@@ -133,7 +133,9 @@ class UnityHarCommand extends BuildCacheCommand {
       printOutput: true,
     );
 
-    await ProcessRunner().runProcess(
+    await ProcessRunner(
+      environment: envOverrideFromLocalProperties(unityOhosDir),
+    ).runProcess(
       [
         hvigorw,
         'assembleHar',

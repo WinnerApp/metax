@@ -112,5 +112,25 @@ class BuildNameNumberCommand extends Command {
     );
     await appJson5.writeAsString(text);
     loggerDebug('已更新 ${appJson5.path}');
+
+    // 同步更新 ohos/local.properties：hvigor 打包时 versionCode 从 local.properties 读取，
+    // 仅写 app.json5 会被 fastlane/hvigor 覆盖，导致 buildNumber 不生效（与 android 分支对齐）
+    final localProperties = File(join(
+      appHomeDir.ohosDir.path,
+      'local.properties',
+    ));
+    if (localProperties.existsSync()) {
+      await writeEnvironmentValueInFile(
+        localProperties.path,
+        'flutter.versionName',
+        buildName,
+      );
+      await writeEnvironmentValueInFile(
+        localProperties.path,
+        'flutter.versionCode',
+        buildNumber,
+      );
+      loggerDebug('已更新 ${localProperties.path}');
+    }
   }
 }
