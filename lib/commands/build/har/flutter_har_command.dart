@@ -136,6 +136,8 @@ class FlutterHarCommand extends BuildCacheCommand {
       );
     }
 
+    await _applyHvigorNodeOptions(appHomeDir.flutterDir);
+
     final modeFlag =
         configuration == BuildConfiguration.debug.name ? '--debug' : '--release';
     await ProcessRunner().runProcess(
@@ -183,5 +185,74 @@ class FlutterHarCommand extends BuildCacheCommand {
     }
     await copyDirToDir(sourceHarDir, stableDir);
     loggerDebug('已收集 Flutter HAR 到 ${stableDir.path}');
+  }
+
+  /// hvigorw 不读取 NODE_OPTIONS，仅认 hvigor-config.json5 的
+  /// nodeOptions.maxOldSpaceSize。此处将 local.properties 中
+  /// hvigor.nodeOptions 携带的 max-old-space-size 注入到
+  /// .ohos/hvigor/hvigor-config.json5，用于低内存打包机缓解 swap 风暴。
+  /// 必须在 cp -rf buildConfigs/ohos -> .ohos 之后调用，否则会被覆盖。
+  Future<void> _applyHvigorNodeOptions(Directory flutterDir) async {
+    final propsFile = File(join(flutterDir.path, 'local.properties'));
+    if (!propsFile.existsSync()) {
+      loggerDebug('local.properties 不存在，跳过 hvigor nodeOptions 注入');
+      return;
+    }
+    String? nodeOptions;
+    for (final line in propsFile.readAsLinesSync()) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) {
+        continue;
+      }
+      final eq = trimmed.indexOf('=');
+      if (eq <= 0) {
+        continue;
+      }
+      if (trimmed.substring(0, eq).trim() == 'hvigor.nodeOptions') {
+        nodeOptions = trimmed.substring(eq + 1).trim();
+      }
+    }
+    if (nodeOptions == null || nodeOptions.isEmpty) {
+      loggerDebug('local.properties 未配置 hvigor.nodeOptions，跳过注入');
+      return;
+    }
+    final match = RegExp(r'max-old-space-size=(\d+)').firstMatch(nodeOptions);
+    if (match == null) {
+      loggerWarning(
+        'hvigor.nodeOptions 中未找到 max-old-space-size，跳过注入: $nodeOptions',
+      );
+      return;
+    }
+    final maxOldSpaceSize = int.parse(match.group(1)!);
+
+    final configPath = join(
+      flutterDir.path,
+      '.ohos',
+      'hvigor',
+      'hvigor-config.json5',
+    );
+    final configFile = File(configPath);
+    if (!configFile.existsSync()) {
+      loggerWarning('hvigor-config.json5 不存在，跳过 nodeOptions 注入: $configPath');
+      return;
+    }
+    final config = configFile.readAsStringSync();
+    if (config.contains('nodeOptions')) {
+      loggerDebug('hvigor-config.json5 已包含 nodeOptions，跳过注入: $configPath');
+      return;
+    }
+    final lastBrace = config.lastIndexOf('}');
+    if (lastBrace < 0) {
+      loggerWarning('hvigor-config.json5 格式异常，跳过 nodeOptions 注入: $configPath');
+      return;
+    }
+    final inject =
+        '\n  "nodeOptions": {"maxOldSpaceSize": $maxOldSpaceSize},';
+    configFile.writeAsStringSync(
+      config.substring(0, lastBrace) + inject + config.substring(lastBrace),
+    );
+    loggerInfo(
+      '已注入 hvigor nodeOptions.maxOldSpaceSize=$maxOldSpaceSize 到 $configPath',
+    );
   }
 }
