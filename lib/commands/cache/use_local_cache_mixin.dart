@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
+import 'package:meta_tool/commands/cache/cache_patch_engine.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:path/path.dart';
@@ -36,6 +37,13 @@ mixin UseLocalCacheMixin {
     );
     final zipPath = metaxCache.getZipCachePath(cacheModel.commitHash);
     await copyZipToDir(zipPath, targetDir);
+
+    /// 修复 Flutter 产物已知问题（KSCrash podspec 版本 / Measure swiftinterface）
+    if (buildPlatform == BuildPlatform.ios.name &&
+        buildLibrary == BuildLibrary.flutter.name &&
+        buildType == BuildType.framework.name) {
+      await CachePatchEngine(appHomeDir.directory).apply(targetDir);
+    }
 
     /// 如果当前是iOS 并且是Flutter则需要复制隐私文件到对应目录
     if (buildPlatform == BuildPlatform.ios.name &&
