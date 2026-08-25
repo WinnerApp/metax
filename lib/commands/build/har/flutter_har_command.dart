@@ -136,7 +136,7 @@ class FlutterHarCommand extends BuildCacheCommand {
       );
     }
 
-    await _applyHvigorNodeOptions(appHomeDir.flutterDir);
+    await _applyHvigorNodeOptions(appHomeDir.ohosDir, appHomeDir.flutterDir);
 
     final modeFlag =
         configuration == BuildConfiguration.debug.name ? '--debug' : '--release';
@@ -188,12 +188,15 @@ class FlutterHarCommand extends BuildCacheCommand {
   }
 
   /// hvigorw 不读取 NODE_OPTIONS，仅认 hvigor-config.json5 的
-  /// nodeOptions.maxOldSpaceSize。此处将 local.properties 中
+  /// nodeOptions.maxOldSpaceSize。此处将 ohos/local.properties 中
   /// hvigor.nodeOptions 携带的 max-old-space-size 注入到
-  /// .ohos/hvigor/hvigor-config.json5，用于低内存打包机缓解 swap 风暴。
+  /// flutterDir/.ohos/hvigor/hvigor-config.json5，用于低内存打包机缓解 swap 风暴。
   /// 必须在 cp -rf buildConfigs/ohos -> .ohos 之后调用，否则会被覆盖。
-  Future<void> _applyHvigorNodeOptions(Directory flutterDir) async {
-    final propsFile = File(join(flutterDir.path, 'local.properties'));
+  Future<void> _applyHvigorNodeOptions(
+    Directory ohosDir,
+    Directory flutterDir,
+  ) async {
+    final propsFile = File(join(ohosDir.path, 'local.properties'));
     if (!propsFile.existsSync()) {
       loggerDebug('local.properties 不存在，跳过 hvigor nodeOptions 注入');
       return;
@@ -247,7 +250,7 @@ class FlutterHarCommand extends BuildCacheCommand {
       return;
     }
     final inject =
-        '\n  "nodeOptions": {"maxOldSpaceSize": $maxOldSpaceSize},';
+        ',\n  "nodeOptions": {"maxOldSpaceSize": $maxOldSpaceSize}';
     configFile.writeAsStringSync(
       config.substring(0, lastBrace) + inject + config.substring(lastBrace),
     );

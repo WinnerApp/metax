@@ -23,14 +23,7 @@ Future<void> cleanCachesOnIgnore({
 
   loggerWarning('🧹 忽略缓存，开始清理本地产物（$reason）...');
 
-  if (library == BuildLibrary.flutter) {
-    await cleanFlutterModuleCaches(appHomeDir);
-    await cleanFlutterHostCaches(appHomeDir);
-    await cleanMetaxLibraryCaches(BuildLibrary.flutter);
-  } else if (library == BuildLibrary.unity) {
-    await cleanUnityHostCaches(appHomeDir);
-    await cleanMetaxLibraryCaches(BuildLibrary.unity);
-  }
+  await cleanLibraryCaches(appHomeDir: appHomeDir, library: library);
 
   // 当前这次打包对应的 metax 子目录再清一遍（兼容旧 zip 残留）
   if (metaxCache != null) {
@@ -38,6 +31,40 @@ Future<void> cleanCachesOnIgnore({
   }
 
   loggerSuccess('🧹 忽略缓存相关目录清理完成');
+}
+
+/// 手动清理指定库的工程产物与 ~/.metax 缓存。
+Future<void> cleanLibraryCaches({
+  required AppHomeDir appHomeDir,
+  required BuildLibrary library,
+}) async {
+  loggerInfo('🧹 开始清理 ${library.name} 相关缓存...');
+
+  if (library == BuildLibrary.flutter) {
+    await cleanFlutterModuleCaches(appHomeDir);
+    await cleanFlutterHostCaches(appHomeDir);
+    await cleanMetaxLibraryCaches(BuildLibrary.flutter);
+  } else {
+    await cleanUnityHostCaches(appHomeDir);
+    await cleanMetaxLibraryCaches(BuildLibrary.unity);
+  }
+
+  loggerSuccess('🧹 ${library.name} 缓存清理完成');
+}
+
+/// 手动清理 Flutter 与 Unity 的全部工程产物与 ~/.metax 缓存。
+Future<void> cleanAllLibraryCaches({
+  required AppHomeDir appHomeDir,
+}) async {
+  loggerInfo('🧹 开始清理 Flutter 与 Unity 相关缓存...');
+
+  await cleanFlutterModuleCaches(appHomeDir);
+  await cleanFlutterHostCaches(appHomeDir);
+  await cleanUnityHostCaches(appHomeDir);
+  await cleanMetaxLibraryCaches(BuildLibrary.flutter);
+  await cleanMetaxLibraryCaches(BuildLibrary.unity);
+
+  loggerSuccess('🧹 全部缓存清理完成');
 }
 
 Future<void> deleteDirIfExists(Directory dir) async {
