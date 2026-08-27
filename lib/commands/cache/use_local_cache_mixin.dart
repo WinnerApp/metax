@@ -59,6 +59,11 @@ mixin UseLocalCacheMixin {
         await targetPrivacyDir.delete(recursive: true);
       }
       await copyDirToDir(privacyDir, targetPrivacyDir);
+
+      await alignIosFlutterFrameworkPodspecs(
+        appHomeDir: appHomeDir,
+        buildConfiguration: buildConfiguration,
+      );
     }
   }
 
