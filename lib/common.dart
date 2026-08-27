@@ -428,6 +428,48 @@ Future<void> copyZipToDir(String zipPath, Directory targetDir) async {
   );
 }
 
+/// iOS Flutter framework 缓存解压后对齐 podspec（Measure -> measure-sh 等）
+Future<void> alignIosFlutterFrameworkPodspecs({
+  required AppHomeDir appHomeDir,
+  required String buildConfiguration,
+}) async {
+  final script = File(join(
+    appHomeDir.workspace,
+    'jenkins_ci',
+    'setup_ios_framework_podspec.sh',
+  ));
+  if (!await script.exists()) {
+    loggerDebug('跳过 podspec 对齐：${script.path} 不存在');
+    return;
+  }
+
+  final configuration = buildConfiguration == BuildConfiguration.release.name
+      ? 'Release'
+      : 'Debug';
+  final frameworkDir = join(
+    appHomeDir.iosDir.path,
+    'frameworks',
+    'flutter',
+    configuration,
+  );
+  if (!Directory(frameworkDir).existsSync()) {
+    loggerDebug('跳过 podspec 对齐：$frameworkDir 不存在');
+    return;
+  }
+
+  loggerDebug('对齐 iOS Flutter framework podspec: $configuration');
+  await ProcessRunner().runProcess(
+    [
+      'bash',
+      script.path,
+      configuration,
+      frameworkDir,
+    ],
+    workingDirectory: appHomeDir.workspace,
+    printOutput: true,
+  );
+}
+
 String formatGitLog(String flutterLog, String unityLog) {
   List<String> filterLogs(String log) {
     List<String> logs = [];

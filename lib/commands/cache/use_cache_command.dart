@@ -396,6 +396,11 @@ class UseCacheCommand extends Command {
         await targetPrivacyDir.delete(recursive: true);
       }
       await copyDirToDir(privacyDir, targetPrivacyDir);
+
+      await alignIosFlutterFrameworkPodspecs(
+        appHomeDir: appHomeDir,
+        buildConfiguration: buildConfiguration,
+      );
     }
   }
 
