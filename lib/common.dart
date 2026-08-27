@@ -465,7 +465,7 @@ Future<void> alignIosFlutterFrameworkPodspecs({
       configuration,
       frameworkDir,
     ],
-    workingDirectory: appHomeDir.workspace,
+    workingDirectory: Directory(appHomeDir.workspace),
     printOutput: true,
   );
 }
