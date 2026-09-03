@@ -6,6 +6,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutter_sdk.dart';
+import 'package:meta_tool/shorebird.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -27,11 +28,22 @@ class FlutterAarCommand extends BuildCacheCommand {
       'branch',
       help: '分支名称,指定分支则进行切换到对应分支',
     );
+    argParser.addFlag(
+      'useShorebird',
+      help: '显式启用/关闭 Shorebird（覆盖 yaml/env）',
+      defaultsTo: null,
+    );
+    argParser.addOption(
+      'releaseVersion',
+      help: 'Shorebird --release-version，如 1.2.3+456',
+    );
   }
 
   late String configuration;
   late FlutterSdkInfo flutterSdk;
   late List<String> flutterCommand;
+  late bool shorebirdEnabled;
+  String? shorebirdReleaseVersion;
 
   @override
   Future<void> run() async {
@@ -64,6 +76,35 @@ class FlutterAarCommand extends BuildCacheCommand {
       }
     }
 
+    final shorebird = resolveUseShorebird(
+      appHomeDir: appHomeDir,
+      explicitUseShorebird: argResults?['useShorebird'] as bool?,
+    );
+    shorebirdEnabled = shorebird.enabled && configuration == 'release';
+    if (shorebird.enabled && configuration != 'release') {
+      loggerWarning(
+        'Shorebird 仅支持 release，当前 configuration=$configuration，回退 flutter build',
+      );
+    }
+    loggerInfo(
+      'Shorebird: enabled=$shorebirdEnabled (${shorebird.reason})',
+    );
+    if (shorebirdEnabled) {
+      shorebirdReleaseVersion = (argResults?['releaseVersion'] as String?)
+              ?.trim()
+              .isNotEmpty ==
+          true
+          ? (argResults?['releaseVersion'] as String).trim()
+          : resolveReleaseVersionFromEnv();
+      if (shorebirdReleaseVersion == null ||
+          shorebirdReleaseVersion!.isEmpty) {
+        throw Exception(
+          '启用 Shorebird 时需要 --releaseVersion 或 '
+          'SHOREBIRD_RELEASE_VERSION / BUILD_VERSION_NAME+BUILD_VERSION_NUMBER',
+        );
+      }
+    }
+
     final gate = await ensureFlutterSdkReady(workspaceDir);
     flutterSdk = gate.sdk;
     flutterCommand = flutterSdk.flutterCommand;
@@ -82,6 +123,9 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildId: 0,
     );
     final buildCacheDir = join(workspaceDir.path, 'build', 'host');
+    final sdkFingerprint = shorebirdEnabled
+        ? shorebirdFlutterSdkFingerprint(flutterSdk.fingerprint)
+        : flutterSdk.fingerprint;
     await updateCache(
       cache: flutterCache,
       commitHash: commitHash,
@@ -89,7 +133,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       commitTime: commitTime,
       cacheId: commitHash,
       forceUpdate: forceUpdate || gate.didClean,
-      flutterSdk: flutterSdk.fingerprint,
+      flutterSdk: sdkFingerprint,
     );
     await saveFlutterSdkFingerprint(
       projectPath: workspaceDir.path,
@@ -154,6 +198,29 @@ class FlutterAarCommand extends BuildCacheCommand {
         ],
         workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
+      );
+    } else if (shorebirdEnabled) {
+      final started = DateTime.now();
+      final flutterVersion = resolveShorebirdFlutterVersion(
+        flutterDir: appHomeDir.flutterDir,
+        sdk: flutterSdk,
+      );
+      await runShorebirdRelease(
+        flutterDir: appHomeDir.flutterDir,
+        platform: 'aar',
+        releaseVersion: shorebirdReleaseVersion!,
+        flutterVersion: flutterVersion,
+        extraFlutterArgs: const [
+          '--no-debug',
+          '--no-profile',
+          '--target-platform=android-arm64',
+          '--no-tree-shake-icons',
+        ],
+      );
+      await syncShorebirdAarReleaseToHostDir(appHomeDir.flutterDir);
+      loggerInfo(
+        'shorebird_release elapsed_ms='
+        '${DateTime.now().difference(started).inMilliseconds}',
       );
     } else {
       /// flutter build aar --no-debug --no-profile --verbose

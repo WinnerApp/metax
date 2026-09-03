@@ -12,6 +12,7 @@ import 'package:meta_tool/flutter_sdk.dart';
 import 'package:meta_tool/flutter_web_version_data.dart';
 import 'package:meta_tool/get_git_log.dart';
 import 'package:meta_tool/git_submodule_parse.dart';
+import 'package:meta_tool/shorebird.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:meta_tool/upload_app_environment.dart';
 import 'package:meta_tool/upload_sentry.dart';
@@ -83,6 +84,11 @@ abstract class UploadAppCommand extends Command {
     argParser.addOption(
       'copyIpaOrApkToBuildDir',
       help: '复制ipa/apk到指定位置',
+    );
+    argParser.addFlag(
+      'useShorebird',
+      help: '显式启用/关闭 Shorebird（覆盖 pubspec metax.shorebird_enabled / env）',
+      defaultsTo: null,
     );
   }
 
@@ -414,9 +420,51 @@ $changeLog
         (localProperties['useUnityAarBuild'] ?? 'true').toLowerCase().trim() !=
         'false';
 
+    final shorebirdResolved = resolveUseShorebird(
+      appHomeDir: appHomeDir,
+      explicitUseShorebird: argResults?['useShorebird'] as bool?,
+    );
+    var shorebirdEnabled = shorebirdResolved.enabled;
+    if (shorebirdEnabled && flutterSourceCompile) {
+      loggerWarning(
+        'flutterSourceCompile=true 与 Shorebird 不兼容，已强制关闭 Shorebird',
+      );
+      shorebirdEnabled = false;
+    }
+    if (shorebirdEnabled && platform == 'ohos') {
+      loggerWarning('ohos 不支持 Shorebird，已关闭');
+      shorebirdEnabled = false;
+    }
+    loggerInfo(
+      'Shorebird: enabled=$shorebirdEnabled (${shorebirdResolved.reason})',
+    );
+
+    final releaseVersion = buildShorebirdReleaseVersion(
+      buildName: environment.buildName,
+      buildNumber: environment.buildNumber,
+    );
+    // 供 cache use → build framework/aar 读取（子进程环境）
+    final shorebirdProcessEnv = <String, String>{
+      'SHOREBIRD_RELEASE_VERSION': releaseVersion,
+      'BUILD_VERSION_NAME': environment.buildName,
+      'BUILD_VERSION_NUMBER': environment.buildNumber,
+      'SHOREBIRD_ENABLED': shorebirdEnabled ? 'true' : 'false',
+    };
+    buildAppRunner.environment.addAll(shorebirdProcessEnv);
+
+    if (platform == 'android') {
+      final localPropertyFile =
+          io.File(join(appHomeDir.androidDir.path, 'local.properties'));
+      await writeEnvironmentValueInFile(
+        localPropertyFile.path,
+        'useShorebird',
+        shorebirdEnabled ? 'true' : 'false',
+      );
+    }
+
     loggerDebug(
       'local.properties: flutterSourceCompile=$flutterSourceCompile, '
-      'useUnityAarBuild=$useUnityAarBuild',
+      'useUnityAarBuild=$useUnityAarBuild, useShorebird=$shorebirdEnabled',
     );
 
     loggerDebug('开始复制Unity静态库到指定位置');
@@ -432,6 +480,15 @@ $changeLog
     final flutterBranch = await getCurrentBranch(
       join(environment.workspace, 'metaapp_flutter'),
     );
+    if (shorebirdEnabled) {
+      shorebirdProcessEnv['SHOREBIRD_BASE_COMMIT'] = flutterCurrentCommitId;
+      buildAppRunner.environment['SHOREBIRD_BASE_COMMIT'] =
+          flutterCurrentCommitId;
+      loggerInfo(
+        'Shorebird release-version=$releaseVersion '
+        'base-commit=$flutterCurrentCommitId',
+      );
+    }
 
     final flutterSourceCodeCompile =
         (buildAppRunner.environment['FLUTTER_SOURCE_CODE_COMPILE'] ??
@@ -476,6 +533,8 @@ $changeLog
       environment,
       flutterBranch,
       flutterSourceCompile: flutterSourceCompile,
+      shorebirdEnabled: shorebirdEnabled,
+      shorebirdProcessEnv: shorebirdProcessEnv,
     );
 
     final isInitFlutterEnvironment =
@@ -719,6 +778,8 @@ $changeLog
     UploadAppEnvironment environment,
     String flutterBranch, {
     required bool flutterSourceCompile,
+    bool shorebirdEnabled = false,
+    Map<String, String> shorebirdProcessEnv = const {},
   }) async {
     if (flutterSourceCompile) {
       loggerDebug(
@@ -728,7 +789,10 @@ $changeLog
     }
 
     final flutterBuildType = _resolveFlutterBuildType(environment.platform);
-    loggerDebug('Flutter 构建方式: 预编译($flutterBuildType)');
+    loggerDebug(
+      'Flutter 构建方式: 预编译($flutterBuildType)'
+      '${shorebirdEnabled ? ' [Shorebird]' : ''}',
+    );
 
     final cacheDir = switch (environment.platform) {
       'ios' => io.Directory(join(
@@ -753,7 +817,11 @@ $changeLog
     }
     // 始终按 commitHash 查本地/网络缓存：命中则跳过编译，未命中再编译。
     // 不要用 isFlutterBuild 关掉 Flutter 缓存，否则即使产物 commit 已一致也会强制重编。
-    await ProcessRunner().runProcess(
+    final env = <String, String>{
+      ...Platform.environment,
+      ...shorebirdProcessEnv,
+    };
+    await ProcessRunner(environment: env).runProcess(
       [
         'metax',
         'cache',

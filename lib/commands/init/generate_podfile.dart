@@ -61,7 +61,7 @@ class GeneratePodfileCommand extends Command {
       '    flutter_path = "./frameworks/flutter/#{flutter_build_mode}"',
       '    puts "当前依赖Flutter模块静态库路径#{flutter_path}"',
       ...podNames.map((e) {
-        if (e == 'Flutter') {
+        if (e == 'Flutter' || e == 'ShorebirdFlutter') {
           return "    pod '$e', :podspec => \"#{flutter_path}\"";
         }
         return "    pod '$e', :path => \"#{flutter_path}\"";

@@ -12,6 +12,7 @@ import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/commands/cache/cache_patch_engine.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/shorebird.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -447,6 +448,15 @@ class UseCacheCommand extends Command {
       cacheModels = cacheModels.where((e) => e.buildId == buildId).toList();
     }
 
+    // Shorebird 与普通 Flutter 产物不可混用
+    if (buildLibrary == BuildLibrary.flutter.name) {
+      final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
+      cacheModels = cacheModels.where((e) {
+        final isSb = isShorebirdFlutterSdkFingerprint(e.flutterSdk);
+        return shorebird.enabled ? isSb : !isSb;
+      }).toList();
+    }
+
     if (cacheModels.isEmpty) return null;
 
     /// 如果是Unity则按照BuildId排序
@@ -577,18 +587,29 @@ class UseCacheCommand extends Command {
     } else {
       throw UnimplementedError();
     }
+    final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
+    final command = <String>[
+      'metax',
+      'build',
+      buildType,
+      'flutter',
+      '--configuration',
+      buildConfiguration,
+      isUpload ? '--isUpload' : '--no-isUpload',
+      getUseMockCommand(),
+      ...getUseCacheCommands(),
+    ];
+    if (shorebird.enabled) {
+      command.add('--useShorebird');
+      final releaseVersion = resolveReleaseVersionFromEnv();
+      if (releaseVersion != null && releaseVersion.isNotEmpty) {
+        command.addAll(['--releaseVersion', releaseVersion]);
+      }
+    } else {
+      command.add('--no-useShorebird');
+    }
     await ProcessRunner().runProcess(
-      [
-        'metax',
-        'build',
-        buildType,
-        'flutter',
-        '--configuration',
-        buildConfiguration,
-        isUpload ? '--isUpload' : '--no-isUpload',
-        getUseMockCommand(),
-        ...getUseCacheCommands(),
-      ],
+      command,
       workingDirectory: appHomeDir.directory,
       printOutput: true,
     );

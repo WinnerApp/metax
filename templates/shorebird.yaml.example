@@ -1,0 +1,14 @@
+# 复制到 metaapp_flutter/shorebird.yaml（或合并字段）。
+# 只放 Shorebird 官方支持的 key：app_id / flavors / base_url / auto_update / patch_verification
+#
+# metax 是否启用 Shorebird：写在 metaapp_flutter/pubspec.yaml
+#   metax:
+#     shorebird_enabled: true
+# 不要用「shorebird.yaml 是否存在」判断；也不要在本文件加 metax_enabled（CLI 会报 Unrecognized keys）。
+#
+# 设备端 OTA 走 Meta Code Push（base_url），不是 api.shorebird.dev。
+# Shorebird CLI 构建由 metax 强制走 https://api.shorebird.dev，与本文件 base_url 无关。
+
+app_id: "00000000-0000-4000-8000-000000000001"
+base_url: http://119.23.47.1:9527/
+auto_update: true

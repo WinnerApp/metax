@@ -18,6 +18,8 @@ dependencies:
   prompts: ^2.0.0
   archive: ^3.3.0
   crypto: ^3.0.3
+  yaml: ^3.1.4
+  http: ^1.6.0
 
 dev_dependencies:
   lints: ^4.0.0
