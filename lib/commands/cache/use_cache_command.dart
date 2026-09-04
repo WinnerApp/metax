@@ -236,6 +236,10 @@ class UseCacheCommand extends Command {
             branch: branch,
             commitHash: networkCacheModel.commitHash,
             buildId: int.parse(networkCacheModel.buildId),
+            isShorebird: cacheEntryIsShorebird(
+              isShorebird: networkCacheModel.isShorebird,
+              flutterSdk: networkCacheModel.flutterSdk,
+            ),
           );
         }
       }
@@ -421,6 +425,9 @@ class UseCacheCommand extends Command {
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
+      isShorebird: buildLibrary == BuildLibrary.flutter.name
+          ? resolveUseShorebird(appHomeDir: appHomeDir).enabled
+          : null,
     );
     final serverCacheModels =
         zipCacheList.map((e) => ServerCacheModel.fromJson(e)).toList();
@@ -448,11 +455,14 @@ class UseCacheCommand extends Command {
       cacheModels = cacheModels.where((e) => e.buildId == buildId).toList();
     }
 
-    // Shorebird 与普通 Flutter 产物不可混用
+    // Shorebird 与普通 Flutter 产物不可混用（isShorebird 空/false = 非 Shorebird）
     if (buildLibrary == BuildLibrary.flutter.name) {
       final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
       cacheModels = cacheModels.where((e) {
-        final isSb = isShorebirdFlutterSdkFingerprint(e.flutterSdk);
+        final isSb = cacheEntryIsShorebird(
+          isShorebird: e.isShorebird,
+          flutterSdk: e.flutterSdk,
+        );
         return shorebird.enabled ? isSb : !isSb;
       }).toList();
     }

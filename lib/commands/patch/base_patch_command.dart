@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/argument_get.dart';
 import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
+import 'package:meta_tool/commands/patch/patch_release_baseline.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/meta_ota.dart';
@@ -18,27 +19,23 @@ abstract class BasePatchCommand extends Command {
       help: '宿主版本，如 1.2.3+456，须与当初 Shorebird release 一致',
     );
     argParser.addOption(
-      'base-commit',
-      help: '热更可行性门禁基线 commit；缺省读 META_OTA_BASE_COMMIT / SHOREBIRD_BASE_COMMIT',
-    );
-    argParser.addOption(
       'branch',
       help: '切换 Flutter 分支后再打补丁',
     );
     argParser.addOption(
       'channel',
-      help: 'Meta OTA promote 渠道，默认 stable',
+      help: 'Meta OTA promote 渠道（meta_ota upload 目前固定 stable，非 stable 会告警）',
       defaultsTo: 'stable',
     );
     argParser.addFlag(
       'force-patch',
-      help: '跳过 PatchCompatGate（危险，仅排障）',
+      help: '跳过多仓库热更预审（危险，仅排障/强行热更）',
       defaultsTo: false,
       negatable: false,
     );
     argParser.addFlag(
       'skip-promote',
-      help: '只上传 staging，不 promote',
+      help: '只上传 staging，不 promote（meta_ota upload 暂不支持，会告警忽略）',
       defaultsTo: false,
       negatable: false,
     );
@@ -46,6 +43,14 @@ abstract class BasePatchCommand extends Command {
       'useShorebird',
       help: '显式启用 Shorebird（覆盖 yaml）',
       defaultsTo: null,
+    );
+    argParser.addFlag(
+      'allow-asset-diffs',
+      help:
+          '透传 shorebird --allow-asset-diffs：允许补丁相对 release 有 asset 差异'
+          '（asset 不会打进补丁，仅跳过拦截）',
+      defaultsTo: false,
+      negatable: false,
     );
   }
 
@@ -87,25 +92,17 @@ abstract class BasePatchCommand extends Command {
     );
 
     final forcePatch = argResults?['force-patch'] == true;
-    final baseCommit = (argResults?['base-commit'] as String?)?.trim().isNotEmpty ==
-            true
-        ? (argResults?['base-commit'] as String).trim()
-        : (Platform.environment['META_OTA_BASE_COMMIT'] ??
-                Platform.environment['SHOREBIRD_BASE_COMMIT'] ??
-                '')
-            .trim();
-
     if (!forcePatch) {
-      if (baseCommit.isEmpty) {
-        throw Exception(
-          '缺少 --base-commit（或 META_OTA_BASE_COMMIT）。'
-          '无法做热更可行性门禁时默认中断，避免盲打补丁。'
-          '排障可加 --force-patch。',
-        );
-      }
-      await PatchCompatGate(appHomeDir).assertCompatible(baseCommit: baseCommit);
+      final baselines = await PatchReleaseBaselineResolver(
+        appHomeDir: appHomeDir,
+        platform: otaPlatform,
+      ).resolve(
+        releaseVersion: releaseVersion,
+        preferMelosBranch: branch,
+      );
+      await PatchCompatGate(appHomeDir).assertCompatible(baselines);
     } else {
-      loggerWarning('已启用 --force-patch，跳过 PatchCompatGate');
+      loggerWarning('已启用 --force-patch，跳过多仓库热更预审');
     }
 
     // 可选 bootstrap
@@ -123,20 +120,16 @@ abstract class BasePatchCommand extends Command {
       }
     }
 
-    final patchStarted = DateTime.now();
+    final allowAssetDiffs = argResults?['allow-asset-diffs'] == true;
     await runShorebirdPatch(
       flutterDir: flutterDir,
       platform: shorebirdPlatform,
       releaseVersion: releaseVersion,
-    );
-    loggerInfo(
-      'shorebird_patch elapsed_ms='
-      '${DateTime.now().difference(patchStarted).inMilliseconds}',
+      allowAssetDiffs: allowAssetDiffs,
     );
 
     final channel = (argResults?['channel'] as String?) ?? 'stable';
     final skipPromote = argResults?['skip-promote'] == true;
-    final uploadStarted = DateTime.now();
     final result = await uploadShorebirdPatchToMetaOta(
       appHomeDir: appHomeDir,
       platform: otaPlatform,
@@ -144,13 +137,10 @@ abstract class BasePatchCommand extends Command {
       channel: channel,
       promote: !skipPromote,
     );
-    loggerInfo(
-      'meta_ota_upload elapsed_ms='
-      '${DateTime.now().difference(uploadStarted).inMilliseconds}',
-    );
 
     loggerSuccess(
-      '补丁已推送 Meta OTA: patch_id=${result.patchId} '
+      '补丁已由 meta_ota 推送: '
+      'patch_id=${result.patchId ?? '(见上方 meta_ota 输出)'} '
       'version=$releaseVersion platform=$otaPlatform channel=$channel',
     );
   }

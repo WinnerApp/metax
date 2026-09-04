@@ -131,18 +131,23 @@ class UploadCacheCommand extends Command {
     }
     List<CacheModel> needUploadCommitModels = [];
     if (commitHash.isNotEmpty && await metaxCache.isCacheExists(commitHash)) {
-      needUploadCommitModels = [
-        CacheModel(
-          buildPlatform: buildPlatform,
-          buildLibrary: buildLibrary,
-          buildType: buildType,
-          branch: branch,
-          configuration: buildConfiguration,
-          commitHash: commitHash,
-          buildId: buildId.toString(),
-          commitTime: DateTime.parse(commitTime),
-        ),
-      ];
+      needUploadCommitModels = cacheModels
+          .where((e) => e.commitHash == commitHash)
+          .toList();
+      if (needUploadCommitModels.isEmpty) {
+        needUploadCommitModels = [
+          CacheModel(
+            buildPlatform: buildPlatform,
+            buildLibrary: buildLibrary,
+            buildType: buildType,
+            branch: branch,
+            configuration: buildConfiguration,
+            commitHash: commitHash,
+            buildId: buildId.toString(),
+            commitTime: DateTime.parse(commitTime),
+          ),
+        ];
+      }
     } else {
       needUploadCommitModels = cacheModels;
     }
@@ -230,6 +235,8 @@ class UploadCacheCommand extends Command {
           buildId: metaxCache.buildId,
           commitHash: model.commitHash,
           commitTime: model.commitTime,
+          flutterSdk: model.flutterSdk,
+          isShorebird: model.isShorebird,
           zipFile: InputFile.fromPath(
             path: zipFilePath,
             filename: '${model.commitHash}.zip',

@@ -609,28 +609,33 @@ Future<void> downloadCacheResource({
   required String branch,
   required String commitHash,
   int buildId = 0,
+  bool? isShorebird,
 }) async {
   loggerDebug('下载缓存到本地中，请稍等......');
+  final args = <String>[
+    'metax',
+    'cache',
+    'download',
+    '--buildPlatform',
+    buildPlatform.name,
+    '--buildLibrary',
+    buildLibrary.name,
+    '--buildConfiguration',
+    buildConfiguration.name,
+    '--buildType',
+    buildType.name,
+    '--branch',
+    branch,
+    '--buildId',
+    buildId.toString(),
+    '--commitHash',
+    commitHash,
+  ];
+  if (isShorebird != null) {
+    args.addAll(['--isShorebird', isShorebird.toString()]);
+  }
   await ProcessRunner().runProcess(
-    [
-      'metax',
-      'cache',
-      'download',
-      '--buildPlatform',
-      buildPlatform.name,
-      '--buildLibrary',
-      buildLibrary.name,
-      '--buildConfiguration',
-      buildConfiguration.name,
-      '--buildType',
-      buildType.name,
-      '--branch',
-      branch,
-      '--buildId',
-      buildId.toString(),
-      '--commitHash',
-      commitHash,
-    ],
+    args,
     printOutput: true,
   );
   loggerSuccess('下载缓存成功');

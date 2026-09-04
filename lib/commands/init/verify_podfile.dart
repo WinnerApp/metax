@@ -28,10 +28,14 @@ class VerifyPodfileCommand extends Command {
     if (!frameworksDir.existsSync()) {
       throw Exception("${frameworksDir.path} 不存在");
     }
+    // 与 generate-podfile 一致：ShorebirdFlutter.podspec 不参与校验。
     List<String> podNames = [];
     for (final file in frameworksDir.listSync()) {
       if (file is File && file.path.endsWith('.podspec')) {
         final fileName = basenameWithoutExtension(file.path);
+        if (fileName == 'ShorebirdFlutter') {
+          continue;
+        }
         podNames.add(fileName);
       }
     }

@@ -1,5 +1,15 @@
 import 'package:darty_json_safe/darty_json_safe.dart';
 
+/// 解析 zip 缓存上的 `isShorebird`：空 / 缺失 / false → 非 Shorebird。
+bool parseCacheIsShorebird(dynamic value) {
+  if (value == null) return false;
+  if (value is bool) return value;
+  final text = value.toString().trim().toLowerCase();
+  if (text.isEmpty) return false;
+  if (text == 'true' || text == '1' || text == 'yes') return true;
+  return false;
+}
+
 class CacheModel {
   final String buildPlatform;
   final String buildLibrary;
@@ -13,6 +23,9 @@ class CacheModel {
   /// Flutter SDK 指纹；Unity 等非 Flutter 产物为空字符串
   final String flutterSdk;
 
+  /// 是否由 Shorebird 编译；空或 false 表示不是
+  final bool isShorebird;
+
   CacheModel({
     required this.buildPlatform,
     required this.buildLibrary,
@@ -23,6 +36,7 @@ class CacheModel {
     required this.buildId,
     required this.commitTime,
     this.flutterSdk = '',
+    this.isShorebird = false,
   });
 
   factory CacheModel.fromJson(Map<String, dynamic> map) {
@@ -37,6 +51,9 @@ class CacheModel {
       buildId: json['buildId'].stringValue,
       commitTime: DateTime.parse(json['commitTime'].stringValue),
       flutterSdk: json['flutterSdk'].stringValue,
+      isShorebird: parseCacheIsShorebird(
+        map.containsKey('isShorebird') ? map['isShorebird'] : null,
+      ),
     );
   }
 
@@ -51,6 +68,7 @@ class CacheModel {
       'buildType': buildType,
       'commitTime': commitTime.toUtc().toIso8601String(),
       'flutterSdk': flutterSdk,
+      'isShorebird': isShorebird,
     };
   }
 
@@ -64,7 +82,8 @@ class CacheModel {
         buildPlatform == other.buildPlatform &&
         buildLibrary == other.buildLibrary &&
         buildType == other.buildType &&
-        flutterSdk == other.flutterSdk;
+        flutterSdk == other.flutterSdk &&
+        isShorebird == other.isShorebird;
   }
 
   @override
@@ -77,6 +96,7 @@ class CacheModel {
         buildLibrary,
         buildType,
         flutterSdk,
+        isShorebird,
       );
 }
 
@@ -94,6 +114,7 @@ class ServerCacheModel extends CacheModel {
     required super.buildId,
     required super.commitTime,
     super.flutterSdk,
+    super.isShorebird,
   });
 
   factory ServerCacheModel.fromJson(Map<String, dynamic> map) {
@@ -109,6 +130,9 @@ class ServerCacheModel extends CacheModel {
       buildId: json['build_id'].stringValue,
       commitTime: DateTime.parse(json['commit_time'].stringValue),
       flutterSdk: json['flutter_sdk'].stringValue,
+      isShorebird: parseCacheIsShorebird(
+        map.containsKey('isShorebird') ? map['isShorebird'] : null,
+      ),
     );
   }
 }

@@ -27,13 +27,26 @@ class GeneratePodfileCommand extends Command {
     if (!frameworksDir.existsSync()) {
       throw Exception('Flutter 框架目录不存在');
     }
+    // ShorebirdFlutter.xcframework 对外仍用 Flutter.podspec，忽略错误残留的
+    // ShorebirdFlutter.podspec，避免 Podfile 再声明一份引擎 pod。
     List<String> podNames = [];
     for (final file in frameworksDir.listSync()) {
       if (file is File && file.path.endsWith('.podspec')) {
         final fileName = basenameWithoutExtension(file.path);
+        if (fileName == 'ShorebirdFlutter') {
+          continue;
+        }
         podNames.add(fileName);
       }
     }
+    final hasShorebirdFlutter = Directory(
+      join(frameworksDir.path, 'ShorebirdFlutter.xcframework'),
+    ).existsSync();
+    final hasFlutterXcframework = Directory(
+      join(frameworksDir.path, 'Flutter.xcframework'),
+    ).existsSync();
+    // 本地已有引擎 xcframework 时用 :path；仅远程 Flutter.podspec（--cocoapods）时用 :podspec。
+    final useLocalFlutterPath = hasShorebirdFlutter || hasFlutterXcframework;
     List<String> startTexts = [];
     List<String> endTexts = [];
     bool canAddInStartTexts = true;
@@ -61,8 +74,11 @@ class GeneratePodfileCommand extends Command {
       '    flutter_path = "./frameworks/flutter/#{flutter_build_mode}"',
       '    puts "当前依赖Flutter模块静态库路径#{flutter_path}"',
       ...podNames.map((e) {
-        if (e == 'Flutter' || e == 'ShorebirdFlutter') {
-          return "    pod '$e', :podspec => \"#{flutter_path}\"";
+        if (e == 'Flutter') {
+          if (useLocalFlutterPath) {
+            return "    pod 'Flutter', :path => \"#{flutter_path}\"";
+          }
+          return "    pod 'Flutter', :podspec => \"#{flutter_path}\"";
         }
         return "    pod '$e', :path => \"#{flutter_path}\"";
       }),

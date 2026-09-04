@@ -134,6 +134,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       cacheId: commitHash,
       forceUpdate: forceUpdate || gate.didClean,
       flutterSdk: sdkFingerprint,
+      isShorebird: shorebirdEnabled,
     );
     await saveFlutterSdkFingerprint(
       projectPath: workspaceDir.path,
@@ -200,7 +201,6 @@ class FlutterAarCommand extends BuildCacheCommand {
         printOutput: true,
       );
     } else if (shorebirdEnabled) {
-      final started = DateTime.now();
       final flutterVersion = resolveShorebirdFlutterVersion(
         flutterDir: appHomeDir.flutterDir,
         sdk: flutterSdk,
@@ -210,18 +210,18 @@ class FlutterAarCommand extends BuildCacheCommand {
         platform: 'aar',
         releaseVersion: shorebirdReleaseVersion!,
         flutterVersion: flutterVersion,
+        // ABI 必须作为 Shorebird 自身选项（-- 前），不能透传给 flutter，
+        // 否则会与 Shorebird 默认三 ABI 合并导致 arm64 重复、libapp.so duplicate。
+        extraShorebirdArgs: const [
+          '--target-platform=android-arm64',
+        ],
         extraFlutterArgs: const [
           '--no-debug',
           '--no-profile',
-          '--target-platform=android-arm64',
           '--no-tree-shake-icons',
         ],
       );
       await syncShorebirdAarReleaseToHostDir(appHomeDir.flutterDir);
-      loggerInfo(
-        'shorebird_release elapsed_ms='
-        '${DateTime.now().difference(started).inMilliseconds}',
-      );
     } else {
       /// flutter build aar --no-debug --no-profile --verbose
       await ProcessRunner().runProcess(

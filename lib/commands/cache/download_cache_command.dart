@@ -11,6 +11,7 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/shorebird.dart';
 
 class DownloadCacheCommand extends Command {
   @override
@@ -55,6 +56,11 @@ class DownloadCacheCommand extends Command {
       'commitHash',
       help: '提交哈希',
     );
+    argParser.addOption(
+      'isShorebird',
+      help: '是否下载 Shorebird 编译缓存（true/false）',
+      allowed: ['true', 'false'],
+    );
   }
   late AppwriteCacheEnvironment appwriteEnvironment;
 
@@ -93,6 +99,20 @@ class DownloadCacheCommand extends Command {
       projectId: appwriteEnvironment.projectId,
       apiKey: appwriteEnvironment.apiKey,
     );
+    final bool? wantShorebird;
+    if (buildLibrary == BuildLibrary.flutter.name) {
+      final shorebirdDefault =
+          resolveUseShorebird(appHomeDir: appHomeDir).enabled;
+      wantShorebird = ArgumentGet(argResults).getString(
+            'isShorebird',
+            '是否下载 Shorebird 编译缓存',
+            allowed: const ['true', 'false'],
+            defaultValue: shorebirdDefault ? 'true' : 'false',
+          ) ==
+          'true';
+    } else {
+      wantShorebird = null;
+    }
     List<Map<String, dynamic>> cacheDocuments =
         await appwriteServer.queryZipCacheList(
       databaseId: appwriteEnvironment.databaseId,
@@ -102,6 +122,7 @@ class DownloadCacheCommand extends Command {
       buildConfiguration: buildConfiguration,
       buildLibrary: buildLibrary,
       buildType: buildType,
+      isShorebird: wantShorebird,
     );
     if (cacheDocuments.isEmpty) {
       throw '网络缓存为空';
@@ -176,6 +197,8 @@ class DownloadCacheCommand extends Command {
         commitHash: commitHash,
         buildId: buildId,
         commitTime: DateTime.parse(cacheDocument['commit_time'].toString()),
+        flutterSdk: cacheDocument['flutter_sdk']?.toString() ?? '',
+        isShorebird: parseCacheIsShorebird(cacheDocument['isShorebird']),
       ),
     );
     loggerDebug('写入配置到本地!');

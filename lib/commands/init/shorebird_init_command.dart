@@ -65,8 +65,10 @@ auto_update: true
 3. iOS 嵌入 ShorebirdFlutter.xcframework；Android 改 Shorebird Maven + keepDebugSymbols
 4. CI 配置 SHOREBIRD_TOKEN、META_OTA_API=http://119.23.47.1:9527/ 、META_OTA_TOKEN
    （CLI 登记由 metax 强制 SHOREBIRD_HOSTED_URL=https://api.shorebird.dev，勿把 OTA 地址赋给它）
-5. 出包: metax upload build_upload_ipa|apk（IPA/APK 仍走 fastlane）
-6. 补丁: metax patch ios|android --release-version X.Y.Z+N --base-commit <release_flutter_sha>
+5. 安装/编译 meta_code_push 的 meta_ota，并保证 PATH 可调用，或设 META_OTA_BIN / META_CODE_PUSH_ROOT
+6. 出包: metax upload build_upload_ipa|apk（IPA/APK 仍走 fastlane）
+7. 补丁: metax patch ios|android --release-version X.Y.Z+N
+   （shorebird patch 后由 meta_ota upload 推送到 Meta Code Push）
 
 模板: templates/shorebird.yaml.example 、 templates/jenkins_shorebird.env.example
 ''');

@@ -366,10 +366,12 @@ $changeLog
         isFlutterBuild = true;
       }
 
+      final commitTime = await getCommitTime(submodulePath, currentCommitId);
       buildBranchConfigs.add(AppwriteBuildBranchConfig(
         path: path,
         branch: branch,
         commitHash: currentCommitId,
+        gitVersion: commitTime.millisecondsSinceEpoch,
       ));
     }
 
@@ -481,12 +483,9 @@ $changeLog
       join(environment.workspace, 'metaapp_flutter'),
     );
     if (shorebirdEnabled) {
-      shorebirdProcessEnv['SHOREBIRD_BASE_COMMIT'] = flutterCurrentCommitId;
-      buildAppRunner.environment['SHOREBIRD_BASE_COMMIT'] =
-          flutterCurrentCommitId;
       loggerInfo(
         'Shorebird release-version=$releaseVersion '
-        'base-commit=$flutterCurrentCommitId',
+        'flutter-commit=$flutterCurrentCommitId',
       );
     }
 

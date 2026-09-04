@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/estimated_progress.dart';
 import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -185,6 +186,27 @@ String buildShorebirdReleaseVersion({
   return '$name+$number';
 }
 
+/// 解析 `1.2.3+456` → (buildName, buildNumber)。
+({String buildName, String buildNumber}) parseShorebirdReleaseVersion(
+  String releaseVersion,
+) {
+  final raw = releaseVersion.trim();
+  final plus = raw.lastIndexOf('+');
+  if (plus <= 0 || plus >= raw.length - 1) {
+    throw ArgumentError(
+      'release-version 格式应为 buildName+buildNumber，例如 1.2.3+456，收到: $releaseVersion',
+    );
+  }
+  final buildName = raw.substring(0, plus).trim();
+  final buildNumber = raw.substring(plus + 1).trim();
+  if (buildName.isEmpty || buildNumber.isEmpty) {
+    throw ArgumentError(
+      'release-version 格式应为 buildName+buildNumber，例如 1.2.3+456，收到: $releaseVersion',
+    );
+  }
+  return (buildName: buildName, buildNumber: buildNumber);
+}
+
 String? resolveReleaseVersionFromEnv([Map<String, String>? environment]) {
   final env = environment ?? Platform.environment;
   final explicit = (env['SHOREBIRD_RELEASE_VERSION'] ?? '').trim();
@@ -205,6 +227,18 @@ String shorebirdFlutterSdkFingerprint(String baseFingerprint) {
 
 bool isShorebirdFlutterSdkFingerprint(String fingerprint) {
   return fingerprint.contains('@shorebird');
+}
+
+/// 判断缓存条目是否为 Shorebird 产物。
+///
+/// 优先看显式字段 [CacheModel.isShorebird]；旧缓存无该字段时回退到
+/// `flutterSdk` 指纹中的 `@shorebird` 标记。
+bool cacheEntryIsShorebird({
+  required bool isShorebird,
+  required String flutterSdk,
+}) {
+  if (isShorebird) return true;
+  return isShorebirdFlutterSdkFingerprint(flutterSdk);
 }
 
 Future<void> ensureShorebirdInstalled() async {
@@ -268,10 +302,25 @@ Map<String, String> shorebirdCliEnvironment([Map<String, String>? base]) {
 /// 不要传 `--packages=` / `--no-pub`：Shorebird 使用自带 Flutter，会重写
 /// `.dart_tool`；`--no-pub` 会阻止其重新 `pub get`，导致
 /// `package_config.json does not exist` / monorepo `package_graph` 解析失败。
+///
+/// 不要在透传参数里传 `--target-platform`：Shorebird 会按自身
+/// `--target-platform`（默认三 ABI）再拼进 `flutter build aar`；若透传再带
+/// 一次，MultiOption 会合并出重复 ABI，触发
+/// `packJniLibsflutterBuildRelease` 的 `libapp.so is a duplicate`。
+/// ABI 限制请放进 [extraShorebirdArgs]。
+///
+/// release / patch 都强制 `--no-tree-shake-icons`，避免 MaterialIcons /
+/// tdesign 等图标字体因树摇子集不一致触发 asset diff。
 List<String> _shorebirdFlutterPassthroughArgs(List<String> flutterArgs) {
+  final args = List<String>.of(flutterArgs).where((arg) {
+    return !arg.startsWith('--target-platform');
+  }).toList();
+  if (!args.contains('--no-tree-shake-icons')) {
+    args.add('--no-tree-shake-icons');
+  }
   return <String>[
     '--',
-    ...flutterArgs,
+    ...args,
   ];
 }
 
@@ -281,6 +330,8 @@ Future<void> runShorebirdRelease({
   required String releaseVersion,
   required String flutterVersion,
   List<String> extraFlutterArgs = const [],
+  /// Shorebird CLI 自身参数（写在 `--` 前），例如 `--target-platform=android-arm64`。
+  List<String> extraShorebirdArgs = const [],
 }) async {
   await ensureShorebirdInstalled();
   final yaml = ShorebirdYamlConfig.tryLoad(flutterDir);
@@ -290,6 +341,9 @@ Future<void> runShorebirdRelease({
     );
   }
 
+  // iOS / Android 共用 flutter/release；不清空会把上一平台残留打进下一平台缓存。
+  await clearShorebirdReleaseDir(flutterDir);
+
   final args = <String>[
     'release',
     platform,
@@ -297,6 +351,7 @@ Future<void> runShorebirdRelease({
     releaseVersion,
     '--flutter-version',
     flutterVersion,
+    ...extraShorebirdArgs,
     ..._shorebirdFlutterPassthroughArgs(extraFlutterArgs),
   ];
 
@@ -307,17 +362,93 @@ Future<void> runShorebirdRelease({
     'FLUTTER_STORAGE_BASE_URL=${cliEnv['FLUTTER_STORAGE_BASE_URL']})',
   );
 
-  await ProcessRunner(environment: cliEnv).runProcess(
-    ['shorebird', ...args],
-    workingDirectory: flutterDir,
-    printOutput: true,
-  );
+  final sw = Stopwatch()..start();
+  try {
+    await ProcessRunner(environment: cliEnv).runProcess(
+      ['shorebird', ...args],
+      workingDirectory: flutterDir,
+      printOutput: true,
+    );
+    loggerInfo(
+      'shell 完成: shorebird ${args.take(2).join(' ')} · '
+      '用时 ${formatElapsedDuration(sw.elapsed)}',
+    );
+  } catch (e) {
+    loggerInfo(
+      'shell 失败: shorebird ${args.take(2).join(' ')} · '
+      '用时 ${formatElapsedDuration(sw.elapsed)}',
+    );
+    rethrow;
+  }
+}
+
+/// 清理 Shorebird 共用的 `flutter/release`，避免跨平台产物混入。
+Future<void> clearShorebirdReleaseDir(Directory flutterDir) async {
+  final releaseDir = Directory(join(flutterDir.path, 'release'));
+  if (!await releaseDir.exists()) {
+    return;
+  }
+  await releaseDir.delete(recursive: true);
+  loggerInfo('已清理旧 Shorebird release 目录: ${releaseDir.path}');
+}
+
+/// 从目录顶层移除 iOS framework 残留（xcframework / podspec / Privacys）。
+Future<int> stripIosArtifactsFromCacheDir(Directory dir) async {
+  if (!await dir.exists()) {
+    return 0;
+  }
+  var removed = 0;
+  await for (final entity in dir.list(followLinks: false)) {
+    final name = basename(entity.path);
+    final shouldRemove = (entity is Directory &&
+            (name.endsWith('.xcframework') || name == 'Privacys')) ||
+        (entity is File &&
+            (name.endsWith('.podspec') ||
+                name == 'Podfile' ||
+                name == 'Podfile.lock'));
+    if (!shouldRemove) {
+      continue;
+    }
+    await entity.delete(recursive: true);
+    removed++;
+  }
+  if (removed > 0) {
+    loggerWarning(
+      '已从 ${dir.path} 剥离 $removed 个 iOS 残留产物（避免污染 Android 缓存）',
+    );
+  }
+  return removed;
+}
+
+/// 从目录顶层移除 Android AAR/Maven 残留。
+Future<int> stripAndroidArtifactsFromCacheDir(Directory dir) async {
+  if (!await dir.exists()) {
+    return 0;
+  }
+  var removed = 0;
+  await for (final entity in dir.list(followLinks: false)) {
+    final name = basename(entity.path);
+    final shouldRemove = (entity is Directory && name == 'android_generated') ||
+        (entity is File && name.endsWith('.aar'));
+    if (!shouldRemove) {
+      continue;
+    }
+    await entity.delete(recursive: true);
+    removed++;
+  }
+  if (removed > 0) {
+    loggerWarning(
+      '已从 ${dir.path} 剥离 $removed 个 Android 残留产物（避免污染 iOS 缓存）',
+    );
+  }
+  return removed;
 }
 
 Future<void> runShorebirdPatch({
   required Directory flutterDir,
   required String platform, // ios-framework | aar
   required String releaseVersion,
+  bool allowAssetDiffs = false,
 }) async {
   await ensureShorebirdInstalled();
   final args = <String>[
@@ -325,14 +456,28 @@ Future<void> runShorebirdPatch({
     platform,
     '--release-version',
     releaseVersion,
+    if (allowAssetDiffs) '--allow-asset-diffs',
     ..._shorebirdFlutterPassthroughArgs(const []),
   ];
   loggerInfo('执行: shorebird ${args.join(' ')}');
-  await ProcessRunner(environment: shorebirdCliEnvironment()).runProcess(
-    ['shorebird', ...args],
-    workingDirectory: flutterDir,
-    printOutput: true,
-  );
+  final sw = Stopwatch()..start();
+  try {
+    await ProcessRunner(environment: shorebirdCliEnvironment()).runProcess(
+      ['shorebird', ...args],
+      workingDirectory: flutterDir,
+      printOutput: true,
+    );
+    loggerInfo(
+      'shell 完成: shorebird ${args.take(2).join(' ')} · '
+      '用时 ${formatElapsedDuration(sw.elapsed)}',
+    );
+  } catch (e) {
+    loggerInfo(
+      'shell 失败: shorebird ${args.take(2).join(' ')} · '
+      '用时 ${formatElapsedDuration(sw.elapsed)}',
+    );
+    rethrow;
+  }
 }
 
 /// 将 Shorebird iOS release 产物同步到 metax 习惯的 framework 缓存目录
@@ -340,48 +485,183 @@ Future<void> syncShorebirdIosReleaseToFrameworkDir(Directory flutterDir) async {
   final releaseDir = Directory(join(flutterDir.path, 'release'));
   final targetDir =
       Directory(join(flutterDir.path, 'build', 'ios', 'framework', 'Release'));
-  if (!releaseDir.existsSync()) {
-    throw Exception('Shorebird release 目录不存在: ${releaseDir.path}');
-  }
-  if (targetDir.existsSync()) {
-    await targetDir.delete(recursive: true);
-  }
-  await targetDir.create(recursive: true);
-  await copyDirToDir(releaseDir, targetDir);
 
-  // Shorebird 产出 ShorebirdFlutter.xcframework；若仍残留普通 Flutter.xcframework 会混淆
+  if (releaseDir.existsSync()) {
+    if (targetDir.existsSync()) {
+      await targetDir.delete(recursive: true);
+    }
+    await targetDir.create(recursive: true);
+    await copyDirToDir(releaseDir, targetDir);
+    loggerInfo('已从 Shorebird release 同步产物到 ${targetDir.path}');
+  } else if (targetDir.existsSync()) {
+    // shorebird release 上传失败时，可能只留下 build 目录产物
+    loggerWarning(
+      '未找到 ${releaseDir.path}，改用已有产物目录: ${targetDir.path}',
+    );
+  } else {
+    throw Exception(
+      'Shorebird iOS 产物不存在（需要 ${releaseDir.path} 或 ${targetDir.path}）',
+    );
+  }
+
+  await stripAndroidArtifactsFromCacheDir(targetDir);
+
+  // Shorebird 产出 ShorebirdFlutter.xcframework（内含 Flutter.framework）。
+  // CocoaPods 按 xcframework 文件名链接，必须改回 Flutter.xcframework，否则会报
+  // framework 'ShorebirdFlutter' not found。
   final flutterXc = Directory(join(targetDir.path, 'Flutter.xcframework'));
   final shorebirdXc =
       Directory(join(targetDir.path, 'ShorebirdFlutter.xcframework'));
-  if (shorebirdXc.existsSync() && flutterXc.existsSync()) {
-    await flutterXc.delete(recursive: true);
-    loggerInfo('已移除旧 Flutter.xcframework，保留 ShorebirdFlutter.xcframework');
+  if (shorebirdXc.existsSync()) {
+    if (flutterXc.existsSync()) {
+      await flutterXc.delete(recursive: true);
+    }
+    await shorebirdXc.rename(flutterXc.path);
+    loggerInfo(
+      '已将 ShorebirdFlutter.xcframework 重命名为 Flutter.xcframework（CocoaPods 链接）',
+    );
   }
-  final flutterPodspec = File(join(targetDir.path, 'Flutter.podspec'));
-  if (shorebirdXc.existsSync() && flutterPodspec.existsSync()) {
-    await flutterPodspec.delete();
-    loggerInfo('已移除旧 Flutter.podspec，请使用 ShorebirdFlutter.podspec');
+  if (flutterXc.existsSync()) {
+    final flutterPodspec = File(join(targetDir.path, 'Flutter.podspec'));
+    await flutterPodspec.writeAsString('''
+#
+# Shorebird 引擎对外仍暴露为 Flutter pod。
+# 必须使用 Flutter.xcframework 文件名，否则 CocoaPods 会错误链接 ShorebirdFlutter。
+#
+
+Pod::Spec.new do |s|
+  s.name                  = 'Flutter'
+  s.version               = '1.0.0'
+  s.summary               = 'Flutter engine (Shorebird)'
+  s.description           = 'Shorebird engine exposed as Flutter for CocoaPods'
+  s.homepage              = 'https://flutter.dev'
+  s.license               = { :type => 'BSD' }
+  s.author                = { 'Flutter Dev Team' => 'flutter-dev@googlegroups.com' }
+  s.source                = { :path => '.' }
+  s.platform              = :ios, '13.0'
+  s.vendored_frameworks   = 'Flutter.xcframework'
+end
+''');
+    loggerInfo('已写入 Flutter.podspec（vendored Flutter.xcframework / Shorebird）');
+    final staleShorebirdPodspec =
+        File(join(targetDir.path, 'ShorebirdFlutter.podspec'));
+    if (staleShorebirdPodspec.existsSync()) {
+      await staleShorebirdPodspec.delete();
+      loggerInfo('已删除错误的 ShorebirdFlutter.podspec');
+    }
+  } else {
+    throw Exception(
+      'Shorebird sync 后未找到 Flutter.xcframework: ${flutterXc.path}',
+    );
   }
 
-  loggerInfo('已同步 Shorebird iOS 产物到 ${targetDir.path}');
+  loggerInfo('已完成 Shorebird iOS 产物同步: ${targetDir.path}');
+}
+
+/// Shorebird / flutter build aar 的 Maven 仓库相对路径（相对 build/host）。
+///
+/// Android `settings.gradle` 与普通 `flutter build aar` 均约定：
+/// `build/host/outputs/repo` → 解压后为 `android/aar/flutter/outputs/repo`。
+const kFlutterAarMavenRepoRelativePath = 'outputs/repo';
+
+/// Shorebird `release/` 可能是 Maven 根，也可能已含 `outputs/repo`。
+Directory resolveShorebirdAarMavenSource(Directory releaseOrHostDir) {
+  final nested = Directory(
+    join(releaseOrHostDir.path, kFlutterAarMavenRepoRelativePath),
+  );
+  if (nested.existsSync()) {
+    return nested;
+  }
+  return releaseOrHostDir;
+}
+
+bool _looksLikeMavenRepoRoot(Directory dir) {
+  if (!dir.existsSync()) return false;
+  // flutter / shorebird AAR 常见顶层：groupId 目录或 android_generated
+  for (final name in const ['com', 'io', 'dev', 'android_generated']) {
+    if (Directory(join(dir.path, name)).existsSync()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// 将已有 `build/host` 对齐为 `outputs/repo` 布局（兼容旧 Shorebird 扁平产物）。
+Future<void> ensureShorebirdHostDirHasOutputsRepo(Directory hostDir) async {
+  final outputsRepo = Directory(
+    join(hostDir.path, kFlutterAarMavenRepoRelativePath),
+  );
+  if (outputsRepo.existsSync() && _looksLikeMavenRepoRoot(outputsRepo)) {
+    return;
+  }
+  if (!_looksLikeMavenRepoRoot(hostDir)) {
+    // 既没有扁平 Maven，也没有 outputs/repo：保持原样，由后续校验报错
+    return;
+  }
+
+  final staging = Directory(join(hostDir.path, '.shorebird_repo_staging'));
+  if (staging.existsSync()) {
+    await staging.delete(recursive: true);
+  }
+  await staging.create();
+
+  await for (final entity in hostDir.list(followLinks: false)) {
+    final name = basename(entity.path);
+    // cache.json 留在 host 根，与 flutter build aar 缓存一致
+    if (name == '.shorebird_repo_staging' ||
+        name == 'cache.json' ||
+        name == 'outputs') {
+      continue;
+    }
+    await entity.rename(join(staging.path, name));
+  }
+
+  if (outputsRepo.existsSync()) {
+    await outputsRepo.delete(recursive: true);
+  }
+  await outputsRepo.create(recursive: true);
+  await for (final entity in staging.list(followLinks: false)) {
+    await entity.rename(join(outputsRepo.path, basename(entity.path)));
+  }
+  await staging.delete(recursive: true);
+  loggerInfo('已将 build/host 扁平 Maven 对齐到 ${outputsRepo.path}');
 }
 
 /// 将 Shorebird AAR release 产物同步到 flutter build aar 习惯目录
+///
+/// Shorebird 默认写出 `release/<maven-root>`（无 `outputs/repo`），
+/// 而 metax 缓存 / Android 依赖约定为 `build/host/outputs/repo`。
 Future<void> syncShorebirdAarReleaseToHostDir(Directory flutterDir) async {
   final releaseDir = Directory(join(flutterDir.path, 'release'));
-  final targetDir = Directory(join(flutterDir.path, 'build', 'host'));
-  if (!releaseDir.existsSync()) {
-    // 部分版本可能直接写到 build/host
-    if (targetDir.existsSync()) {
-      loggerInfo('使用已有 build/host 作为 AAR 产物目录');
-      return;
+  final hostDir = Directory(join(flutterDir.path, 'build', 'host'));
+  final outputsRepoDir = Directory(
+    join(hostDir.path, kFlutterAarMavenRepoRelativePath),
+  );
+
+  if (releaseDir.existsSync()) {
+    final mavenSource = resolveShorebirdAarMavenSource(releaseDir);
+    if (hostDir.existsSync()) {
+      await hostDir.delete(recursive: true);
     }
+    await outputsRepoDir.create(recursive: true);
+    await copyDirToDir(mavenSource, outputsRepoDir);
+    // 防御：即使 release 未清空，也不要把 iOS xcframework 打进 android 缓存
+    await stripIosArtifactsFromCacheDir(hostDir);
+    await stripIosArtifactsFromCacheDir(outputsRepoDir);
+    loggerInfo('已同步 Shorebird AAR 产物到 ${outputsRepoDir.path}');
+    return;
+  }
+
+  // 部分版本可能直接写到 build/host
+  if (!hostDir.existsSync()) {
     throw Exception('Shorebird AAR release 目录不存在: ${releaseDir.path}');
   }
-  if (targetDir.existsSync()) {
-    await targetDir.delete(recursive: true);
+  await ensureShorebirdHostDirHasOutputsRepo(hostDir);
+  await stripIosArtifactsFromCacheDir(hostDir);
+  if (outputsRepoDir.existsSync()) {
+    await stripIosArtifactsFromCacheDir(outputsRepoDir);
   }
-  await targetDir.create(recursive: true);
-  await copyDirToDir(releaseDir, targetDir);
-  loggerInfo('已同步 Shorebird AAR 产物到 ${targetDir.path}');
+  loggerInfo(
+    '使用已有 build/host 作为 AAR 产物目录（已对齐 $kFlutterAarMavenRepoRelativePath）',
+  );
 }

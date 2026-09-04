@@ -40,6 +40,7 @@ class MetaxCache extends Cache {
   Future<CacheModel?> getCacheModelFromCacheId(
     String cacheId, {
     String flutterSdk = '',
+    bool isShorebird = false,
   }) async {
     final commitHash = await getCommitHashFromCacheId(cacheId);
     final models = await cacheManager.read().then((e) {
@@ -52,6 +53,7 @@ class MetaxCache extends Cache {
           .where((e) => e.configuration == buildConfiguration.name)
           .where((e) => e.commitHash == commitHash)
           .where((e) => e.flutterSdk == flutterSdk)
+          .where((e) => e.isShorebird == isShorebird)
           .toList();
     });
     return models.firstOrNull;

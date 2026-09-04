@@ -11,7 +11,8 @@ import 'package:meta_tool/commands/build/unity/unity_branch_build_command.dart';
 
 class BuildCommand extends Command {
   @override
-  String get description => '编译 Framework/aar/har/ipa/apk';
+  String get description =>
+      '编译 Framework/aar/har/ipa/apk（可用 --estimatedSeconds <秒> 显示估算进度条）';
 
   @override
   String get name => 'build';

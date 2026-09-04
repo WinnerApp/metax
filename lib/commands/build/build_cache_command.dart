@@ -44,10 +44,12 @@ abstract class BuildCacheCommand extends Command {
     required String cacheId,
     required bool forceUpdate,
     String flutterSdk = '',
+    bool isShorebird = false,
   }) async {
     final cacheModel = await cache.getCacheModelFromCacheId(
       cacheId,
       flutterSdk: flutterSdk,
+      isShorebird: isShorebird,
     );
     final startTime = DateTime.now();
     final buildModel = CacheModel(
@@ -60,6 +62,7 @@ abstract class BuildCacheCommand extends Command {
       buildId: cache.buildId.toString(),
       commitTime: commitTime,
       flutterSdk: flutterSdk,
+      isShorebird: isShorebird,
     );
 
     if (forceUpdate) {
@@ -108,6 +111,7 @@ abstract class BuildCacheCommand extends Command {
         commitHash: commitHash,
         commitTime: commitTime,
         flutterSdk: flutterSdk,
+        isShorebird: isShorebird,
       );
     } else {
       await buildCache();
@@ -125,6 +129,7 @@ abstract class BuildCacheCommand extends Command {
           buildId: cache.buildId.toString(),
           commitTime: commitTime,
           flutterSdk: flutterSdk,
+          isShorebird: isShorebird,
         ),
       ]);
       await writeToCacheSystem(
@@ -133,6 +138,7 @@ abstract class BuildCacheCommand extends Command {
         commitHash: commitHash,
         commitTime: commitTime,
         flutterSdk: flutterSdk,
+        isShorebird: isShorebird,
       );
       if (cache.buildPlatform == BuildPlatform.android) {
         // android/unityLibrary/symbols
@@ -179,6 +185,7 @@ abstract class BuildCacheCommand extends Command {
     required String commitHash,
     required DateTime commitTime,
     String flutterSdk = '',
+    bool isShorebird = false,
   }) async {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
     // final cacheBaseName = basename(buildCacheDir);
@@ -210,6 +217,7 @@ abstract class BuildCacheCommand extends Command {
         buildType: cache.buildType.value,
         commitTime: commitTime,
         flutterSdk: flutterSdk,
+        isShorebird: isShorebird,
       ),
     );
     await zipFile.delete();
