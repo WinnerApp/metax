@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:meta_tool/commands/init/app_environment_command.dart';
 import 'package:meta_tool/commands/init/branch.dart';
 import 'package:meta_tool/commands/init/build_name_number_command.dart';
+import 'package:meta_tool/commands/init/doctor_command.dart';
 import 'package:meta_tool/commands/init/flutter_environment_command.dart';
 import 'package:meta_tool/commands/init/flutter_web_environment.dart';
 import 'package:meta_tool/commands/init/flutter_web_version_command.dart';
@@ -21,6 +22,7 @@ class InitCommand extends Command {
   String get name => 'init';
 
   InitCommand() {
+    addSubcommand(DoctorCommand());
     addSubcommand(ProjectCommand());
     addSubcommand(BranchCommand());
     addSubcommand(InitCacheCommand());

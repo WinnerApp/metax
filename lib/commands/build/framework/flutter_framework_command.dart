@@ -362,6 +362,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         final flutterVersion = resolveShorebirdFlutterVersion(
           flutterDir: appHomeDir.flutterDir,
           sdk: flutterSdk,
+          workspaceDir: Directory(appHomeDir.workspace),
         );
         // 不要传 --cocoapods：该 flag 只生成 Flutter.podspec、不产出
         // Flutter.xcframework；Shorebird 随后会 rename

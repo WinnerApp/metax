@@ -204,6 +204,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       final flutterVersion = resolveShorebirdFlutterVersion(
         flutterDir: appHomeDir.flutterDir,
         sdk: flutterSdk,
+        workspaceDir: Directory(appHomeDir.workspace),
       );
       await runShorebirdRelease(
         flutterDir: appHomeDir.flutterDir,

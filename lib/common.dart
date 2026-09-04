@@ -825,6 +825,73 @@ Future<ProcessRunner> createBuildAppRunner(
   );
 }
 
+/// 读取 Android / OHOS `local.properties`（支持 `sdk.dir` 等带点 key）。
+Map<String, String> readLocalPropertiesFile(File file) {
+  final map = <String, String>{};
+  if (!file.existsSync()) return map;
+  for (final raw in file.readAsLinesSync()) {
+    final line = raw.trim();
+    if (line.isEmpty || line.startsWith('#') || line.startsWith('!')) {
+      continue;
+    }
+    final eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    final key = line.substring(0, eq).trim();
+    var value = line.substring(eq + 1).trim();
+    value = value.replaceAll(r'\:', ':').replaceAll(r'\=', '=');
+    if (key.isNotEmpty) map[key] = value;
+  }
+  return map;
+}
+
+class AndroidNdkValidation {
+  final bool ok;
+  final String detail;
+  final String fix;
+
+  const AndroidNdkValidation({
+    required this.ok,
+    required this.detail,
+    required this.fix,
+  });
+}
+
+/// 校验 `ndk.dir` 是否指向可用的 NDK 根目录。
+AndroidNdkValidation validateAndroidNdkDir(String ndkDir) {
+  final trimmed = ndkDir.trim();
+  if (trimmed.isEmpty) {
+    return const AndroidNdkValidation(
+      ok: false,
+      detail: '未配置 ndk.dir',
+      fix: '配置 NDK_DIR 后执行 metax init app_environment / project',
+    );
+  }
+  final dir = Directory(trimmed);
+  if (!dir.existsSync()) {
+    return AndroidNdkValidation(
+      ok: false,
+      detail: 'NDK 目录不存在: $trimmed',
+      fix: '用 sdkmanager 安装对应 NDK，或把 ndk.dir 改成本机已有版本'
+          '（如 ~/Library/Android/sdk/ndk/<version>）',
+    );
+  }
+  final ndkBuild = File(join(trimmed, 'ndk-build'));
+  final sourceProps = File(join(trimmed, 'source.properties'));
+  final hasMarker = ndkBuild.existsSync() || sourceProps.existsSync();
+  if (!hasMarker) {
+    return AndroidNdkValidation(
+      ok: false,
+      detail: '目录存在但不是完整 NDK（缺少 ndk-build / source.properties）: $trimmed',
+      fix: '重新安装该 NDK 版本，或改 ndk.dir 指向完整安装目录',
+    );
+  }
+  return AndroidNdkValidation(
+    ok: true,
+    detail: trimmed,
+    fix: '',
+  );
+}
+
 /// 检测安卓NDK是否存在
 Future<void> checkAndroidNDK(AppHomeDir appHomeDir) async {
   final localPropertyFile = File(join(
@@ -834,14 +901,14 @@ Future<void> checkAndroidNDK(AppHomeDir appHomeDir) async {
   if (!localPropertyFile.existsSync()) {
     throw '${localPropertyFile.path}文件不存在';
   }
-  final environment = readEnvironmentFromFile(localPropertyFile.path);
+  final environment = readLocalPropertiesFile(localPropertyFile);
   final ndkDir = environment['ndk.dir'];
-  if (ndkDir == null) {
-    throw '请先通过metax init android_environment 初始化安卓环境ndk.dir变量';
+  if (ndkDir == null || ndkDir.trim().isEmpty) {
+    throw '请先通过 metax init app_environment 初始化安卓环境 ndk.dir 变量';
   }
-  final ndkBuild = File(join(ndkDir, 'ndk-build'));
-  if (!ndkBuild.existsSync()) {
-    throw 'ndk.dir路径错误，请检查是否正确！';
+  final status = validateAndroidNdkDir(ndkDir);
+  if (!status.ok) {
+    throw '${status.detail}\n${status.fix}';
   }
 }
 

@@ -258,12 +258,16 @@ Future<void> ensureShorebirdInstalled() async {
   }
 }
 
-/// 解析传给 `--flutter-version` 的版本号（优先 FVM 配置）
+/// 解析传给 `--flutter-version` 的版本号（优先 FVM 配置，向上查找 melos 根 `.fvmrc`）
 String resolveShorebirdFlutterVersion({
   required Directory flutterDir,
   FlutterSdkInfo? sdk,
+  Directory? workspaceDir,
 }) {
-  final configured = readConfiguredFvmVersion(flutterDir);
+  final configured = readConfiguredFvmVersion(
+    flutterDir,
+    stopAt: workspaceDir,
+  );
   if (configured != null && configured.isNotEmpty) {
     // FVM 可能是 custom 名；尽量取纯版本号段
     final match = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(configured);
@@ -277,7 +281,8 @@ String resolveShorebirdFlutterVersion({
     }
   }
   throw Exception(
-    '无法解析 Shorebird --flutter-version，请在 metaapp_flutter/.fvmrc 配置 Flutter 版本',
+    '无法解析 Shorebird --flutter-version。'
+    '请在 melos 仓库根或 metaapp_flutter 配置 .fvmrc（fvm use x.y.z）',
   );
 }
 

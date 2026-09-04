@@ -41,15 +41,44 @@ class FlutterSdkGateResult {
   });
 }
 
-/// 是否存在 FVM 配置
+/// 是否存在 FVM 配置（仅看 [projectDir] 本层，不向上）。
 bool hasFvmConfig(Directory projectDir) {
   final fvmrc = File(join(projectDir.path, '.fvmrc'));
   final fvmConfig = File(join(projectDir.path, '.fvm', 'fvm_config.json'));
   return fvmrc.existsSync() || fvmConfig.existsSync();
 }
 
-/// 读取工程配置的 FVM Flutter 版本名
-String? readConfiguredFvmVersion(Directory projectDir) {
+/// 从 [startDir] 向上查找含 `.fvmrc` / `.fvm/fvm_config.json` 的目录。
+///
+/// 与 `fvm` 行为一致：melos 仓库常把配置放在最外层 workspace，
+/// 而不是 `metaapp_flutter/` 内。
+Directory? findFvmConfigDir(
+  Directory startDir, {
+  Directory? stopAt,
+}) {
+  var current = startDir.absolute;
+  final stop = stopAt?.absolute;
+  while (true) {
+    if (hasFvmConfig(current)) {
+      return current;
+    }
+    if (stop != null && _sameDirPath(current, stop)) {
+      break;
+    }
+    final parent = current.parent;
+    if (parent.path == current.path) {
+      break;
+    }
+    current = parent;
+  }
+  return null;
+}
+
+bool _sameDirPath(Directory a, Directory b) {
+  return normalize(a.path) == normalize(b.path);
+}
+
+String? _readFvmVersionInDir(Directory projectDir) {
   final fvmrc = File(join(projectDir.path, '.fvmrc'));
   if (fvmrc.existsSync()) {
     final content = fvmrc.readAsStringSync().trim();
@@ -89,6 +118,18 @@ String? readConfiguredFvmVersion(Directory projectDir) {
   return null;
 }
 
+/// 读取工程配置的 FVM Flutter 版本名。
+///
+/// 从 [startDir] 向上查找（melos 根目录 `.fvmrc` 优先于子包内缺失的配置）。
+String? readConfiguredFvmVersion(
+  Directory startDir, {
+  Directory? stopAt,
+}) {
+  final configDir = findFvmConfigDir(startDir, stopAt: stopAt);
+  if (configDir == null) return null;
+  return _readFvmVersionInDir(configDir);
+}
+
 Directory fvmVersionsRoot() {
   final home = Platform.environment['HOME'] ?? '';
   final cachePath = Platform.environment['FVM_CACHE_PATH'] ??
@@ -126,11 +167,12 @@ List<String> resolveFlutterCommand() => const ['fvm', 'flutter'];
 /// - 官方版本缺失时会尝试 `fvm install`
 /// - 鸿蒙/定制 SDK 无法从官方 channel 安装时，给出明确错误提示
 Future<String?> ensureFvmFlutterReady(Directory projectDir) async {
-  if (!hasFvmConfig(projectDir)) {
+  final configDir = findFvmConfigDir(projectDir);
+  if (configDir == null) {
     return null;
   }
 
-  final version = readConfiguredFvmVersion(projectDir);
+  final version = _readFvmVersionInDir(configDir);
   if (version == null || version.isEmpty) {
     loggerWarning('⚠️ 检测到 FVM 配置文件，但无法解析 Flutter 版本号');
     return null;
@@ -143,12 +185,15 @@ Future<String?> ensureFvmFlutterReady(Directory projectDir) async {
     );
   }
 
+  // install / use 在含 .fvmrc 的目录执行（melos 根），避免只在子包建软链
+  final fvmCwd = configDir;
+
   if (!isFvmVersionInstalled(version)) {
     loggerInfo('📦 FVM 版本未安装: $version，尝试 fvm install ...');
     try {
       await ProcessRunner().runProcess(
         ['fvm', 'install', version],
-        workingDirectory: projectDir,
+        workingDirectory: fvmCwd,
         printOutput: true,
       );
     } catch (e) {
@@ -174,11 +219,14 @@ Future<String?> ensureFvmFlutterReady(Directory projectDir) async {
   }
 
   // 切分支后 .fvm/flutter_sdk 软链可能缺失或指向旧版本，强制对齐到配置版本
-  loggerInfo('🔗 对齐工程 FVM 软链: fvm use $version --force');
+  loggerInfo(
+    '🔗 对齐工程 FVM 软链: fvm use $version --force'
+    '${_sameDirPath(fvmCwd, projectDir) ? '' : ' @ ${fvmCwd.path}'}',
+  );
   try {
     await ProcessRunner().runProcess(
       ['fvm', 'use', version, '--force'],
-      workingDirectory: projectDir,
+      workingDirectory: fvmCwd,
       printOutput: true,
     );
   } catch (e) {

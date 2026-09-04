@@ -160,8 +160,8 @@ class AppwriteServer {
           "path": config.path,
           "branch": config.branch,
           "commit_id": config.commitHash,
-          // Appwrite 属性为 integer，存宿主 buildNumber
-          "version": buildNumber,
+          // Appwrite 属性为 string，存宿主 buildName（如 1.2.3）
+          "version": buildName,
           "git_version": config.gitVersion,
         },
       ).catchError((e, stackTrace) {

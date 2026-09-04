@@ -32,9 +32,13 @@ Map<String, dynamic>? _readMetaOtaJson(File file) {
 }
 
 /// 读取项目 / 用户级 meta_ota 配置（后者补前者未设字段）。
-MetaOtaFileConfig loadMetaOtaFileConfig(Directory flutterDir) {
+MetaOtaFileConfig loadMetaOtaFileConfig(
+  Directory flutterDir, {
+  Map<String, String>? environment,
+}) {
   String? api;
   String? token;
+  final env = environment ?? Platform.environment;
 
   void merge(Map<String, dynamic>? json) {
     if (json == null) return;
@@ -47,7 +51,7 @@ MetaOtaFileConfig loadMetaOtaFileConfig(Directory flutterDir) {
   merge(_readMetaOtaJson(File(join(flutterDir.path, '.meta_ota.json'))));
   merge(
     _readMetaOtaJson(
-      File(join(Platform.environment['HOME'] ?? '', '.meta_ota', 'config.json')),
+      File(join(env['HOME'] ?? '', '.meta_ota', 'config.json')),
     ),
   );
 
@@ -256,7 +260,10 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
 }) async {
   final env = Map<String, String>.from(environment ?? Platform.environment);
   final yaml = ShorebirdYamlConfig.tryLoad(appHomeDir.flutterDir);
-  final fileCfg = loadMetaOtaFileConfig(appHomeDir.flutterDir);
+  final fileCfg = loadMetaOtaFileConfig(
+    appHomeDir.flutterDir,
+    environment: env,
+  );
 
   // 与 meta_ota 一致：环境变量 > .meta_ota.json / ~/.meta_ota/config.json
   // API 额外可用 shorebird.yaml base_url。
