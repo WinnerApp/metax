@@ -8,6 +8,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutter_sdk.dart';
+import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -383,6 +384,12 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
           ],
         );
         await syncShorebirdIosReleaseToFrameworkDir(appHomeDir.flutterDir);
+        // 与 meta_ota release 成功后一致：向自建 OTA 登记版本，供后续 patch 校验。
+        await syncShorebirdReleaseToMetaOta(
+          appHomeDir: appHomeDir,
+          platform: 'ios',
+          releaseVersion: shorebirdReleaseVersion!,
+        );
       } else {
         /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
         await ProcessRunner().runProcess(

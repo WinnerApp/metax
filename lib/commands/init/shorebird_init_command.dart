@@ -134,7 +134,9 @@ auto_update: true
 6. 出包前全量预检: metax init doctor [--unity] [--patch] [--upload]
    （仅 Shorebird: metax init shorebird [--patch]）
 7. 出包: metax upload build_upload_ipa|apk
+   （Shorebird release 成功后会自动 meta_ota admin upload-release 登记到自建 OTA）
 8. 补丁: metax patch ios|android --release-version X.Y.Z+N
+   （shorebird patch 后自动 meta_ota upload）
 
 模板: templates/shorebird.yaml.example 、 templates/jenkins_shorebird.env.example
 ''');

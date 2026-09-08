@@ -63,6 +63,56 @@ bool _looksLikeHttpUrl(String value) {
   return v.startsWith('http://') || v.startsWith('https://');
 }
 
+/// 解析 Meta OTA API / token / app_id（与 meta_ota CLI 优先级对齐）。
+class MetaOtaCredentials {
+  final String api;
+  final String token;
+  final String appId;
+
+  const MetaOtaCredentials({
+    required this.api,
+    required this.token,
+    required this.appId,
+  });
+}
+
+/// 解析凭证；缺项时返回 `null`（由调用方决定跳过或报错）。
+MetaOtaCredentials? tryResolveMetaOtaCredentials({
+  required Directory flutterDir,
+  Map<String, String>? environment,
+  bool requireAppId = false,
+}) {
+  final env = environment ?? Platform.environment;
+  final yaml = ShorebirdYamlConfig.tryLoad(flutterDir);
+  final fileCfg = loadMetaOtaFileConfig(flutterDir, environment: env);
+
+  var api = (env['META_OTA_API'] ?? '').trim();
+  if (api.isEmpty) api = (fileCfg.api ?? '').trim();
+  if (api.isNotEmpty && !_looksLikeHttpUrl(api)) {
+    loggerWarning(
+      'meta_ota 配置里的 api="$api" 不像 URL（应以 http(s):// 开头）。'
+      '将回退 shorebird.yaml base_url / META_OTA_API。'
+      '请执行: meta_ota config --api <OTA地址> --token <API Key>',
+    );
+    api = '';
+  }
+  if (api.isEmpty) api = (yaml?.baseUrl ?? '').trim();
+
+  var token = (env['META_OTA_TOKEN'] ?? '').trim();
+  if (token.isEmpty) token = (fileCfg.token ?? '').trim();
+
+  final appId = (env['META_OTA_APP_ID'] ?? yaml?.appId ?? '').trim();
+
+  if (api.isEmpty || token.isEmpty) return null;
+  if (requireAppId && appId.isEmpty) return null;
+
+  return MetaOtaCredentials(
+    api: api.replaceAll(RegExp(r'/$'), ''),
+    token: token,
+    appId: appId,
+  );
+}
+
 /// 解析 `meta_ota` 可执行文件。
 ///
 /// 优先级：
@@ -246,6 +296,110 @@ String? resolveMetaOtaPatchedBinary({
   return fromBuild?.absolute.path;
 }
 
+List<String> _redactMetaOtaTokenArgs(List<String> args) {
+  final logArgs = List<String>.from(args);
+  final tokenIdx = logArgs.indexOf('--token');
+  if (tokenIdx >= 0 && tokenIdx + 1 < logArgs.length) {
+    logArgs[tokenIdx + 1] = '***';
+  }
+  return logArgs;
+}
+
+/// 在 shorebird release 之后，委托 `meta_ota admin upload-release` 向自建 OTA 登记版本。
+///
+/// 对齐 meta_ota CLI 的 `release` 成功后行为（仅控制面登记，不再次执行 shorebird）。
+/// 未配置 META_OTA_API / TOKEN / app_id 时跳过并告警，不阻断打包。
+/// 设置 `META_OTA_SKIP_RELEASE_SYNC=true` 可显式跳过。
+Future<void> syncShorebirdReleaseToMetaOta({
+  required AppHomeDir appHomeDir,
+  required String platform, // android | ios
+  required String releaseVersion,
+  Map<String, String>? environment,
+}) async {
+  final env = Map<String, String>.from(environment ?? Platform.environment);
+  final skip = (env['META_OTA_SKIP_RELEASE_SYNC'] ?? '').trim().toLowerCase();
+  if (skip == 'true' || skip == '1') {
+    loggerInfo('META_OTA_SKIP_RELEASE_SYNC 已设置，跳过向自建 OTA 登记 release');
+    return;
+  }
+
+  final creds = tryResolveMetaOtaCredentials(
+    flutterDir: appHomeDir.flutterDir,
+    environment: env,
+    requireAppId: true,
+  );
+  if (creds == null) {
+    loggerWarning(
+      '未配置 META_OTA_API / META_OTA_TOKEN / app_id，'
+      '跳过向自建 OTA 登记 release。'
+      '稍后可: meta_ota admin upload-release --app-id ... '
+      '--version $releaseVersion --platform $platform --arch aarch64',
+    );
+    return;
+  }
+  if (creds.appId == '00000000-0000-4000-8000-000000000001') {
+    loggerWarning('app_id 为占位值，跳过向自建 OTA 登记 release');
+    return;
+  }
+
+  final bin = await resolveMetaOtaBin(environment: env);
+  final arch = (env['META_OTA_ARCH'] ?? 'aarch64').trim();
+  // `--api/--token` 是 meta_ota 顶层 flag；admin 子命令本身不接收它们。
+  final args = <String>[
+    '--api',
+    creds.api,
+    '--token',
+    creds.token,
+    'admin',
+    'upload-release',
+    '--app-id',
+    creds.appId,
+    '--version',
+    releaseVersion,
+    '--platform',
+    platform,
+    '--arch',
+    arch,
+  ];
+
+  final artifact = (env['META_OTA_RELEASE_ARTIFACT'] ?? '').trim();
+  if (artifact.isNotEmpty) {
+    args.addAll(['--artifact', artifact]);
+  }
+
+  loggerInfo(
+    '向自建 OTA 登记 release: $releaseVersion ($platform/$arch) '
+    'via meta_ota admin upload-release',
+  );
+  loggerInfo('执行: $bin ${_redactMetaOtaTokenArgs(args).join(' ')}');
+
+  final cliEnv = Map<String, String>.from(env);
+  cliEnv['META_OTA_API'] = creds.api;
+  cliEnv['META_OTA_TOKEN'] = creds.token;
+  cliEnv['META_OTA_APP_ID'] = creds.appId;
+
+  final sw = Stopwatch()..start();
+  try {
+    await ProcessRunner(environment: cliEnv).runProcess(
+      [bin, ...args],
+      workingDirectory: appHomeDir.flutterDir,
+      printOutput: true,
+    );
+    loggerSuccess(
+      '已向自建 OTA 登记 release: $releaseVersion · '
+      '用时 ${formatElapsedDuration(sw.elapsed)}',
+    );
+  } catch (e) {
+    loggerWarning(
+      'meta_ota admin upload-release 失败（不影响 Shorebird 产物）: $e',
+    );
+    loggerWarning(
+      '可稍后: meta_ota admin upload-release --app-id ${creds.appId} '
+      '--version $releaseVersion --platform $platform --arch $arch',
+    );
+  }
+}
+
 /// 在 shorebird patch 之后，委托外部 `meta_ota upload` 推送到 Meta Code Push。
 ///
 /// 不自实现 HTTP；上传/promote/check 均由 meta_ota CLI 完成。
@@ -264,38 +418,31 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
     appHomeDir.flutterDir,
     environment: env,
   );
-
-  // 与 meta_ota 一致：环境变量 > .meta_ota.json / ~/.meta_ota/config.json
-  // API 额外可用 shorebird.yaml base_url。
-  var api = (env['META_OTA_API'] ?? '').trim();
-  if (api.isEmpty) api = (fileCfg.api ?? '').trim();
-  if (api.isNotEmpty && !_looksLikeHttpUrl(api)) {
-    loggerWarning(
-      'meta_ota 配置里的 api="$api" 不像 URL（应以 http(s):// 开头）。'
-      '将回退 shorebird.yaml base_url / META_OTA_API。'
-      '请执行: meta_ota config --api <OTA地址> --token <API Key>',
-    );
-    api = '';
-  }
-  if (api.isEmpty) api = (yaml?.baseUrl ?? '').trim();
-
-  var token = (env['META_OTA_TOKEN'] ?? '').trim();
-  if (token.isEmpty) token = (fileCfg.token ?? '').trim();
-
-  if (api.isEmpty) {
+  var apiProbe = (env['META_OTA_API'] ?? '').trim();
+  if (apiProbe.isEmpty) apiProbe = (fileCfg.api ?? '').trim();
+  if (apiProbe.isNotEmpty && !_looksLikeHttpUrl(apiProbe)) apiProbe = '';
+  if (apiProbe.isEmpty) apiProbe = (yaml?.baseUrl ?? '').trim();
+  var tokenProbe = (env['META_OTA_TOKEN'] ?? '').trim();
+  if (tokenProbe.isEmpty) tokenProbe = (fileCfg.token ?? '').trim();
+  if (apiProbe.isEmpty) {
     throw Exception(
       '缺少 Meta OTA API 地址。请设置 META_OTA_API、'
       '或 shorebird.yaml base_url、'
       '或 meta_ota config --api <URL>。',
     );
   }
-  if (token.isEmpty) {
+  if (tokenProbe.isEmpty) {
     throw Exception(
       '缺少 Meta OTA Token。请设置 META_OTA_TOKEN，'
       '或执行 meta_ota config --token <API Key>'
       '（写入 ~/.meta_ota/config.json / .meta_ota.json）。',
     );
   }
+
+  final creds = tryResolveMetaOtaCredentials(
+    flutterDir: appHomeDir.flutterDir,
+    environment: env,
+  )!;
 
   if (!promote) {
     loggerWarning(
@@ -324,9 +471,9 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
     '--arch',
     arch,
     '--api',
-    api.replaceAll(RegExp(r'/$'), ''),
+    creds.api,
     '--token',
-    token,
+    creds.token,
   ];
 
   // 可选透传产物路径（与 meta_ota / 环境变量约定一致）
@@ -363,19 +510,13 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
   addIfEnv('--hash', 'META_OTA_LIBAPP_HASH');
   addIfEnv('--release-libapp', 'META_OTA_RELEASE_LIBAPP');
 
-  final logArgs = List<String>.from(args);
-  final tokenIdx = logArgs.indexOf('--token');
-  if (tokenIdx >= 0 && tokenIdx + 1 < logArgs.length) {
-    logArgs[tokenIdx + 1] = '***';
-  }
-  loggerInfo('执行: $bin ${logArgs.join(' ')}');
+  loggerInfo('执行: $bin ${_redactMetaOtaTokenArgs(args).join(' ')}');
 
   final cliEnv = Map<String, String>.from(env);
-  cliEnv['META_OTA_API'] = api.replaceAll(RegExp(r'/$'), '');
-  cliEnv['META_OTA_TOKEN'] = token;
-  final appId = (env['META_OTA_APP_ID'] ?? yaml?.appId ?? '').trim();
-  if (appId.isNotEmpty) {
-    cliEnv['META_OTA_APP_ID'] = appId;
+  cliEnv['META_OTA_API'] = creds.api;
+  cliEnv['META_OTA_TOKEN'] = creds.token;
+  if (creds.appId.isNotEmpty) {
+    cliEnv['META_OTA_APP_ID'] = creds.appId;
   }
 
   final sw = Stopwatch()..start();

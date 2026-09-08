@@ -6,6 +6,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutter_sdk.dart';
+import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -223,6 +224,12 @@ class FlutterAarCommand extends BuildCacheCommand {
         ],
       );
       await syncShorebirdAarReleaseToHostDir(appHomeDir.flutterDir);
+      // 与 meta_ota release 成功后一致：向自建 OTA 登记版本，供后续 patch 校验。
+      await syncShorebirdReleaseToMetaOta(
+        appHomeDir: appHomeDir,
+        platform: 'android',
+        releaseVersion: shorebirdReleaseVersion!,
+      );
     } else {
       /// flutter build aar --no-debug --no-profile --verbose
       await ProcessRunner().runProcess(

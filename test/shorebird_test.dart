@@ -157,6 +157,66 @@ metax_enabled: true
     });
   });
 
+  group('tryResolveMetaOtaCredentials', () {
+    test('resolves from env and strips trailing slash', () {
+      File(join(home.flutterDir.path, 'shorebird.yaml')).writeAsStringSync('''
+app_id: "app-from-yaml"
+base_url: http://ota.yaml/
+''');
+      final creds = tryResolveMetaOtaCredentials(
+        flutterDir: home.flutterDir,
+        environment: {
+          'META_OTA_API': 'http://ota.env/',
+          'META_OTA_TOKEN': 'tok',
+          'HOME': tempDir.path,
+        },
+      );
+      expect(creds, isNotNull);
+      expect(creds!.api, 'http://ota.env');
+      expect(creds.token, 'tok');
+      expect(creds.appId, 'app-from-yaml');
+    });
+
+    test('requireAppId returns null without app_id', () {
+      final creds = tryResolveMetaOtaCredentials(
+        flutterDir: home.flutterDir,
+        environment: {
+          'META_OTA_API': 'http://ota.env/',
+          'META_OTA_TOKEN': 'tok',
+          'HOME': tempDir.path,
+        },
+        requireAppId: true,
+      );
+      expect(creds, isNull);
+    });
+  });
+
+  group('syncShorebirdReleaseToMetaOta', () {
+    test('skips when META_OTA_SKIP_RELEASE_SYNC is set', () async {
+      await syncShorebirdReleaseToMetaOta(
+        appHomeDir: home,
+        platform: 'android',
+        releaseVersion: '1.0.0+1',
+        environment: {
+          'META_OTA_SKIP_RELEASE_SYNC': 'true',
+          'META_OTA_API': 'http://ota.env/',
+          'META_OTA_TOKEN': 'tok',
+          'META_OTA_APP_ID': 'app-1',
+          'HOME': tempDir.path,
+        },
+      );
+    });
+
+    test('skips when credentials missing', () async {
+      await syncShorebirdReleaseToMetaOta(
+        appHomeDir: home,
+        platform: 'android',
+        releaseVersion: '1.0.0+1',
+        environment: {'HOME': tempDir.path},
+      );
+    });
+  });
+
   group('clearShorebirdReleaseDir', () {
     test('deletes existing flutter/release', () async {
       final release = Directory(join(home.flutterDir.path, 'release'))
