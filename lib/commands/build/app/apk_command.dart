@@ -25,6 +25,28 @@ class ApkCommand extends Command {
       throw Exception('gradlew文件不存在: ${gradlew.path}');
     }
 
+    // Flutter 工具偶发往宿主工程写入该文件，与 AAR 内同名类冲突，打包前删掉。
+    final generatedPluginRegistrant = File(
+      join(
+        androidDir.path,
+        'app',
+        'src',
+        'main',
+        'java',
+        'io',
+        'flutter',
+        'plugins',
+        'GeneratedPluginRegistrant.java',
+      ),
+    );
+    if (generatedPluginRegistrant.existsSync()) {
+      generatedPluginRegistrant.deleteSync();
+      loggerWarning(
+        '已删除干扰打包的 GeneratedPluginRegistrant.java: '
+        '${generatedPluginRegistrant.path}',
+      );
+    }
+
     /// ./gradlew assembleRelease
     await ProcessRunner().runProcess(
       ['./gradlew', 'assembleRelease'],
