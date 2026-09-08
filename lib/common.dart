@@ -247,6 +247,76 @@ Future<void> switchBranch(String workingDirectory, String branch) async {
   loggerSuccess('成功切换到分支: $switchBranch');
 }
 
+/// 对齐 Melos 工作区到指定执行分支（与打包流程一致）：
+/// 1. 主仓切到 [melosBranch] 并拉最新
+/// 2. 重置已有子模块到其当前分支 tip
+/// 3. 执行 `init_git_submodule.sh`
+/// 4. 各子模块切到配置分支（`MAIN_BRANCH` 跟随主仓）并拉最新
+Future<void> syncMelosWorkspaceToBranch(
+  String workspace,
+  String melosBranch,
+) async {
+  await switchBranch(workspace, melosBranch);
+
+  /// 0. 重置所有已存在的子模块到当前分支的最新提交
+  final gitSubmodulePath = await getGitmodulesFilePath(workspace);
+  if (await File(gitSubmodulePath).exists()) {
+    final existingSubmodules = await parseGitmodulesFile(gitSubmodulePath);
+    for (final submodule in existingSubmodules) {
+      final path = submodule.path;
+      if (path == null) {
+        continue;
+      }
+      final submodulePath = join(workspace, path);
+      final submoduleGitDir = join(submodulePath, '.git');
+
+      if (await Directory(submodulePath).exists() &&
+          (await Directory(submoduleGitDir).exists() ||
+              await File(submoduleGitDir).exists())) {
+        try {
+          final currentBranch = await getCurrentBranch(submodulePath);
+          loggerDebug('重置子模块 [$path] 从分支 [$currentBranch] 到最新提交');
+          await switchBranch(submodulePath, currentBranch);
+        } catch (e) {
+          loggerWarning('重置子模块 [$path] 失败: $e');
+        }
+      }
+    }
+  }
+
+  /// 1. 更新最新的 Git submodule
+  await ProcessRunner().runProcess(
+    [
+      'bash',
+      'init_git_submodule.sh',
+    ],
+    workingDirectory: Directory(workspace),
+    printOutput: true,
+  );
+
+  /// 2. 将 submodule 切换到对应执行分支最新
+  final gitSubmodules = await parseGitmodulesFile(gitSubmodulePath);
+  final currentMelosBranch = await getCurrentBranch(workspace);
+
+  for (final submodule in gitSubmodules) {
+    final rawBranch = submodule.branch;
+    final path = submodule.path;
+    final name = submodule.name;
+    if (name == null) {
+      throw Exception('submodule name is null');
+    }
+    if (rawBranch == null) {
+      throw Exception('[$name]submodule branch is null');
+    }
+    if (path == null) {
+      throw Exception('[$name]submodule path is null');
+    }
+    final branch = getBranchName(rawBranch, mainBranch: currentMelosBranch);
+    final submodulePath = join(workspace, path);
+    await switchBranch(submodulePath, branch);
+  }
+}
+
 /// 解析分支名。
 ///
 /// - 去掉 `origin/` 等远程前缀

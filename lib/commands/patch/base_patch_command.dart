@@ -20,7 +20,7 @@ abstract class BasePatchCommand extends Command {
     );
     argParser.addOption(
       'branch',
-      help: '切换 Flutter 分支后再打补丁',
+      help: 'Melos 分支（与打包一致：切主仓并同步全部子模块后再打补丁）',
     );
     argParser.addOption(
       'channel',
@@ -77,13 +77,18 @@ abstract class BasePatchCommand extends Command {
       );
     }
 
-    final branch = argResults?['branch'] as String?;
-    if (branch != null && branch.isNotEmpty) {
-      if (skipGitPull) {
-        loggerInfo('跳过 Git 操作模式，使用本地代码');
-      } else {
-        await switchBranch(flutterDir.path, branch);
-      }
+    String? melosBranch = argResults?['branch'] as String?;
+    if (skipGitPull) {
+      loggerInfo('跳过 Git 操作模式，使用本地代码');
+    } else {
+      // 与打包一致：选择 Melos 分支 → 拉最新 → 同步全部子模块到执行分支
+      melosBranch = ArgumentGet(argResults).getString(
+        'branch',
+        '请选择Melos分支',
+        allowed: await getLatestBranchList(appHomeDir.workspace),
+      );
+      loggerInfo('同步工作区到 Melos 分支: $melosBranch');
+      await syncMelosWorkspaceToBranch(appHomeDir.workspace, melosBranch);
     }
 
     final releaseVersion = ArgumentGet(argResults).getString(
@@ -98,7 +103,7 @@ abstract class BasePatchCommand extends Command {
         platform: otaPlatform,
       ).resolve(
         releaseVersion: releaseVersion,
-        preferMelosBranch: branch,
+        preferMelosBranch: melosBranch,
       );
       await PatchCompatGate(appHomeDir).assertCompatible(baselines);
     } else {

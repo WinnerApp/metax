@@ -3,7 +3,7 @@
 # 依赖 Job 参数/环境变量：分支、平台、版本、build
 #
 # 建议参数名（可按你们 Jenkins 实际名改下面映射）：
-#   BRANCH / branch          Flutter 分支
+#   BRANCH / branch          Melos 分支（与打包一致，会同步全部子模块）
 #   PLATFORM / platform      android | ios
 #   VERSION / version        版本名，如 3.4.100
 #   BUILD / build            buildNumber，如 1788397052
@@ -30,6 +30,11 @@ ALLOW_ASSET_DIFFS="${ALLOW_ASSET_DIFFS:-false}"
 CHANNEL="${CHANNEL:-${META_OTA_CHANNEL:-stable}}"
 
 # ---- 校验 ----
+if [[ -z "${BRANCH}" ]]; then
+  echo "ERROR: 缺少 BRANCH（Melos 分支，与打包 Job 一致）" >&2
+  exit 1
+fi
+
 if [[ -z "${PLATFORM}" ]]; then
   echo "ERROR: 缺少 PLATFORM（android|ios）" >&2
   exit 1
@@ -51,7 +56,7 @@ fi
 RELEASE_VERSION="${VERSION}+${BUILD}"
 
 echo "==> platform=${PLATFORM}"
-echo "==> branch=${BRANCH:-"(当前分支，不切换)"}"
+echo "==> branch=${BRANCH}"
 echo "==> release-version=${RELEASE_VERSION}"
 echo "==> channel=${CHANNEL}"
 
@@ -60,12 +65,8 @@ ARGS=(
   patch "${PLATFORM}"
   --release-version "${RELEASE_VERSION}"
   --channel "${CHANNEL}"
+  --branch "${BRANCH}"
 )
-
-if [[ -n "${BRANCH}" ]]; then
-  ARGS+=(--branch "${BRANCH}")
-fi
-
 if [[ "${FORCE_PATCH}" == "true" || "${FORCE_PATCH}" == "1" ]]; then
   ARGS+=(--force-patch)
 fi
