@@ -207,13 +207,148 @@ base_url: http://ota.yaml/
       );
     });
 
-    test('skips when credentials missing', () async {
+    test('skips when meta_ota bin missing', () async {
       await syncShorebirdReleaseToMetaOta(
         appHomeDir: home,
         platform: 'android',
         releaseVersion: '1.0.0+1',
-        environment: {'HOME': tempDir.path},
+        environment: {
+          'HOME': tempDir.path,
+          'META_OTA_BIN': join(tempDir.path, 'no_such_meta_ota'),
+          'META_CODE_PUSH_ROOT': '',
+          'PATH': '',
+        },
       );
+    });
+  });
+
+  File writeFakeMetaOtaRecorder() {
+    final logFile = File(join(tempDir.path, 'meta_ota_calls.log'));
+    final bin = File(join(tempDir.path, 'fake_meta_ota'));
+    // Records argv; fails if --api/--token appear.
+    bin.writeAsStringSync('''
+#!/bin/sh
+echo "\$@" >> "${logFile.path}"
+for arg in "\$@"; do
+  if [ "\$arg" = "--api" ] || [ "\$arg" = "--token" ]; then
+    echo "forbidden flag: \$arg" >&2
+    exit 2
+  fi
+done
+exit 0
+''');
+    Process.runSync('chmod', ['+x', bin.path]);
+    return bin;
+  }
+
+  group('syncShorebirdBaselineToMetaOta', () {
+    test('skips when META_OTA_SKIP_BASELINE_SYNC is set', () async {
+      final bin = writeFakeMetaOtaRecorder();
+      final logFile = File(join(tempDir.path, 'meta_ota_calls.log'));
+      await syncShorebirdBaselineToMetaOta(
+        appHomeDir: home,
+        releaseVersion: '1.0.0+1',
+        environment: {
+          'META_OTA_SKIP_BASELINE_SYNC': 'true',
+          'META_OTA_BIN': bin.path,
+          'HOME': tempDir.path,
+        },
+      );
+      expect(logFile.existsSync(), isFalse);
+    });
+
+    test('skips when meta_ota bin missing', () async {
+      await syncShorebirdBaselineToMetaOta(
+        appHomeDir: home,
+        releaseVersion: '1.0.0+1',
+        environment: {
+          'HOME': tempDir.path,
+          'META_OTA_BIN': join(tempDir.path, 'no_such_meta_ota'),
+          'META_CODE_PUSH_ROOT': '',
+          'PATH': '',
+        },
+      );
+    });
+
+    test('runs upload-snapshot and upload-resources without --api/--token',
+        () async {
+      final bin = writeFakeMetaOtaRecorder();
+      final logFile = File(join(tempDir.path, 'meta_ota_calls.log'));
+      Directory(join(tempDir.path, 'android')).createSync();
+      Directory(join(tempDir.path, 'ios')).createSync();
+
+      await syncShorebirdBaselineToMetaOta(
+        appHomeDir: home,
+        releaseVersion: '1.0.0+42',
+        environment: {
+          'META_OTA_BIN': bin.path,
+          'HOME': tempDir.path,
+          'PATH': '',
+        },
+      );
+
+      final log = logFile.readAsStringSync();
+      expect(log, contains('upload-snapshot'));
+      expect(log, contains('upload-resources'));
+      expect(log, contains('1.0.0+42'));
+      expect(log, contains('--flutter metaapp_flutter'));
+      expect(log, contains('--android android'));
+      expect(log, contains('--ios ios'));
+      expect(log, contains('--app-dir metaapp_flutter'));
+      expect(log, isNot(contains('--api')));
+      expect(log, isNot(contains('--token')));
+    });
+  });
+
+  group('uploadMetaOtaResourcePack', () {
+    test('skips when META_OTA_SKIP_RESOURCE_PACK is set', () async {
+      final bin = writeFakeMetaOtaRecorder();
+      final logFile = File(join(tempDir.path, 'meta_ota_calls.log'));
+      await uploadMetaOtaResourcePack(
+        appHomeDir: home,
+        releaseVersion: '1.0.0+2',
+        environment: {
+          'META_OTA_SKIP_RESOURCE_PACK': 'true',
+          'META_OTA_BIN': bin.path,
+          'HOME': tempDir.path,
+        },
+      );
+      expect(logFile.existsSync(), isFalse);
+    });
+
+    test('skips when skip flag is true', () async {
+      final bin = writeFakeMetaOtaRecorder();
+      final logFile = File(join(tempDir.path, 'meta_ota_calls.log'));
+      await uploadMetaOtaResourcePack(
+        appHomeDir: home,
+        releaseVersion: '1.0.0+2',
+        skip: true,
+        environment: {
+          'META_OTA_BIN': bin.path,
+          'HOME': tempDir.path,
+        },
+      );
+      expect(logFile.existsSync(), isFalse);
+    });
+
+    test('runs upload-resource-pack without --api/--token', () async {
+      final bin = writeFakeMetaOtaRecorder();
+      final logFile = File(join(tempDir.path, 'meta_ota_calls.log'));
+      await uploadMetaOtaResourcePack(
+        appHomeDir: home,
+        releaseVersion: '1.0.0+2',
+        environment: {
+          'META_OTA_BIN': bin.path,
+          'HOME': tempDir.path,
+          'PATH': '',
+        },
+      );
+      final log = logFile.readAsStringSync();
+      expect(log, contains('upload-resource-pack'));
+      expect(log, contains('--app-dir .'));
+      expect(log, contains('1.0.0+2'));
+      expect(log, isNot(contains('--api')));
+      expect(log, isNot(contains('--token')));
     });
   });
 

@@ -52,6 +52,12 @@ abstract class BasePatchCommand extends Command {
       defaultsTo: false,
       negatable: false,
     );
+    argParser.addFlag(
+      'skip-resource-pack',
+      help: '跳过 meta_ota upload-resource-pack（不上传变动资源包）',
+      defaultsTo: false,
+      negatable: false,
+    );
   }
 
   String get otaPlatform; // android | ios
@@ -147,6 +153,13 @@ abstract class BasePatchCommand extends Command {
       '补丁已由 meta_ota 推送: '
       'patch_id=${result.patchId ?? '(见上方 meta_ota 输出)'} '
       'version=$releaseVersion platform=$otaPlatform channel=$channel',
+    );
+
+    await uploadMetaOtaResourcePack(
+      appHomeDir: appHomeDir,
+      releaseVersion: releaseVersion,
+      channel: channel,
+      skip: argResults?['skip-resource-pack'] == true,
     );
   }
 }

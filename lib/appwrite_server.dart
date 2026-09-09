@@ -97,6 +97,31 @@ class AppwriteServer {
     });
   }
 
+  /// 按 platform + build_name 取最新一条打包记录（`metax check-ota` 用）。
+  Future<Document?> queryLatestBuildConfigByBuildName({
+    required String databaseId,
+    required String buildConfigCollectionId,
+    required String platform,
+    required String buildName,
+  }) async {
+    return databases.listDocuments(
+      databaseId: databaseId,
+      collectionId: buildConfigCollectionId,
+      queries: [
+        Query.equal('platform', platform),
+        Query.equal('build_name', buildName),
+        Query.orderDesc('\$createdAt'),
+        Query.limit(1),
+      ],
+    ).then((e) {
+      if (e.documents.isEmpty) return null;
+      return e.documents.first;
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
+      throw e;
+    });
+  }
+
   /// 查询最新打包相关分支配置
   Future<DocumentList?> queryBuildBranchConfig({
     required String databaseId,

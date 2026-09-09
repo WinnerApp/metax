@@ -296,19 +296,51 @@ String? resolveMetaOtaPatchedBinary({
   return fromBuild?.absolute.path;
 }
 
-List<String> _redactMetaOtaTokenArgs(List<String> args) {
-  final logArgs = List<String>.from(args);
-  final tokenIdx = logArgs.indexOf('--token');
-  if (tokenIdx >= 0 && tokenIdx + 1 < logArgs.length) {
-    logArgs[tokenIdx + 1] = '***';
+bool _envFlagTrue(Map<String, String> env, String key) {
+  final v = (env[key] ?? '').trim().toLowerCase();
+  return v == 'true' || v == '1';
+}
+
+String? _resolveMetaOtaAppId(Directory flutterDir, Map<String, String> env) {
+  final fromEnv = (env['META_OTA_APP_ID'] ?? '').trim();
+  if (fromEnv.isNotEmpty) return fromEnv;
+  final fromYaml = ShorebirdYamlConfig.tryLoad(flutterDir)?.appId?.trim();
+  if (fromYaml != null && fromYaml.isNotEmpty) return fromYaml;
+  return null;
+}
+
+const _kPlaceholderAppId = '00000000-0000-4000-8000-000000000001';
+
+Future<void> _runMetaOtaQuietly({
+  required String bin,
+  required List<String> args,
+  required Directory workingDirectory,
+  Map<String, String>? environment,
+  required String successLog,
+  required String failureLog,
+}) async {
+  loggerInfo('执行: $bin ${args.join(' ')}');
+  final sw = Stopwatch()..start();
+  try {
+    await ProcessRunner(
+      environment: environment == null
+          ? null
+          : Map<String, String>.from(environment),
+    ).runProcess(
+      [bin, ...args],
+      workingDirectory: workingDirectory,
+      printOutput: true,
+    );
+    loggerSuccess('$successLog · 用时 ${formatElapsedDuration(sw.elapsed)}');
+  } catch (e) {
+    loggerWarning('$failureLog: $e');
   }
-  return logArgs;
 }
 
 /// 在 shorebird release 之后，委托 `meta_ota admin upload-release` 向自建 OTA 登记版本。
 ///
 /// 对齐 meta_ota CLI 的 `release` 成功后行为（仅控制面登记，不再次执行 shorebird）。
-/// 未配置 META_OTA_API / TOKEN / app_id 时跳过并告警，不阻断打包。
+/// 鉴权由本机 meta_ota（`~/.meta_ota` / `.meta_ota.json`）完成，不传 `--api/--token`，也不注入凭证环境变量。
 /// 设置 `META_OTA_SKIP_RELEASE_SYNC=true` 可显式跳过。
 Future<void> syncShorebirdReleaseToMetaOta({
   required AppHomeDir appHomeDir,
@@ -317,43 +349,29 @@ Future<void> syncShorebirdReleaseToMetaOta({
   Map<String, String>? environment,
 }) async {
   final env = Map<String, String>.from(environment ?? Platform.environment);
-  final skip = (env['META_OTA_SKIP_RELEASE_SYNC'] ?? '').trim().toLowerCase();
-  if (skip == 'true' || skip == '1') {
+  if (_envFlagTrue(env, 'META_OTA_SKIP_RELEASE_SYNC')) {
     loggerInfo('META_OTA_SKIP_RELEASE_SYNC 已设置，跳过向自建 OTA 登记 release');
     return;
   }
 
-  final creds = tryResolveMetaOtaCredentials(
-    flutterDir: appHomeDir.flutterDir,
-    environment: env,
-    requireAppId: true,
-  );
-  if (creds == null) {
-    loggerWarning(
-      '未配置 META_OTA_API / META_OTA_TOKEN / app_id，'
-      '跳过向自建 OTA 登记 release。'
-      '稍后可: meta_ota admin upload-release --app-id ... '
-      '--version $releaseVersion --platform $platform --arch aarch64',
-    );
-    return;
-  }
-  if (creds.appId == '00000000-0000-4000-8000-000000000001') {
+  final appId = _resolveMetaOtaAppId(appHomeDir.flutterDir, env);
+  if (appId == _kPlaceholderAppId) {
     loggerWarning('app_id 为占位值，跳过向自建 OTA 登记 release');
     return;
   }
 
-  final bin = await resolveMetaOtaBin(environment: env);
+  final String bin;
+  try {
+    bin = await resolveMetaOtaBin(environment: env);
+  } catch (e) {
+    loggerWarning('未找到 meta_ota，跳过向自建 OTA 登记 release: $e');
+    return;
+  }
+
   final arch = (env['META_OTA_ARCH'] ?? 'aarch64').trim();
-  // `--api/--token` 是 meta_ota 顶层 flag；admin 子命令本身不接收它们。
   final args = <String>[
-    '--api',
-    creds.api,
-    '--token',
-    creds.token,
     'admin',
     'upload-release',
-    '--app-id',
-    creds.appId,
     '--version',
     releaseVersion,
     '--platform',
@@ -361,6 +379,9 @@ Future<void> syncShorebirdReleaseToMetaOta({
     '--arch',
     arch,
   ];
+  if (appId != null && appId.isNotEmpty) {
+    args.addAll(['--app-id', appId]);
+  }
 
   final artifact = (env['META_OTA_RELEASE_ARTIFACT'] ?? '').trim();
   if (artifact.isNotEmpty) {
@@ -371,38 +392,158 @@ Future<void> syncShorebirdReleaseToMetaOta({
     '向自建 OTA 登记 release: $releaseVersion ($platform/$arch) '
     'via meta_ota admin upload-release',
   );
-  loggerInfo('执行: $bin ${_redactMetaOtaTokenArgs(args).join(' ')}');
 
-  final cliEnv = Map<String, String>.from(env);
-  cliEnv['META_OTA_API'] = creds.api;
-  cliEnv['META_OTA_TOKEN'] = creds.token;
-  cliEnv['META_OTA_APP_ID'] = creds.appId;
-
-  final sw = Stopwatch()..start();
-  try {
-    await ProcessRunner(environment: cliEnv).runProcess(
-      [bin, ...args],
-      workingDirectory: appHomeDir.flutterDir,
-      printOutput: true,
-    );
-    loggerSuccess(
-      '已向自建 OTA 登记 release: $releaseVersion · '
-      '用时 ${formatElapsedDuration(sw.elapsed)}',
-    );
-  } catch (e) {
-    loggerWarning(
-      'meta_ota admin upload-release 失败（不影响 Shorebird 产物）: $e',
-    );
-    loggerWarning(
-      '可稍后: meta_ota admin upload-release --app-id ${creds.appId} '
-      '--version $releaseVersion --platform $platform --arch $arch',
+  await _runMetaOtaQuietly(
+    bin: bin,
+    args: args,
+    workingDirectory: appHomeDir.flutterDir,
+    environment: environment,
+    successLog: '已向自建 OTA 登记 release: $releaseVersion',
+    failureLog: 'meta_ota admin upload-release 失败（不影响 Shorebird 产物）',
+  );
+  if (!_envFlagTrue(env, 'META_OTA_SKIP_BASELINE_SYNC')) {
+    await syncShorebirdBaselineToMetaOta(
+      appHomeDir: appHomeDir,
+      releaseVersion: releaseVersion,
+      environment: environment,
     );
   }
+}
+
+/// Shorebird release 登记后，上传 OTA 快照 + 资源配置基线。
+///
+/// - `meta_ota upload-snapshot`
+/// - `meta_ota upload-resources`
+///
+/// 在仓库**主目录**（workspace）执行。鉴权由本机 meta_ota 完成。
+/// 失败只告警，不阻断打包。`META_OTA_SKIP_BASELINE_SYNC=true` 可跳过。
+Future<void> syncShorebirdBaselineToMetaOta({
+  required AppHomeDir appHomeDir,
+  required String releaseVersion,
+  Map<String, String>? environment,
+}) async {
+  final env = Map<String, String>.from(environment ?? Platform.environment);
+  if (_envFlagTrue(env, 'META_OTA_SKIP_RELEASE_SYNC') ||
+      _envFlagTrue(env, 'META_OTA_SKIP_BASELINE_SYNC')) {
+    loggerInfo('已跳过 meta_ota upload-snapshot / upload-resources');
+    return;
+  }
+
+  final appId = _resolveMetaOtaAppId(appHomeDir.flutterDir, env);
+  if (appId == _kPlaceholderAppId) {
+    loggerWarning('app_id 为占位值，跳过 upload-snapshot / upload-resources');
+    return;
+  }
+
+  final String bin;
+  try {
+    bin = await resolveMetaOtaBin(environment: env);
+  } catch (e) {
+    loggerWarning('未找到 meta_ota，跳过 upload-snapshot / upload-resources: $e');
+    return;
+  }
+
+  // AOT 快照 + 资源配置：在主仓目录执行，路径相对 workspace。
+  final workspace = appHomeDir.directory;
+  final flutterRel = relative(appHomeDir.flutterDir.path, from: workspace.path);
+
+  final snapshotArgs = <String>[
+    'upload-snapshot',
+    '--flutter',
+    flutterRel,
+    '--version',
+    releaseVersion,
+  ];
+  if (appHomeDir.androidDir.existsSync()) {
+    snapshotArgs.addAll([
+      '--android',
+      relative(appHomeDir.androidDir.path, from: workspace.path),
+    ]);
+  }
+  if (appHomeDir.iosDir.existsSync()) {
+    snapshotArgs.addAll([
+      '--ios',
+      relative(appHomeDir.iosDir.path, from: workspace.path),
+    ]);
+  }
+
+  await _runMetaOtaQuietly(
+    bin: bin,
+    args: snapshotArgs,
+    workingDirectory: workspace,
+    environment: environment,
+    successLog: '已上传 OTA 快照: $releaseVersion',
+    failureLog: 'meta_ota upload-snapshot 失败（不影响 Shorebird 产物）',
+  );
+
+  await _runMetaOtaQuietly(
+    bin: bin,
+    args: [
+      'upload-resources',
+      '--app-dir',
+      flutterRel,
+      '--version',
+      releaseVersion,
+    ],
+    workingDirectory: workspace,
+    environment: environment,
+    successLog: '已上传资源配置基线: $releaseVersion',
+    failureLog: 'meta_ota upload-resources 失败（不影响 Shorebird 产物）',
+  );
+}
+
+/// 热更后委托 `meta_ota upload-resource-pack` 上传有变动的资源包（独立于 Dart patch）。
+///
+/// 在 **Flutter 工程目录**（metaapp_flutter）执行。鉴权由本机 meta_ota 完成。
+/// 失败只告警，不阻断已成功的补丁上传。
+/// `META_OTA_SKIP_RESOURCE_PACK=true` 或 [skip]=true 可跳过。
+Future<void> uploadMetaOtaResourcePack({
+  required AppHomeDir appHomeDir,
+  required String releaseVersion,
+  String? channel,
+  bool skip = false,
+  Map<String, String>? environment,
+}) async {
+  final env = Map<String, String>.from(environment ?? Platform.environment);
+  if (skip || _envFlagTrue(env, 'META_OTA_SKIP_RESOURCE_PACK')) {
+    loggerInfo('已跳过 meta_ota upload-resource-pack');
+    return;
+  }
+
+  final String bin;
+  try {
+    bin = await resolveMetaOtaBin(environment: env);
+  } catch (e) {
+    loggerWarning('未找到 meta_ota，跳过 upload-resource-pack: $e');
+    return;
+  }
+
+  final args = <String>[
+    'upload-resource-pack',
+    '--app-dir',
+    '.',
+    '--version',
+    releaseVersion,
+  ];
+  final ch = (channel ?? '').trim();
+  if (ch.isNotEmpty) {
+    args.addAll(['--channel', ch]);
+  }
+
+  await _runMetaOtaQuietly(
+    bin: bin,
+    args: args,
+    workingDirectory: appHomeDir.flutterDir,
+    environment: environment,
+    successLog: '已处理资源包上传: $releaseVersion',
+    failureLog: 'meta_ota upload-resource-pack 失败（不影响 Dart 补丁）',
+  );
 }
 
 /// 在 shorebird patch 之后，委托外部 `meta_ota upload` 推送到 Meta Code Push。
 ///
 /// 不自实现 HTTP；上传/promote/check 均由 meta_ota CLI 完成。
+/// 鉴权由本机 meta_ota 完成，不传 `--api/--token`，也不注入凭证环境变量。
 /// 注意：当前 meta_ota `upload` 固定 promote → stable（无 skip-promote / 自定义 channel）。
 Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
   required AppHomeDir appHomeDir,
@@ -413,36 +554,6 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
   Map<String, String>? environment,
 }) async {
   final env = Map<String, String>.from(environment ?? Platform.environment);
-  final yaml = ShorebirdYamlConfig.tryLoad(appHomeDir.flutterDir);
-  final fileCfg = loadMetaOtaFileConfig(
-    appHomeDir.flutterDir,
-    environment: env,
-  );
-  var apiProbe = (env['META_OTA_API'] ?? '').trim();
-  if (apiProbe.isEmpty) apiProbe = (fileCfg.api ?? '').trim();
-  if (apiProbe.isNotEmpty && !_looksLikeHttpUrl(apiProbe)) apiProbe = '';
-  if (apiProbe.isEmpty) apiProbe = (yaml?.baseUrl ?? '').trim();
-  var tokenProbe = (env['META_OTA_TOKEN'] ?? '').trim();
-  if (tokenProbe.isEmpty) tokenProbe = (fileCfg.token ?? '').trim();
-  if (apiProbe.isEmpty) {
-    throw Exception(
-      '缺少 Meta OTA API 地址。请设置 META_OTA_API、'
-      '或 shorebird.yaml base_url、'
-      '或 meta_ota config --api <URL>。',
-    );
-  }
-  if (tokenProbe.isEmpty) {
-    throw Exception(
-      '缺少 Meta OTA Token。请设置 META_OTA_TOKEN，'
-      '或执行 meta_ota config --token <API Key>'
-      '（写入 ~/.meta_ota/config.json / .meta_ota.json）。',
-    );
-  }
-
-  final creds = tryResolveMetaOtaCredentials(
-    flutterDir: appHomeDir.flutterDir,
-    environment: env,
-  )!;
 
   if (!promote) {
     loggerWarning(
@@ -470,10 +581,6 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
     releaseVersion,
     '--arch',
     arch,
-    '--api',
-    creds.api,
-    '--token',
-    creds.token,
   ];
 
   // 可选透传产物路径（与 meta_ota / 环境变量约定一致）
@@ -510,19 +617,16 @@ Future<MetaOtaUploadResult> uploadShorebirdPatchToMetaOta({
   addIfEnv('--hash', 'META_OTA_LIBAPP_HASH');
   addIfEnv('--release-libapp', 'META_OTA_RELEASE_LIBAPP');
 
-  loggerInfo('执行: $bin ${_redactMetaOtaTokenArgs(args).join(' ')}');
-
-  final cliEnv = Map<String, String>.from(env);
-  cliEnv['META_OTA_API'] = creds.api;
-  cliEnv['META_OTA_TOKEN'] = creds.token;
-  if (creds.appId.isNotEmpty) {
-    cliEnv['META_OTA_APP_ID'] = creds.appId;
-  }
+  loggerInfo('执行: $bin ${args.join(' ')}');
 
   final sw = Stopwatch()..start();
   final ProcessRunnerResult result;
   try {
-    result = await ProcessRunner(environment: cliEnv).runProcess(
+    result = await ProcessRunner(
+      environment: environment == null
+          ? null
+          : Map<String, String>.from(environment),
+    ).runProcess(
       [bin, ...args],
       workingDirectory: appHomeDir.flutterDir,
       printOutput: true,
