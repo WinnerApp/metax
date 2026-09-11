@@ -7,7 +7,6 @@ import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
 import 'package:meta_tool/commands/patch/patch_release_baseline.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -22,20 +21,9 @@ abstract class BasePatchCommand extends Command {
       'branch',
       help: 'Melos 分支（与打包一致：切主仓并同步全部子模块后再打补丁）',
     );
-    argParser.addOption(
-      'channel',
-      help: 'Meta OTA promote 渠道（meta_ota upload 目前固定 stable，非 stable 会告警）',
-      defaultsTo: 'stable',
-    );
     argParser.addFlag(
       'force-patch',
       help: '跳过多仓库热更预审（危险，仅排障/强行热更）',
-      defaultsTo: false,
-      negatable: false,
-    );
-    argParser.addFlag(
-      'skip-promote',
-      help: '只上传 staging，不 promote（meta_ota upload 暂不支持，会告警忽略）',
       defaultsTo: false,
       negatable: false,
     );
@@ -49,12 +37,6 @@ abstract class BasePatchCommand extends Command {
       help:
           '透传 shorebird --allow-asset-diffs：允许补丁相对 release 有 asset 差异'
           '（asset 不会打进补丁，仅跳过拦截）',
-      defaultsTo: false,
-      negatable: false,
-    );
-    argParser.addFlag(
-      'skip-resource-pack',
-      help: '跳过 meta_ota upload-resource-pack（不上传变动资源包）',
       defaultsTo: false,
       negatable: false,
     );
@@ -139,27 +121,8 @@ abstract class BasePatchCommand extends Command {
       allowAssetDiffs: allowAssetDiffs,
     );
 
-    final channel = (argResults?['channel'] as String?) ?? 'stable';
-    final skipPromote = argResults?['skip-promote'] == true;
-    final result = await uploadShorebirdPatchToMetaOta(
-      appHomeDir: appHomeDir,
-      platform: otaPlatform,
-      releaseVersion: releaseVersion,
-      channel: channel,
-      promote: !skipPromote,
-    );
-
     loggerSuccess(
-      '补丁已由 meta_ota 推送: '
-      'patch_id=${result.patchId ?? '(见上方 meta_ota 输出)'} '
-      'version=$releaseVersion platform=$otaPlatform channel=$channel',
-    );
-
-    await uploadMetaOtaResourcePack(
-      appHomeDir: appHomeDir,
-      releaseVersion: releaseVersion,
-      channel: channel,
-      skip: argResults?['skip-resource-pack'] == true,
+      'Shorebird 补丁完成: version=$releaseVersion platform=$otaPlatform',
     );
   }
 }

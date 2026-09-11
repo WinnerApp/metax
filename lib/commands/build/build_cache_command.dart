@@ -9,7 +9,6 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:meta_tool/upload_sentry.dart';
 import 'package:path/path.dart';
@@ -192,13 +191,6 @@ abstract class BuildCacheCommand extends Command {
       cachedReleaseVersion: cached.releaseVersion,
     );
     if (!cloned) return;
-
-    final otaPlatform = platform == 'aar' ? 'android' : 'ios';
-    await syncShorebirdReleaseToMetaOta(
-      appHomeDir: appHomeDir,
-      platform: otaPlatform,
-      releaseVersion: current,
-    );
 
     // 索引记为当前宿主版本，方便下次链式 from-release
     final infos = [...await cache.cacheManager.read()];

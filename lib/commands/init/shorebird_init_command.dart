@@ -14,7 +14,6 @@ import 'package:path/path.dart';
 /// 用法：
 /// ```
 /// metax init shorebird
-/// metax init shorebird --patch
 /// metax init shorebird --skip-network
 /// ```
 class ShorebirdInitCommand extends Command {
@@ -29,12 +28,6 @@ class ShorebirdInitCommand extends Command {
     argParser.addFlag(
       'writeExample',
       help: '若缺少 shorebird.yaml，写入官方字段示例；并提示 pubspec 开关',
-      defaultsTo: false,
-      negatable: false,
-    );
-    argParser.addFlag(
-      'patch',
-      help: '同时检测补丁链路（meta_ota CLI / META_OTA_API / TOKEN）',
       defaultsTo: false,
       negatable: false,
     );
@@ -75,14 +68,12 @@ auto_update: true
       loggerSuccess('已写入示例: $yamlPath');
     }
 
-    final checkPatch = argResults?['patch'] == true;
     final skipNetwork = argResults?['skip-network'] == true;
     final strict = argResults?['strict'] == true;
 
     loggerInfo('—— Shorebird 预检 ——');
     final report = await ShorebirdDoctor(
       appHomeDir: appHomeDir,
-      checkPatch: checkPatch,
       checkNetwork: !skipNetwork,
     ).run();
 
@@ -129,15 +120,10 @@ auto_update: true
 2. metaapp_flutter/shorebird.yaml 仅官方字段 + 可访问的 base_url（勿写 metax_enabled）
 3. iOS 嵌入 ShorebirdFlutter.xcframework；Android 改 Shorebird Maven + keepDebugSymbols
 4. CI 配置 FLUTTERPATCH_TOKEN；控制面用 shorebird.yaml base_url（勿设 SHOREBIRD_HOSTED_URL）
-5. 安装/编译 meta_code_push 的 meta_ota（PATH / META_OTA_BIN / META_CODE_PUSH_ROOT）
-6. 出包前全量预检: metax init doctor [--unity] [--patch] [--upload]
-   （仅 Shorebird: metax init shorebird [--patch]）
-7. 出包: metax upload build_upload_ipa|apk
-   （Shorebird release 成功后自动:
-     admin upload-release → upload-snapshot → upload-resources）
-8. 补丁: metax patch ios|android --release-version X.Y.Z+N
-   （shorebird patch 后自动 meta_ota upload，再 upload-resource-pack）
-   跳过资源包: --skip-resource-pack 或 META_OTA_SKIP_RESOURCE_PACK=true
+5. 出包前全量预检: metax init doctor [--unity] [--patch] [--upload]
+   （仅 Shorebird: metax init shorebird）
+6. 出包: metax upload build_upload_ipa|apk
+7. 补丁: metax patch ios|android --release-version X.Y.Z+N
 
 模板: templates/shorebird.yaml.example 、 templates/jenkins_shorebird.env.example
 ''');

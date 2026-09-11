@@ -81,7 +81,6 @@ class MetaxDoctor {
           ...?appEnv,
           ...environment,
         },
-        checkPatch: options.checkPatch,
         checkNetwork: options.checkNetwork,
       ).run();
       // 未启用 Shorebird 时，CLI/鉴权缺失降为 warning，避免普通打包机被误杀

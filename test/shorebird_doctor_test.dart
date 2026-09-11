@@ -56,7 +56,6 @@ void main() {
       appHomeDir: home,
       environment: const {},
       checkNetwork: false,
-      checkPatch: false,
     ).run();
 
     expect(item(report, 'shorebird_yaml').ok, isFalse);
@@ -81,7 +80,6 @@ void main() {
         'FLUTTERPATCH_TOKEN': 'fp_test_token',
       },
       checkNetwork: false,
-      checkPatch: false,
     ).run();
 
     expect(item(report, 'shorebird_yaml').ok, isTrue);
@@ -144,37 +142,5 @@ void main() {
     expect(env.ok, isFalse);
     expect(env.severity, DoctorCheckSeverity.warning);
     expect(env.detail, contains('SHOREBIRD_HOSTED_URL'));
-  });
-
-  test('--patch checks meta_ota credentials', () async {
-    writePubspec(shorebirdEnabled: true);
-    writeYaml(appId: 'app-123', baseUrl: 'http://ota.local/');
-    writeFvmrc('3.27.4');
-
-    final missing = await ShorebirdDoctor(
-      appHomeDir: home,
-      environment: {
-        'HOME': tempDir.path,
-        'FLUTTERPATCH_TOKEN': 'fp_test_token',
-      },
-      checkNetwork: false,
-      checkPatch: true,
-    ).run();
-    expect(item(missing, 'meta_ota_creds').ok, isFalse);
-
-    final ok = await ShorebirdDoctor(
-      appHomeDir: home,
-      environment: {
-        'HOME': tempDir.path,
-        'FLUTTERPATCH_TOKEN': 'fp_test_token',
-        'META_OTA_API': 'http://ota.local/',
-        'META_OTA_TOKEN': 'secret',
-        'META_OTA_BIN': '/usr/bin/true',
-      },
-      checkNetwork: false,
-      checkPatch: true,
-    ).run();
-    expect(item(ok, 'meta_ota_creds').ok, isTrue);
-    expect(item(ok, 'meta_ota_bin').ok, isTrue);
   });
 }

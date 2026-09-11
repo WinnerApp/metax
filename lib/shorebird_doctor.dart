@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/doctor.dart';
 import 'package:meta_tool/flutter_sdk.dart';
-import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -11,7 +10,6 @@ import 'package:process_runner/process_runner.dart';
 class ShorebirdDoctor {
   final AppHomeDir appHomeDir;
   final Map<String, String> environment;
-  final bool checkPatch;
   final bool checkNetwork;
   final Duration networkTimeout;
   final ProcessRunner? processRunner;
@@ -19,7 +17,6 @@ class ShorebirdDoctor {
   ShorebirdDoctor({
     required this.appHomeDir,
     Map<String, String>? environment,
-    this.checkPatch = false,
     this.checkNetwork = true,
     this.networkTimeout = const Duration(seconds: 8),
     this.processRunner,
@@ -41,11 +38,6 @@ class ShorebirdDoctor {
     items.add(_checkProjectYaml());
     items.add(_checkFlutterVersion());
     items.add(_checkEnabledFlag());
-
-    if (checkPatch) {
-      items.add(await _checkMetaOtaBin());
-      items.add(_checkMetaOtaCredentials());
-    }
 
     return DoctorReport([
       for (final item in items)
@@ -382,69 +374,6 @@ class ShorebirdDoctor {
       detail: '当前未启用（${resolved.reason}）——机器就绪后打包仍会走普通 Flutter',
       fix: 'pubspec.yaml 设置 metax.shorebird_enabled: true，'
           '或 SHOREBIRD_ENABLED=true / --useShorebird',
-    );
-  }
-
-  Future<DoctorCheckItem> _checkMetaOtaBin() async {
-    try {
-      final bin = await resolveMetaOtaBin(environment: environment);
-      return DoctorCheckItem(
-        id: 'meta_ota_bin',
-        title: 'meta_ota CLI',
-        ok: true,
-        severity: DoctorCheckSeverity.info,
-        detail: bin,
-      );
-    } catch (e) {
-      return DoctorCheckItem(
-        id: 'meta_ota_bin',
-        title: 'meta_ota CLI',
-        ok: false,
-        severity: DoctorCheckSeverity.error,
-        detail: '$e',
-        fix: '编译 meta_code_push ota_cli，设置 META_OTA_BIN 或 META_CODE_PUSH_ROOT',
-      );
-    }
-  }
-
-  DoctorCheckItem _checkMetaOtaCredentials() {
-    final fileCfg = loadMetaOtaFileConfig(
-      appHomeDir.flutterDir,
-      environment: environment,
-    );
-    final api = (environment['META_OTA_API'] ?? '').trim().isNotEmpty
-        ? environment['META_OTA_API']!.trim()
-        : (fileCfg.api ?? '');
-    final token = (environment['META_OTA_TOKEN'] ?? '').trim().isNotEmpty
-        ? environment['META_OTA_TOKEN']!.trim()
-        : (fileCfg.token ?? '');
-    final yaml = ShorebirdYamlConfig.tryLoad(appHomeDir.flutterDir);
-    final baseUrl = yaml?.baseUrl?.trim() ?? '';
-
-    final effectiveApi = api.isNotEmpty
-        ? api
-        : (baseUrl.isNotEmpty ? baseUrl : '');
-
-    if (effectiveApi.isEmpty || token.isEmpty) {
-      return DoctorCheckItem(
-        id: 'meta_ota_creds',
-        title: 'Meta OTA 凭据',
-        ok: false,
-        severity: DoctorCheckSeverity.error,
-        detail: 'api=${effectiveApi.isEmpty ? '(missing)' : effectiveApi} · '
-            'token=${token.isEmpty ? '(missing)' : '(set)'}',
-        fix: '设置 META_OTA_API / META_OTA_TOKEN，'
-            '或 meta_ota config --api/--token，'
-            '或在 shorebird.yaml 写 base_url（仅补 api）',
-      );
-    }
-
-    return DoctorCheckItem(
-      id: 'meta_ota_creds',
-      title: 'Meta OTA 凭据',
-      ok: true,
-      severity: DoctorCheckSeverity.info,
-      detail: 'api=$effectiveApi · token=(set)',
     );
   }
 }

@@ -12,7 +12,6 @@ import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/commands/cache/cache_patch_engine.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
@@ -297,13 +296,6 @@ class UseCacheCommand extends Command {
       cachedReleaseVersion: cached.releaseVersion,
     );
     if (!cloned) return;
-
-    final otaPlatform = platform == 'aar' ? 'android' : 'ios';
-    await syncShorebirdReleaseToMetaOta(
-      appHomeDir: appHomeDir,
-      platform: otaPlatform,
-      releaseVersion: current,
-    );
 
     final metaxCache = createMetaxCache(int.parse(cached.buildId));
     final infos = [...await metaxCache.cacheManager.read()];
