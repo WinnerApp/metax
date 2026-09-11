@@ -288,6 +288,7 @@ class AppwriteServer {
     required InputFile zipFile,
     String flutterSdk = '',
     bool isShorebird = false,
+    String releaseVersion = '',
   }) async {
     final Storage storage = Storage(client);
     final fileId = ID.unique();
@@ -323,6 +324,7 @@ class AppwriteServer {
           'commit_time': commitTime.toUtc().toIso8601String(),
           'flutter_sdk': flutterSdk,
           'isShorebird': isShorebird,
+          if (releaseVersion.isNotEmpty) 'releaseVersion': releaseVersion,
         },
       );
       return true;

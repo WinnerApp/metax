@@ -66,8 +66,8 @@ void main() {
       item(report, 'shorebird_enabled').severity,
       DoctorCheckSeverity.warning,
     );
-    // token 缺失 + skip-network → warning（不直接阻断，因可能本机已 login）
     expect(item(report, 'shorebird_auth').ok, isFalse);
+    expect(item(report, 'shorebird_auth').detail, contains('FLUTTERPATCH_TOKEN'));
   });
 
   test('passes project checks when configured', () async {
@@ -78,7 +78,7 @@ void main() {
     final report = await ShorebirdDoctor(
       appHomeDir: home,
       environment: const {
-        'SHOREBIRD_TOKEN': 'sb_api_test_token_for_doctor_unit',
+        'FLUTTERPATCH_TOKEN': 'fp_test_token',
       },
       checkNetwork: false,
       checkPatch: false,
@@ -89,7 +89,7 @@ void main() {
     expect(item(report, 'flutter_version').detail, contains('3.27.4'));
     expect(item(report, 'shorebird_enabled').ok, isTrue);
     expect(item(report, 'shorebird_auth').ok, isTrue);
-    expect(item(report, 'shorebird_auth').detail, contains('SHOREBIRD_TOKEN'));
+    expect(item(report, 'shorebird_auth').detail, contains('FLUTTERPATCH_TOKEN'));
   });
 
   test('resolves flutter version from melos root .fvmrc', () async {
@@ -100,7 +100,7 @@ void main() {
     final report = await ShorebirdDoctor(
       appHomeDir: home,
       environment: const {
-        'SHOREBIRD_TOKEN': 'sb_api_test_token_for_doctor_unit',
+        'FLUTTERPATCH_TOKEN': 'fp_test_token',
       },
       checkNetwork: false,
     ).run();
@@ -109,24 +109,24 @@ void main() {
     expect(item(report, 'flutter_version').detail, contains('3.29.0'));
   });
 
-  test('rejects bogus SHOREBIRD_TOKEN format', () async {
+  test('warns when only legacy SHOREBIRD_TOKEN is set', () async {
     writePubspec(shorebirdEnabled: true);
     writeYaml(appId: 'app-123');
     writeFvmrc('3.27.4');
 
     final report = await ShorebirdDoctor(
       appHomeDir: home,
-      environment: const {'SHOREBIRD_TOKEN': 'x'},
+      environment: const {'SHOREBIRD_TOKEN': 'sb_api_x'},
       checkNetwork: false,
     ).run();
 
     final auth = item(report, 'shorebird_auth');
     expect(auth.ok, isFalse);
-    expect(auth.severity, DoctorCheckSeverity.error);
-    expect(auth.detail, contains('格式'));
+    expect(auth.severity, DoctorCheckSeverity.warning);
+    expect(auth.detail, contains('FLUTTERPATCH_TOKEN'));
   });
 
-  test('warns when SHOREBIRD_HOSTED_URL points at OTA', () async {
+  test('warns when SHOREBIRD_HOSTED_URL is set', () async {
     writePubspec(shorebirdEnabled: true);
     writeYaml(appId: 'app-123');
     writeFvmrc('3.27.4');
@@ -134,7 +134,7 @@ void main() {
     final report = await ShorebirdDoctor(
       appHomeDir: home,
       environment: const {
-        'SHOREBIRD_TOKEN': 'sb_api_test_token_for_doctor_unit',
+        'FLUTTERPATCH_TOKEN': 'fp_test_token',
         'SHOREBIRD_HOSTED_URL': 'http://119.23.47.1:9527/',
       },
       checkNetwork: false,
@@ -155,19 +155,18 @@ void main() {
       appHomeDir: home,
       environment: {
         'HOME': tempDir.path,
-        'SHOREBIRD_TOKEN': 'sb_api_test_token_for_doctor_unit',
+        'FLUTTERPATCH_TOKEN': 'fp_test_token',
       },
       checkNetwork: false,
       checkPatch: true,
     ).run();
-    // base_url 可补 api，但仍缺 token
     expect(item(missing, 'meta_ota_creds').ok, isFalse);
 
     final ok = await ShorebirdDoctor(
       appHomeDir: home,
       environment: {
         'HOME': tempDir.path,
-        'SHOREBIRD_TOKEN': 'sb_api_test_token_for_doctor_unit',
+        'FLUTTERPATCH_TOKEN': 'fp_test_token',
         'META_OTA_API': 'http://ota.local/',
         'META_OTA_TOKEN': 'secret',
         'META_OTA_BIN': '/usr/bin/true',

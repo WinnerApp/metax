@@ -56,173 +56,96 @@ class ShorebirdDoctor {
   ProcessRunner get _runner => processRunner ?? ProcessRunner();
 
   Future<DoctorCheckItem> _checkShorebirdCli() async {
+    final cli = resolveFlutterPatchCli(environment);
     try {
+      if (cli.contains(Platform.pathSeparator) || cli.startsWith('.')) {
+        if (!File(cli).existsSync()) {
+          return _cliMissing(cli);
+        }
+        return DoctorCheckItem(
+          id: 'shorebird_cli',
+          title: 'FlutterPatch CLI',
+          ok: true,
+          severity: DoctorCheckSeverity.info,
+          detail: cli,
+          group: 'shorebird',
+        );
+      }
       final which = await _runner.runProcess(
-        ['which', 'shorebird'],
+        ['which', cli],
         printOutput: false,
       );
       final path = which.stdout.trim();
       if (path.isEmpty) {
-        return _cliMissing();
+        return _cliMissing(cli);
       }
 
       return DoctorCheckItem(
         id: 'shorebird_cli',
-        title: 'Shorebird CLI',
+        title: 'FlutterPatch CLI',
         ok: true,
         severity: DoctorCheckSeverity.info,
         detail: path,
         group: 'shorebird',
       );
     } catch (_) {
-      return _cliMissing();
+      return _cliMissing(cli);
     }
   }
 
-  DoctorCheckItem _cliMissing() {
-    return const DoctorCheckItem(
+  DoctorCheckItem _cliMissing([String cli = kFlutterPatchCliName]) {
+    return DoctorCheckItem(
       id: 'shorebird_cli',
-      title: 'Shorebird CLI',
+      title: 'FlutterPatch CLI',
       ok: false,
       severity: DoctorCheckSeverity.error,
-      detail: 'PATH 中未找到 shorebird',
-      fix: 'curl --proto "=https" --tlsv1.2 '
-          'https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh '
-          '-sSf | bash\n'
-          'Jenkins 非交互 shell 需保证 ~/.shorebird/bin 在 PATH '
-          '（或软链到 /usr/local/bin）',
+      detail: 'PATH 中未找到 $cli',
+      fix: '安装 FlutterPatch 到 ~/.flutterpatch/bin 并加入 PATH，'
+          '或设置 FLUTTERPATCH_BIN=$cli\n'
+          '见 flutterpatch downloads/install_cli.sh',
       group: 'shorebird',
     );
   }
 
   Future<DoctorCheckItem> _checkAuth({required bool cliOk}) async {
-    final token = (environment['SHOREBIRD_TOKEN'] ?? '').trim();
-    if (token.isNotEmpty) {
-      if (!_looksLikeShorebirdToken(token)) {
-        return const DoctorCheckItem(
-          id: 'shorebird_auth',
-          title: 'Shorebird 鉴权',
-          ok: false,
-          severity: DoctorCheckSeverity.error,
-          detail: 'SHOREBIRD_TOKEN 已设置，但格式不像 API Key',
-          fix: 'CI 使用 Console API Key（通常以 sb_api_ 开头），'
-              '见 https://console.shorebird.dev → Account → API Keys',
-        );
-      }
-      if (!cliOk) {
-        return const DoctorCheckItem(
-          id: 'shorebird_auth',
-          title: 'Shorebird 鉴权',
-          ok: true,
-          severity: DoctorCheckSeverity.info,
-          detail: 'SHOREBIRD_TOKEN 已设置（CLI 缺失，未做 whoami 校验）',
-        );
-      }
-      if (!checkNetwork) {
-        return const DoctorCheckItem(
-          id: 'shorebird_auth',
-          title: 'Shorebird 鉴权',
-          ok: true,
-          severity: DoctorCheckSeverity.info,
-          detail: 'SHOREBIRD_TOKEN 已设置（已跳过网络 / whoami）',
-        );
-      }
-      // 有 token 时 whoami 会走 token；失败则 token 无效或网络不通
-      return _whoamiCheck(
-        okDetailPrefix: 'SHOREBIRD_TOKEN OK',
-        failDetailPrefix: 'SHOREBIRD_TOKEN 存在但 whoami 失败',
-        failFix: '检查 token 是否过期/权限不足，以及能否访问 '
-            '$kShorebirdOfficialHostedUrl',
+    final flutterPatchToken = (environment['FLUTTERPATCH_TOKEN'] ?? '').trim();
+    if (flutterPatchToken.isNotEmpty) {
+      return DoctorCheckItem(
+        id: 'shorebird_auth',
+        title: 'FlutterPatch 鉴权',
+        ok: true,
+        severity: DoctorCheckSeverity.info,
+        detail: cliOk
+            ? 'FLUTTERPATCH_TOKEN 已设置'
+            : 'FLUTTERPATCH_TOKEN 已设置（CLI 缺失）',
       );
     }
 
-    if (!cliOk) {
+    final legacy = (environment['SHOREBIRD_TOKEN'] ?? '').trim();
+    if (legacy.isNotEmpty) {
       return const DoctorCheckItem(
         id: 'shorebird_auth',
-        title: 'Shorebird 鉴权',
-        ok: false,
-        severity: DoctorCheckSeverity.error,
-        detail: '未设置 SHOREBIRD_TOKEN，且 CLI 不可用',
-        fix: '打包机请配置环境变量 SHOREBIRD_TOKEN；'
-            '本机可 shorebird login',
-      );
-    }
-
-    if (!checkNetwork) {
-      return const DoctorCheckItem(
-        id: 'shorebird_auth',
-        title: 'Shorebird 鉴权',
+        title: 'FlutterPatch 鉴权',
         ok: false,
         severity: DoctorCheckSeverity.warning,
-        detail: '未设置 SHOREBIRD_TOKEN，且已跳过 whoami（--skip-network）',
-        fix: 'CI 请配置 SHOREBIRD_TOKEN；本机可去掉 --skip-network 再测登录态',
+        detail: '检测到 SHOREBIRD_TOKEN，FlutterPatch 请改用 FLUTTERPATCH_TOKEN',
+        fix: 'export FLUTTERPATCH_TOKEN=<control_api Bearer>',
       );
     }
 
-    return _whoamiCheck(
-      okDetailPrefix: '已登录',
-      okDetailSuffix: '（CI 建议改用 SHOREBIRD_TOKEN）',
-      failDetailPrefix: '未设置 SHOREBIRD_TOKEN，且 shorebird account whoami 失败',
-      failFix: 'Jenkins: 配置 SHOREBIRD_TOKEN=sb_api_...\n'
-          '本机: shorebird login',
-      failUsesGenericMessage: true,
+    return DoctorCheckItem(
+      id: 'shorebird_auth',
+      title: 'FlutterPatch 鉴权',
+      ok: false,
+      severity: DoctorCheckSeverity.error,
+      detail: '未设置 FLUTTERPATCH_TOKEN'
+          '${cliOk ? '' : '，且 CLI 不可用'}',
+      fix: '打包机/CI 配置 FLUTTERPATCH_TOKEN',
     );
   }
 
-  Future<DoctorCheckItem> _whoamiCheck({
-    required String okDetailPrefix,
-    String okDetailSuffix = '',
-    required String failDetailPrefix,
-    required String failFix,
-    bool failUsesGenericMessage = false,
-  }) async {
-    try {
-      final env = shorebirdCliEnvironment(environment);
-      final result = await Process.run(
-        'shorebird',
-        ['account', 'whoami'],
-        environment: env,
-        runInShell: false,
-      ).timeout(const Duration(seconds: 20));
-      if (result.exitCode != 0) {
-        final err = '${result.stderr}\n${result.stdout}'.trim();
-        throw Exception(err.isEmpty ? 'exit ${result.exitCode}' : err);
-      }
-      final who = result.stdout.toString().trim().split('\n').firstWhere(
-            (l) => l.trim().isNotEmpty,
-            orElse: () => 'authenticated',
-          );
-      return DoctorCheckItem(
-        id: 'shorebird_auth',
-        title: 'Shorebird 鉴权',
-        ok: true,
-        severity: DoctorCheckSeverity.info,
-        detail: '$okDetailPrefix · $who$okDetailSuffix',
-      );
-    } catch (e) {
-      return DoctorCheckItem(
-        id: 'shorebird_auth',
-        title: 'Shorebird 鉴权',
-        ok: false,
-        severity: DoctorCheckSeverity.error,
-        detail: failUsesGenericMessage
-            ? failDetailPrefix
-            : '$failDetailPrefix: $e',
-        fix: failFix,
-      );
-    }
-  }
-
   Future<List<DoctorCheckItem>> _checkNetwork() async {
-    return [
-      await _probeUrl(
-        id: 'network_api',
-        title: '连通 api.shorebird.dev',
-        url: kShorebirdOfficialHostedUrl,
-        fix: '打包机需能访问 Shorebird Console API。'
-            '若公司代理/防火墙拦截，请放行 https://api.shorebird.dev\n'
-            '（与设备 OTA 的 base_url / META_OTA_API 不是同一地址）',
-      ),
+    final items = <DoctorCheckItem>[
       await _probeUrl(
         id: 'network_download',
         title: '连通 download.shorebird.dev',
@@ -232,6 +155,20 @@ class ShorebirdDoctor {
             '首次 release 会拉引擎，网络不通会拖到打包末尾才失败',
       ),
     ];
+    final yaml = ShorebirdYamlConfig.tryLoad(appHomeDir.flutterDir);
+    final baseUrl = yaml?.baseUrl?.trim() ?? '';
+    if (baseUrl.isNotEmpty) {
+      items.insert(
+        0,
+        await _probeUrl(
+          id: 'network_api',
+          title: '连通 FlutterPatch 控制面',
+          url: baseUrl,
+          fix: '打包机需能访问 shorebird.yaml base_url（FlutterPatch control_api）',
+        ),
+      );
+    }
+    return items;
   }
 
   Future<DoctorCheckItem> _probeUrl({
@@ -296,13 +233,11 @@ class ShorebirdDoctor {
     final storage = (environment['FLUTTER_STORAGE_BASE_URL'] ?? '').trim();
     final notes = <String>[];
 
-    if (hosted.isNotEmpty &&
-        !_sameHost(hosted, kShorebirdOfficialHostedUrl) &&
-        !_looksLikeShorebirdOfficial(hosted)) {
+    if (hosted.isNotEmpty) {
       notes.add(
         '环境变量 SHOREBIRD_HOSTED_URL=$hosted '
-        '疑似 OTA 地址；metax 出包时会强制覆盖为 '
-        '$kShorebirdOfficialHostedUrl',
+        '对 FlutterPatch 无效（控制面只读 shorebird.yaml base_url）；'
+        'metax 出包时会移除该变量',
       );
     }
     if (storage.isNotEmpty &&
@@ -323,7 +258,7 @@ class ShorebirdDoctor {
         severity: DoctorCheckSeverity.info,
         detail: hosted.isEmpty && storage.isEmpty
             ? '未误配 SHOREBIRD_HOSTED_URL / FLUTTER_STORAGE_BASE_URL'
-            : '当前 env 可被 metax 安全覆盖 '
+            : '当前 env 可被 metax 安全处理 '
                 '(hosted=${hosted.isEmpty ? '(unset)' : hosted}, '
                 'storage=${storage.isEmpty ? '(unset)' : storage})',
       );
@@ -335,8 +270,8 @@ class ShorebirdDoctor {
       ok: false,
       severity: DoctorCheckSeverity.warning,
       detail: notes.join('\n'),
-      fix: '设备 OTA 用 shorebird.yaml base_url / META_OTA_API；'
-          '不要把 OTA 地址赋给 SHOREBIRD_HOSTED_URL',
+      fix: '设备 OTA / 控制面用 shorebird.yaml base_url；'
+          '鉴权用 FLUTTERPATCH_TOKEN；不要设 SHOREBIRD_HOSTED_URL',
     );
   }
 
@@ -512,20 +447,6 @@ class ShorebirdDoctor {
       detail: 'api=$effectiveApi · token=(set)',
     );
   }
-}
-
-bool _looksLikeShorebirdToken(String token) {
-  final t = token.trim();
-  if (t.startsWith('sb_api_')) return true;
-  // 兼容历史 CI token（较长 base64 类）
-  if (t.length >= 20 && !t.contains(' ')) return true;
-  return false;
-}
-
-bool _looksLikeShorebirdOfficial(String url) {
-  final lower = url.toLowerCase();
-  return lower.contains('api.shorebird.dev') ||
-      lower.contains('console.shorebird.dev');
 }
 
 bool _sameHost(String a, String b) {

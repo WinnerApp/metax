@@ -237,6 +237,7 @@ class UploadCacheCommand extends Command {
           commitTime: model.commitTime,
           flutterSdk: model.flutterSdk,
           isShorebird: model.isShorebird,
+          releaseVersion: model.releaseVersion,
           zipFile: InputFile.fromPath(
             path: zipFilePath,
             filename: '${model.commitHash}.zip',

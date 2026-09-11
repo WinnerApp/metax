@@ -6,8 +6,8 @@
 #     shorebird_enabled: true
 # 不要用「shorebird.yaml 是否存在」判断；也不要在本文件加 metax_enabled（CLI 会报 Unrecognized keys）。
 #
-# 设备端 OTA 走 Meta Code Push（base_url），不是 api.shorebird.dev。
-# Shorebird CLI 构建由 metax 强制走 https://api.shorebird.dev，与本文件 base_url 无关。
+# 设备端 OTA / FlutterPatch 控制面都走 base_url（Meta Code Push）。
+# metax 出包时会移除误配的 SHOREBIRD_HOSTED_URL，引擎下载仍强制 download.shorebird.dev。
 
 app_id: "00000000-0000-4000-8000-000000000001"
 base_url: http://119.23.47.1:9527/

@@ -9,6 +9,8 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/meta_ota.dart';
+import 'package:meta_tool/shorebird.dart';
 import 'package:meta_tool/upload_sentry.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -45,6 +47,7 @@ abstract class BuildCacheCommand extends Command {
     required bool forceUpdate,
     String flutterSdk = '',
     bool isShorebird = false,
+    String releaseVersion = '',
   }) async {
     final cacheModel = await cache.getCacheModelFromCacheId(
       cacheId,
@@ -63,6 +66,7 @@ abstract class BuildCacheCommand extends Command {
       commitTime: commitTime,
       flutterSdk: flutterSdk,
       isShorebird: isShorebird,
+      releaseVersion: releaseVersion,
     );
 
     if (forceUpdate) {
@@ -100,6 +104,11 @@ abstract class BuildCacheCommand extends Command {
         !forceUpdate) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
       commitHash = cacheModel.commitHash;
+      await _cloneFlutterPatchReleaseIfNeeded(
+        cache: cache,
+        cached: cacheModel,
+        releaseVersion: releaseVersion,
+      );
     } else if (!disableAllCache &&
         await isCacheExitsInBuildDir(buildModel, buildCacheDir) &&
         !forceUpdate) {
@@ -112,6 +121,7 @@ abstract class BuildCacheCommand extends Command {
         commitTime: commitTime,
         flutterSdk: flutterSdk,
         isShorebird: isShorebird,
+        releaseVersion: releaseVersion,
       );
     } else {
       await buildCache();
@@ -130,6 +140,7 @@ abstract class BuildCacheCommand extends Command {
           commitTime: commitTime,
           flutterSdk: flutterSdk,
           isShorebird: isShorebird,
+          releaseVersion: releaseVersion,
         ),
       ]);
       await writeToCacheSystem(
@@ -139,6 +150,7 @@ abstract class BuildCacheCommand extends Command {
         commitTime: commitTime,
         flutterSdk: flutterSdk,
         isShorebird: isShorebird,
+        releaseVersion: releaseVersion,
       );
       if (cache.buildPlatform == BuildPlatform.android) {
         // android/unityLibrary/symbols
@@ -149,6 +161,52 @@ abstract class BuildCacheCommand extends Command {
     }
     final endTime = DateTime.now();
     loggerInfo('🔍 编译完成，用时: ${endTime.difference(startTime).inSeconds}秒');
+  }
+
+  /// Shorebird Flutter framework/aar 缓存命中时，按需 `--from-release`。
+  Future<void> _cloneFlutterPatchReleaseIfNeeded({
+    required MetaxCache cache,
+    required CacheModel cached,
+    required String releaseVersion,
+  }) async {
+    if (!cached.isShorebird &&
+        !isShorebirdFlutterSdkFingerprint(cached.flutterSdk)) {
+      return;
+    }
+    if (cache.buildLibrary != BuildLibrary.flutter) return;
+    final platform = switch (cache.buildPlatform) {
+      BuildPlatform.ios when cache.buildType == BuildType.framework =>
+        'ios-framework',
+      BuildPlatform.android when cache.buildType == BuildType.aar => 'aar',
+      _ => null,
+    };
+    if (platform == null) return;
+
+    final current = releaseVersion.trim().isNotEmpty
+        ? releaseVersion.trim()
+        : (resolveReleaseVersionFromEnv() ?? '');
+    final cloned = await maybeCloneFlutterPatchReleaseFromCache(
+      flutterDir: appHomeDir.flutterDir,
+      platform: platform,
+      releaseVersion: current,
+      cachedReleaseVersion: cached.releaseVersion,
+    );
+    if (!cloned) return;
+
+    final otaPlatform = platform == 'aar' ? 'android' : 'ios';
+    await syncShorebirdReleaseToMetaOta(
+      appHomeDir: appHomeDir,
+      platform: otaPlatform,
+      releaseVersion: current,
+    );
+
+    // 索引记为当前宿主版本，方便下次链式 from-release
+    final infos = [...await cache.cacheManager.read()];
+    final index = infos.indexWhere((e) => e == cached);
+    if (index != -1) {
+      infos[index] = infos[index].copyWith(releaseVersion: current);
+      await cache.cacheManager.write(infos);
+    }
   }
 
   Future<void> uploadAndroidUnitySymbols(bool isStore) async {
@@ -186,6 +244,7 @@ abstract class BuildCacheCommand extends Command {
     required DateTime commitTime,
     String flutterSdk = '',
     bool isShorebird = false,
+    String releaseVersion = '',
   }) async {
     final buildCacheParentDir = Directory(buildCacheDir).parent;
     // final cacheBaseName = basename(buildCacheDir);
@@ -218,6 +277,7 @@ abstract class BuildCacheCommand extends Command {
         commitTime: commitTime,
         flutterSdk: flutterSdk,
         isShorebird: isShorebird,
+        releaseVersion: releaseVersion,
       ),
     );
     await zipFile.delete();

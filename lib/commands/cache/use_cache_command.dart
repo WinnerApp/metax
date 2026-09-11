@@ -12,6 +12,7 @@ import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/commands/cache/cache_patch_engine.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
@@ -203,6 +204,7 @@ class UseCacheCommand extends Command {
     isUpload = argResults?['isUpload'] ?? true;
 
     CacheModel? useCacheModel;
+    var usedExistingCache = false;
     final library = BuildLibrary.values.firstWhere((e) => e.name == buildLibrary);
     final enableLibraryCache = isLibraryCacheEnabled(library);
     if (enableLibraryCache) {
@@ -211,12 +213,14 @@ class UseCacheCommand extends Command {
       if (localCacheModel != null) {
         loggerDebug('查询到本地缓存: ${localCacheModel.commitHash}');
         useCacheModel = localCacheModel;
+        usedExistingCache = true;
       } else {
         loggerDebug('本地缓存不存在,正在查询网络缓存...');
         final networkCacheModel = await queryNetworkCache();
         if (networkCacheModel != null) {
           loggerDebug('查询到网络缓存: ${networkCacheModel.commitHash}');
           useCacheModel = networkCacheModel;
+          usedExistingCache = true;
 
           /// 下载网络缓存
           await downloadCacheResource(
@@ -253,8 +257,61 @@ class UseCacheCommand extends Command {
     if (useCacheModel == null) {
       throw Exception('无法找到对应缓存!');
     }
+    final compiledFresh = !usedExistingCache;
     await useCache(useCacheModel);
+    if (!compiledFresh) {
+      await _cloneFlutterPatchReleaseIfNeeded(useCacheModel);
+    }
     loggerSuccess('使用缓存成功');
+  }
+
+  /// Shorebird Flutter framework/aar 复用缓存时，按需 `--from-release`。
+  Future<void> _cloneFlutterPatchReleaseIfNeeded(CacheModel cached) async {
+    if (buildLibrary != BuildLibrary.flutter.name) return;
+    if (buildConfiguration != BuildConfiguration.release.name) return;
+    final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
+    if (!shorebird.enabled) return;
+    if (!cacheEntryIsShorebird(
+      isShorebird: cached.isShorebird,
+      flutterSdk: cached.flutterSdk,
+    )) {
+      return;
+    }
+
+    final platform = switch ((buildPlatform, buildType)) {
+      (final p, final t)
+          when p == BuildPlatform.ios.name && t == BuildType.framework.name =>
+        'ios-framework',
+      (final p, final t)
+          when p == BuildPlatform.android.name && t == BuildType.aar.name =>
+        'aar',
+      _ => null,
+    };
+    if (platform == null) return;
+
+    final current = resolveReleaseVersionFromEnv() ?? '';
+    final cloned = await maybeCloneFlutterPatchReleaseFromCache(
+      flutterDir: appHomeDir.flutterDir,
+      platform: platform,
+      releaseVersion: current,
+      cachedReleaseVersion: cached.releaseVersion,
+    );
+    if (!cloned) return;
+
+    final otaPlatform = platform == 'aar' ? 'android' : 'ios';
+    await syncShorebirdReleaseToMetaOta(
+      appHomeDir: appHomeDir,
+      platform: otaPlatform,
+      releaseVersion: current,
+    );
+
+    final metaxCache = createMetaxCache(int.parse(cached.buildId));
+    final infos = [...await metaxCache.cacheManager.read()];
+    final index = infos.indexWhere((e) => e == cached);
+    if (index != -1) {
+      infos[index] = infos[index].copyWith(releaseVersion: current);
+      await metaxCache.cacheManager.write(infos);
+    }
   }
 
   /// 查询本地是否存在缓存

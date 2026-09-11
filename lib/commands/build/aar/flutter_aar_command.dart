@@ -136,6 +136,7 @@ class FlutterAarCommand extends BuildCacheCommand {
       forceUpdate: forceUpdate || gate.didClean,
       flutterSdk: sdkFingerprint,
       isShorebird: shorebirdEnabled,
+      releaseVersion: shorebirdEnabled ? (shorebirdReleaseVersion ?? '') : '',
     );
     await saveFlutterSdkFingerprint(
       projectPath: workspaceDir.path,

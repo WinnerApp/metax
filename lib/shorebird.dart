@@ -241,19 +241,41 @@ bool cacheEntryIsShorebird({
   return isShorebirdFlutterSdkFingerprint(flutterSdk);
 }
 
-Future<void> ensureShorebirdInstalled() async {
+/// FlutterPatch CLI 可执行名（Shorebird fork 品牌入口）。
+const kFlutterPatchCliName = 'flutterpatch';
+
+/// 解析 FlutterPatch CLI：`FLUTTERPATCH_BIN` > PATH 中的 `flutterpatch`。
+String resolveFlutterPatchCli([Map<String, String>? environment]) {
+  final env = environment ?? Platform.environment;
+  final fromBin = (env['FLUTTERPATCH_BIN'] ?? '').trim();
+  if (fromBin.isNotEmpty) return fromBin;
+  return kFlutterPatchCliName;
+}
+
+Future<void> ensureShorebirdInstalled([Map<String, String>? environment]) async {
+  final cli = resolveFlutterPatchCli(environment);
+  if (cli.contains(Platform.pathSeparator) || cli.startsWith('.')) {
+    if (!File(cli).existsSync()) {
+      throw Exception(
+        '未找到 FlutterPatch CLI: $cli\n'
+        '请设置 FLUTTERPATCH_BIN 或安装 flutterpatch（~/.flutterpatch/bin）',
+      );
+    }
+    return;
+  }
   try {
     final result = await ProcessRunner().runProcess(
-      ['which', 'shorebird'],
+      ['which', cli],
       printOutput: false,
     );
     if (result.stdout.trim().isEmpty) {
-      throw Exception('shorebird not found');
+      throw Exception('$cli not found');
     }
   } catch (_) {
     throw Exception(
-      '未找到 shorebird CLI。请安装: '
-      'curl --proto "=https" --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash',
+      '未找到 FlutterPatch CLI（$cli）。\n'
+      '安装到 ~/.flutterpatch/bin 并加入 PATH，或设置 FLUTTERPATCH_BIN。\n'
+      '见 flutterpatch 官网 downloads/install_cli.sh',
     );
   }
 }
@@ -286,18 +308,16 @@ String resolveShorebirdFlutterVersion({
   );
 }
 
-/// Shorebird CLI 构建/登记用的官方 API。
-///
-/// 与 `shorebird.yaml` 的 `base_url`（设备 OTA / Meta Code Push）无关。
-/// 故意覆盖环境里的 `SHOREBIRD_HOSTED_URL`，避免误把 OTA 地址当成 Console API。
-const kShorebirdOfficialHostedUrl = 'https://api.shorebird.dev';
-
-/// Shorebird 打包用的 Flutter 引擎/制品下载源（覆盖国内镜像等误配）。
+/// FlutterPatch / Shorebird 打包用的 Flutter 引擎/制品下载源（覆盖国内镜像等误配）。
 const kShorebirdFlutterStorageBaseUrl = 'https://download.shorebird.dev';
 
+/// FlutterPatch CLI 运行环境。
+///
+/// 控制面地址只读 `shorebird.yaml` → `base_url`；会移除误配的
+/// `SHOREBIRD_HOSTED_URL`。引擎 CDN 固定为 Shorebird download，避免国内镜像缺制品。
 Map<String, String> shorebirdCliEnvironment([Map<String, String>? base]) {
   final env = Map<String, String>.from(base ?? Platform.environment);
-  env['SHOREBIRD_HOSTED_URL'] = kShorebirdOfficialHostedUrl;
+  env.remove('SHOREBIRD_HOSTED_URL');
   env['FLUTTER_STORAGE_BASE_URL'] = kShorebirdFlutterStorageBaseUrl;
   return env;
 }
@@ -335,56 +355,118 @@ Future<void> runShorebirdRelease({
   required String releaseVersion,
   required String flutterVersion,
   List<String> extraFlutterArgs = const [],
-  /// Shorebird CLI 自身参数（写在 `--` 前），例如 `--target-platform=android-arm64`。
+  /// FlutterPatch CLI 自身参数（写在 `--` 前），例如 `--target-platform=android-arm64`。
   List<String> extraShorebirdArgs = const [],
+  /// 从已有 release clone 产物登记新宿主版本（不重编 Flutter）。
+  /// 与 [flutterVersion] / 透传 build 参数互斥使用。
+  String? fromRelease,
 }) async {
   await ensureShorebirdInstalled();
   final yaml = ShorebirdYamlConfig.tryLoad(flutterDir);
   if (yaml?.appId == null || yaml!.appId!.trim().isEmpty) {
     throw Exception(
-      '已启用 Shorebird，但 ${ShorebirdYamlConfig.yamlFile(flutterDir).path} 缺少 app_id',
+      '已启用 FlutterPatch，但 ${ShorebirdYamlConfig.yamlFile(flutterDir).path} 缺少 app_id',
     );
   }
 
-  // iOS / Android 共用 flutter/release；不清空会把上一平台残留打进下一平台缓存。
-  await clearShorebirdReleaseDir(flutterDir);
-
-  final args = <String>[
-    'release',
-    platform,
-    '--release-version',
-    releaseVersion,
-    '--flutter-version',
-    flutterVersion,
-    ...extraShorebirdArgs,
-    ..._shorebirdFlutterPassthroughArgs(extraFlutterArgs),
-  ];
-
+  final cli = resolveFlutterPatchCli();
   final cliEnv = shorebirdCliEnvironment();
+  final from = fromRelease?.trim() ?? '';
+  final List<String> args;
+  if (from.isNotEmpty) {
+    if (from == releaseVersion.trim()) {
+      throw Exception(
+        '--from-release 不能与 --release-version 相同 ($releaseVersion)',
+      );
+    }
+    // clone 路径不重编，不清 release/，不传 --flutter-version
+    args = <String>[
+      'release',
+      platform,
+      '--release-version',
+      releaseVersion,
+      '--from-release',
+      from,
+    ];
+  } else {
+    // iOS / Android 共用 flutter/release；不清空会把上一平台残留打进下一平台缓存。
+    await clearShorebirdReleaseDir(flutterDir);
+    args = <String>[
+      'release',
+      platform,
+      '--release-version',
+      releaseVersion,
+      '--flutter-version',
+      flutterVersion,
+      ...extraShorebirdArgs,
+      ..._shorebirdFlutterPassthroughArgs(extraFlutterArgs),
+    ];
+  }
+
   loggerInfo(
-    '执行: shorebird ${args.join(' ')} '
-    '(SHOREBIRD_HOSTED_URL=${cliEnv['SHOREBIRD_HOSTED_URL']}, '
-    'FLUTTER_STORAGE_BASE_URL=${cliEnv['FLUTTER_STORAGE_BASE_URL']})',
+    '执行: $cli ${args.join(' ')} '
+    '(FLUTTER_STORAGE_BASE_URL=${cliEnv['FLUTTER_STORAGE_BASE_URL']})',
   );
 
   final sw = Stopwatch()..start();
   try {
     await ProcessRunner(environment: cliEnv).runProcess(
-      ['shorebird', ...args],
+      [cli, ...args],
       workingDirectory: flutterDir,
       printOutput: true,
     );
     loggerInfo(
-      'shell 完成: shorebird ${args.take(2).join(' ')} · '
+      'shell 完成: $cli ${args.take(2).join(' ')} · '
       '用时 ${formatElapsedDuration(sw.elapsed)}',
     );
   } catch (e) {
     loggerInfo(
-      'shell 失败: shorebird ${args.take(2).join(' ')} · '
+      'shell 失败: $cli ${args.take(2).join(' ')} · '
       '用时 ${formatElapsedDuration(sw.elapsed)}',
     );
     rethrow;
   }
+}
+
+/// framework/aar 缓存命中后：若宿主版本变了，用 `--from-release` 登记新版本。
+///
+/// 返回是否执行了 clone。旧缓存无 [CacheModel.releaseVersion] 时仅告警并跳过。
+Future<bool> maybeCloneFlutterPatchReleaseFromCache({
+  required Directory flutterDir,
+  required String platform, // ios-framework | aar
+  required String releaseVersion,
+  required String? cachedReleaseVersion,
+}) async {
+  final current = releaseVersion.trim();
+  final from = (cachedReleaseVersion ?? '').trim();
+  if (current.isEmpty) {
+    return false;
+  }
+  if (from.isEmpty) {
+    loggerWarning(
+      'FlutterPatch 缓存命中，但未记录 releaseVersion，'
+      '无法执行 --from-release 登记 $current。'
+      '下次完整编译后会写入该字段；或对本库 --forceUpdate / 关 Flutter 缓存重编。',
+    );
+    return false;
+  }
+  if (from == current) {
+    loggerInfo(
+      'FlutterPatch 缓存 releaseVersion 已是当前打包版本 $current，跳过 --from-release',
+    );
+    return false;
+  }
+  loggerInfo(
+    'FlutterPatch 缓存命中：clone release $from → $current（跳过 Flutter 重编）',
+  );
+  await runShorebirdRelease(
+    flutterDir: flutterDir,
+    platform: platform,
+    releaseVersion: current,
+    flutterVersion: '', // clone 路径不使用
+    fromRelease: from,
+  );
+  return true;
 }
 
 /// 清理 Shorebird 共用的 `flutter/release`，避免跨平台产物混入。
@@ -456,6 +538,7 @@ Future<void> runShorebirdPatch({
   bool allowAssetDiffs = false,
 }) async {
   await ensureShorebirdInstalled();
+  final cli = resolveFlutterPatchCli();
   final args = <String>[
     'patch',
     platform,
@@ -464,21 +547,21 @@ Future<void> runShorebirdPatch({
     if (allowAssetDiffs) '--allow-asset-diffs',
     ..._shorebirdFlutterPassthroughArgs(const []),
   ];
-  loggerInfo('执行: shorebird ${args.join(' ')}');
+  loggerInfo('执行: $cli ${args.join(' ')}');
   final sw = Stopwatch()..start();
   try {
     await ProcessRunner(environment: shorebirdCliEnvironment()).runProcess(
-      ['shorebird', ...args],
+      [cli, ...args],
       workingDirectory: flutterDir,
       printOutput: true,
     );
     loggerInfo(
-      'shell 完成: shorebird ${args.take(2).join(' ')} · '
+      'shell 完成: $cli ${args.take(2).join(' ')} · '
       '用时 ${formatElapsedDuration(sw.elapsed)}',
     );
   } catch (e) {
     loggerInfo(
-      'shell 失败: shorebird ${args.take(2).join(' ')} · '
+      'shell 失败: $cli ${args.take(2).join(' ')} · '
       '用时 ${formatElapsedDuration(sw.elapsed)}',
     );
     rethrow;

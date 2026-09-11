@@ -163,6 +163,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         forceUpdate: forceUpdate || gate.didClean,
         flutterSdk: sdkFingerprint,
         isShorebird: shorebirdEnabled,
+        releaseVersion: shorebirdEnabled ? (shorebirdReleaseVersion ?? '') : '',
       );
     }
     await saveFlutterSdkFingerprint(
@@ -249,6 +250,8 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       throw Exception('产物目录不存在: $buildCacheDir');
     }
 
+    final releaseVer =
+        shorebirdEnabled ? (shorebirdReleaseVersion ?? '') : '';
     await BuildCacheManager(buildCacheDir).write([
       CacheModel(
         buildPlatform: cache.buildPlatform.value,
@@ -261,6 +264,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         commitTime: commitTime,
         flutterSdk: flutterSdkFingerprint,
         isShorebird: shorebirdEnabled,
+        releaseVersion: releaseVer,
       ),
     ]);
     await writeToCacheSystem(
@@ -270,6 +274,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       commitTime: commitTime,
       flutterSdk: flutterSdkFingerprint,
       isShorebird: shorebirdEnabled,
+      releaseVersion: releaseVer,
     );
 
     loggerInfo(

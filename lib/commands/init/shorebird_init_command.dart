@@ -40,7 +40,7 @@ class ShorebirdInitCommand extends Command {
     );
     argParser.addFlag(
       'skip-network',
-      help: '跳过 api.shorebird.dev / download.shorebird.dev 连通性探测',
+      help: '跳过 base_url / download.shorebird.dev 连通性探测',
       defaultsTo: false,
       negatable: false,
     );
@@ -66,7 +66,7 @@ class ShorebirdInitCommand extends Command {
     if (!yamlFile.existsSync() && argResults?['writeExample'] == true) {
       await yamlFile.parent.create(recursive: true);
       await yamlFile.writeAsString('''
-# 设备 OTA 走 Meta Code Push（base_url），不是 api.shorebird.dev
+# 设备 OTA / FlutterPatch 控制面走 base_url（Meta Code Push）
 # 启用开关请写在 pubspec.yaml → metax.shorebird_enabled（勿在本文件加自定义 key）
 app_id: "00000000-0000-4000-8000-000000000001"
 base_url: http://119.23.47.1:9527/
@@ -128,8 +128,7 @@ auto_update: true
        shorebird_enabled: true
 2. metaapp_flutter/shorebird.yaml 仅官方字段 + 可访问的 base_url（勿写 metax_enabled）
 3. iOS 嵌入 ShorebirdFlutter.xcframework；Android 改 Shorebird Maven + keepDebugSymbols
-4. CI 配置 SHOREBIRD_TOKEN、META_OTA_API、META_OTA_TOKEN
-   （CLI 登记由 metax 强制 SHOREBIRD_HOSTED_URL=https://api.shorebird.dev）
+4. CI 配置 FLUTTERPATCH_TOKEN；控制面用 shorebird.yaml base_url（勿设 SHOREBIRD_HOSTED_URL）
 5. 安装/编译 meta_code_push 的 meta_ota（PATH / META_OTA_BIN / META_CODE_PUSH_ROOT）
 6. 出包前全量预检: metax init doctor [--unity] [--patch] [--upload]
    （仅 Shorebird: metax init shorebird [--patch]）

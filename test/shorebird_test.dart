@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
+import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/meta_ota.dart';
 import 'package:meta_tool/shorebird.dart';
 import 'package:path/path.dart';
@@ -124,15 +125,73 @@ metax_enabled: true
   });
 
   group('shorebirdCliEnvironment', () {
-    test('always forces official hosted URL and storage base', () {
+    test('removes SHOREBIRD_HOSTED_URL and forces storage base', () {
       final env = shorebirdCliEnvironment({
         'SHOREBIRD_HOSTED_URL': 'http://139.199.88.243:9527/',
         'FLUTTER_STORAGE_BASE_URL': 'https://storage.flutter-io.cn',
         'META_OTA_API': 'http://139.199.88.243:9527/',
+        'FLUTTERPATCH_TOKEN': 'tok',
       });
-      expect(env['SHOREBIRD_HOSTED_URL'], kShorebirdOfficialHostedUrl);
+      expect(env.containsKey('SHOREBIRD_HOSTED_URL'), isFalse);
       expect(env['FLUTTER_STORAGE_BASE_URL'], kShorebirdFlutterStorageBaseUrl);
       expect(env['META_OTA_API'], 'http://139.199.88.243:9527/');
+      expect(env['FLUTTERPATCH_TOKEN'], 'tok');
+    });
+  });
+
+  group('resolveFlutterPatchCli', () {
+    test('defaults to flutterpatch', () {
+      expect(resolveFlutterPatchCli({}), kFlutterPatchCliName);
+    });
+
+    test('prefers FLUTTERPATCH_BIN', () {
+      expect(
+        resolveFlutterPatchCli({'FLUTTERPATCH_BIN': '/opt/fp/bin/flutterpatch'}),
+        '/opt/fp/bin/flutterpatch',
+      );
+    });
+  });
+
+  group('maybeCloneFlutterPatchReleaseFromCache', () {
+    test('skips when cached releaseVersion empty', () async {
+      final cloned = await maybeCloneFlutterPatchReleaseFromCache(
+        flutterDir: home.flutterDir,
+        platform: 'aar',
+        releaseVersion: '1.0.0+2',
+        cachedReleaseVersion: '',
+      );
+      expect(cloned, isFalse);
+    });
+
+    test('skips when versions equal', () async {
+      final cloned = await maybeCloneFlutterPatchReleaseFromCache(
+        flutterDir: home.flutterDir,
+        platform: 'aar',
+        releaseVersion: '1.0.0+1',
+        cachedReleaseVersion: '1.0.0+1',
+      );
+      expect(cloned, isFalse);
+    });
+  });
+
+  group('CacheModel releaseVersion', () {
+    test('round-trips json and is ignored by equality', () {
+      final a = CacheModel(
+        buildPlatform: 'ios',
+        buildLibrary: 'flutter',
+        buildType: 'framework',
+        branch: 'main',
+        configuration: 'release',
+        commitHash: 'abc',
+        buildId: '0',
+        commitTime: DateTime.utc(2026, 1, 1),
+        isShorebird: true,
+        releaseVersion: '1.0.0+1',
+      );
+      final b = a.copyWith(releaseVersion: '1.0.0+2');
+      expect(a == b, isTrue);
+      expect(a.toJson()['releaseVersion'], '1.0.0+1');
+      expect(CacheModel.fromJson(a.toJson()).releaseVersion, '1.0.0+1');
     });
   });
 

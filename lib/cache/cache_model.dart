@@ -23,8 +23,14 @@ class CacheModel {
   /// Flutter SDK 指纹；Unity 等非 Flutter 产物为空字符串
   final String flutterSdk;
 
-  /// 是否由 Shorebird 编译；空或 false 表示不是
+  /// 是否由 Shorebird / FlutterPatch 编译；空或 false 表示不是
   final bool isShorebird;
+
+  /// 写入缓存时登记到 FlutterPatch 的 `--release-version`（如 `1.2.3+456`）。
+  ///
+  /// **不参与缓存命中比对**：同一 Flutter commit 可被多个宿主版本复用；
+  /// 命中后用该字段做 `flutterpatch release --from-release`。
+  final String releaseVersion;
 
   CacheModel({
     required this.buildPlatform,
@@ -37,7 +43,36 @@ class CacheModel {
     required this.commitTime,
     this.flutterSdk = '',
     this.isShorebird = false,
+    this.releaseVersion = '',
   });
+
+  CacheModel copyWith({
+    String? buildPlatform,
+    String? buildLibrary,
+    String? buildType,
+    String? branch,
+    String? configuration,
+    String? commitHash,
+    String? buildId,
+    DateTime? commitTime,
+    String? flutterSdk,
+    bool? isShorebird,
+    String? releaseVersion,
+  }) {
+    return CacheModel(
+      buildPlatform: buildPlatform ?? this.buildPlatform,
+      buildLibrary: buildLibrary ?? this.buildLibrary,
+      buildType: buildType ?? this.buildType,
+      branch: branch ?? this.branch,
+      configuration: configuration ?? this.configuration,
+      commitHash: commitHash ?? this.commitHash,
+      buildId: buildId ?? this.buildId,
+      commitTime: commitTime ?? this.commitTime,
+      flutterSdk: flutterSdk ?? this.flutterSdk,
+      isShorebird: isShorebird ?? this.isShorebird,
+      releaseVersion: releaseVersion ?? this.releaseVersion,
+    );
+  }
 
   factory CacheModel.fromJson(Map<String, dynamic> map) {
     final json = JSON(map);
@@ -54,6 +89,7 @@ class CacheModel {
       isShorebird: parseCacheIsShorebird(
         map.containsKey('isShorebird') ? map['isShorebird'] : null,
       ),
+      releaseVersion: json['releaseVersion'].stringValue,
     );
   }
 
@@ -69,6 +105,7 @@ class CacheModel {
       'commitTime': commitTime.toUtc().toIso8601String(),
       'flutterSdk': flutterSdk,
       'isShorebird': isShorebird,
+      'releaseVersion': releaseVersion,
     };
   }
 
@@ -115,6 +152,7 @@ class ServerCacheModel extends CacheModel {
     required super.commitTime,
     super.flutterSdk,
     super.isShorebird,
+    super.releaseVersion,
   });
 
   factory ServerCacheModel.fromJson(Map<String, dynamic> map) {
@@ -133,6 +171,13 @@ class ServerCacheModel extends CacheModel {
       isShorebird: parseCacheIsShorebird(
         map.containsKey('isShorebird') ? map['isShorebird'] : null,
       ),
+      releaseVersion: _readReleaseVersion(map),
     );
   }
+}
+
+String _readReleaseVersion(Map<String, dynamic> map) {
+  final camel = map['releaseVersion']?.toString().trim() ?? '';
+  if (camel.isNotEmpty) return camel;
+  return map['release_version']?.toString().trim() ?? '';
 }

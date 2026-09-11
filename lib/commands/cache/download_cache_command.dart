@@ -199,6 +199,11 @@ class DownloadCacheCommand extends Command {
         commitTime: DateTime.parse(cacheDocument['commit_time'].toString()),
         flutterSdk: cacheDocument['flutter_sdk']?.toString() ?? '',
         isShorebird: parseCacheIsShorebird(cacheDocument['isShorebird']),
+        releaseVersion: () {
+          final camel = cacheDocument['releaseVersion']?.toString().trim() ?? '';
+          if (camel.isNotEmpty) return camel;
+          return cacheDocument['release_version']?.toString().trim() ?? '';
+        }(),
       ),
     );
     loggerDebug('写入配置到本地!');
