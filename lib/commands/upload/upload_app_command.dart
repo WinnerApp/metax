@@ -90,15 +90,40 @@ abstract class UploadAppCommand extends Command {
       help: '显式启用/关闭 Shorebird（覆盖 pubspec metax.shorebird_enabled / env）',
       defaultsTo: null,
     );
+    argParser.addFlag(
+      'unityCacheOnly',
+      help: '仅按 --unityBranch 使用远程/本地 Unity 缓存，跳过本地 Unity 仓库与编译（无 Unity 工程时使用）',
+      defaultsTo: false,
+    );
   }
 
   @override
   FutureOr? run() async {
     String? copyDir = argResults?['copyIpaOrApkToBuildDir'];
+    final unityCacheOnly = argResults?['unityCacheOnly'] as bool? ?? false;
 
-    final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+    late final UnityEnvironment unityEnvironment;
+    try {
+      unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+    } catch (e) {
+      if (!unityCacheOnly) {
+        throw Exception(
+          'Unity 环境未配置: $e\n'
+          '无本地 Unity 时可加 --unityCacheOnly，仅按 --unityBranch 拉远程缓存',
+        );
+      }
+      loggerWarning('Unity 环境未配置，已启用 --unityCacheOnly: $e');
+      unityEnvironment = UnityEnvironment(
+        unityWorkspace: '/__metax_no_unity__',
+        iosUnityPath: 'ios',
+        androidUnityPath: 'android',
+        ohosUnityPath: 'ohos',
+        unityEnginePath: '',
+        tuanjieEnginePath: '',
+      );
+    }
     UploadAppEnvironment environment =
-        await chooseEnvironment(unityEnvironment);
+        await chooseEnvironment(unityEnvironment, unityCacheOnly: unityCacheOnly);
 
     loggerDebug('platform:${environment.platform}');
     loggerDebug('workspace:${environment.workspace}');
@@ -261,44 +286,71 @@ abstract class UploadAppCommand extends Command {
     StringBuffer unityLogBuffer = StringBuffer();
 
     /// 更新Unity工程并且获取Unity的更新日志
-    String unityWorkspace = switch (environment.platform) {
-      'ios' => unityEnvironment.iosUnityWorkspace,
-      'android' => unityEnvironment.androidUnityWorkspace,
-      'ohos' => unityEnvironment.ohosUnityWorkspace,
-      _ => throw Exception('不支持的平台'),
-    };
+    /// --unityCacheOnly：跳过本地 Unity 仓库，仅按分支拉缓存
+    final unityWorkspace = _tryResolveUnityWorkspace(
+      unityEnvironment,
+      environment.platform,
+    );
+    final hasLocalUnityRepo =
+        unityWorkspace != null && io.Directory(unityWorkspace).existsSync();
 
-    /// 切换Unity为对应分支
-    await switchBranch(unityWorkspace, environment.unityBranchName);
-
-    /// 获取当前Unity工程的Commit id
-    final currentUnityCommitId = await getCurrentCommitHash(unityWorkspace);
-
-    /// 获取当前的Build Version Id
-    final currentUnityBuildVersionId =
-        await getUnityBuildVersion(unityWorkspace);
-
-    /// 最新打包Unity工程的Commit id
-    String afterCommitId = currentUnityCommitId;
-
-    /// 如果build version没有发生变化 则使用之前的commit id
-    if (buildUnityBuildVersionId == "$currentUnityBuildVersionId") {
-      afterCommitId = buildUnityCommitId ?? currentUnityCommitId;
-    } else {
-      isUnityBuild = true;
+    if (!unityCacheOnly && !hasLocalUnityRepo) {
+      throw Exception(
+        '本地 Unity 仓库不存在: ${unityWorkspace ?? '(未配置)'}\n'
+        '无 Unity 工程时请加 --unityCacheOnly，并指定 --unityBranch 从远程缓存拉取',
+      );
     }
 
-    /// 获取当前Unity工程的变更日志
-    final unityChangeLog = await GetGitLog(
-      root: unityWorkspace,
-      beforeCommitId: buildUnityCommitId,
-      afterCommitId: afterCommitId,
-    ).get();
+    late final String currentUnityCommitId;
+    late final int? currentUnityBuildVersionId;
+    late final String afterCommitId;
 
-    if (unityChangeLog != null) {
-      unityLogBuffer.writeln('''
+    if (!unityCacheOnly) {
+      /// 切换Unity为对应分支
+      await switchBranch(unityWorkspace!, environment.unityBranchName);
+
+      /// 获取当前Unity工程的Commit id
+      currentUnityCommitId = await getCurrentCommitHash(unityWorkspace);
+
+      /// 获取当前的Build Version Id
+      final localBuildVersionId = await getUnityBuildVersion(unityWorkspace);
+      currentUnityBuildVersionId = localBuildVersionId;
+
+      /// 如果build version没有发生变化 则使用之前的commit id
+      if (buildUnityBuildVersionId == "$localBuildVersionId") {
+        afterCommitId = buildUnityCommitId ?? currentUnityCommitId;
+      } else {
+        afterCommitId = currentUnityCommitId;
+        isUnityBuild = true;
+      }
+
+      /// 获取当前Unity工程的变更日志
+      final unityChangeLog = await GetGitLog(
+        root: unityWorkspace,
+        beforeCommitId: buildUnityCommitId,
+        afterCommitId: afterCommitId,
+      ).get();
+
+      if (unityChangeLog != null) {
+        unityLogBuffer.writeln('''
 👉[Unity][${environment.unityBranchName}][$currentUnityCommitId]
 $unityChangeLog
+''');
+      }
+    } else {
+      loggerInfo(
+        '已启用 --unityCacheOnly：跳过 Unity Git/编译，'
+        '按分支 [${environment.unityBranchName}] 使用远程/本地缓存（不校验是否最新）',
+      );
+      currentUnityCommitId = buildUnityCommitId ?? 'remote-cache';
+      currentUnityBuildVersionId =
+          int.tryParse(buildUnityBuildVersionId ?? '');
+      afterCommitId = currentUnityCommitId;
+      // 仅缓存模式无法对比 Unity 变更，强制走后续打包以拉取缓存产物
+      isUnityBuild = true;
+      unityLogBuffer.writeln('''
+👉[Unity][${environment.unityBranchName}][remote-cache]
+--unityCacheOnly：使用远程/本地缓存
 ''');
     }
 
@@ -474,6 +526,7 @@ $changeLog
       currentUnityBuildVersionId,
       environment,
       useUnityAarBuild: useUnityAarBuild,
+      cacheOnly: unityCacheOnly,
     );
 
     final flutterCurrentCommitId = await getCurrentCommitHash(
@@ -628,7 +681,9 @@ $changeLog
       unityBranch: environment.unityBranchName,
       unityCommitId: afterCommitId,
       buildNumber: int.parse(environment.buildNumber),
-      unityBuilderVersion: currentUnityBuildVersionId.toString(),
+      unityBuilderVersion:
+          (currentUnityBuildVersionId ?? buildUnityBuildVersionId ?? '0')
+              .toString(),
       buildBranchConfigs: buildBranchConfigs,
     );
 
@@ -713,18 +768,35 @@ $changeLog
     };
   }
 
+  /// 尝试解析本地 Unity 工作区路径；环境未配置或解析失败时返回 null
+  String? _tryResolveUnityWorkspace(
+    UnityEnvironment unityEnvironment,
+    String platform,
+  ) {
+    try {
+      return unityEnvironment.getPlatfromUnityWorkspace(platform);
+    } catch (e) {
+      loggerWarning('无法解析本地 Unity 工作区路径: $e');
+      return null;
+    }
+  }
+
   /// 复制Unity静态库到指定位置
+  ///
+  /// [cacheOnly] 为 true 时不传 buildId，按分支命中任意远程/本地缓存（不要求最新）。
   Future<void> copyUnityStaticLibrary(
-    int buildVersionId,
+    int? buildVersionId,
     UploadAppEnvironment environment, {
     required bool useUnityAarBuild,
+    bool cacheOnly = false,
   }) async {
     final unityBuildType = _resolveUnityBuildType(
       platform: environment.platform,
       useUnityAarBuild: useUnityAarBuild,
     );
     loggerDebug(
-      'Unity 构建方式: ${useUnityAarBuild ? '预编译($unityBuildType)' : '源码(library)'}',
+      'Unity 构建方式: ${useUnityAarBuild ? '预编译($unityBuildType)' : '源码(library)'}'
+      '${cacheOnly ? ' [仅缓存]' : ''}',
     );
 
     final appRunner = await createAppRunner(appHomeDir);
@@ -746,28 +818,32 @@ $changeLog
       cacheDir.deleteSync(recursive: true);
     }
 
+    final command = <String>[
+      'metax',
+      'cache',
+      'use',
+      '--workspace',
+      appHomeDir.workspace,
+      '--buildPlatform',
+      environment.platform,
+      '--buildConfiguration',
+      'release',
+      '--buildLibrary',
+      'unity',
+      '--buildType',
+      unityBuildType,
+      '--unityBranch',
+      environment.unityBranchName,
+      getUseMockCommand(),
+      ...getUseCacheCommands(),
+    ];
+    // 仅缓存模式或无 buildId 时，按分支取可用缓存，不强制对齐本地 build_version
+    if (!cacheOnly && buildVersionId != null) {
+      command.addAll(['--buildId', buildVersionId.toString()]);
+    }
+
     await appRunner.runProcess(
-      [
-        'metax',
-        'cache',
-        'use',
-        '--workspace',
-        appHomeDir.workspace,
-        '--buildPlatform',
-        environment.platform,
-        '--buildConfiguration',
-        'release',
-        '--buildLibrary',
-        'unity',
-        '--buildType',
-        unityBuildType,
-        '--buildId',
-        buildVersionId.toString(),
-        '--unityBranch',
-        environment.unityBranchName,
-        getUseMockCommand(),
-        ...getUseCacheCommands(),
-      ],
+      command,
       printOutput: true,
     );
   }
@@ -867,20 +943,37 @@ $changeLog
 
   /// 通过交互获取环境变量
   Future<UploadAppEnvironment> chooseEnvironment(
-      UnityEnvironment unityEnvironment) async {
+    UnityEnvironment unityEnvironment, {
+    bool unityCacheOnly = false,
+  }) async {
     final melosBranch = ArgumentGet(argResults).getString(
       'branch',
       '请选择Melos分支',
       allowed: await getLatestBranchList(appHomeDir.workspace),
     );
     final buildName = ArgumentGet(argResults).getString('buildName', '请输入版本号');
-    final unityBranch = ArgumentGet(argResults).getString(
-      'unityBranch',
-      '请选择Unity分支',
-      allowed: await getLatestBranchList(
-        unityEnvironment.getPlatfromUnityWorkspace(platform),
-      ),
-    );
+    final String unityBranch;
+    if (unityCacheOnly) {
+      unityBranch = ArgumentGet(argResults).getString(
+        'unityBranch',
+        '请输入远程已有缓存的 Unity 分支',
+      );
+    } else {
+      final unityWorkspace =
+          _tryResolveUnityWorkspace(unityEnvironment, platform);
+      if (unityWorkspace == null ||
+          !io.Directory(unityWorkspace).existsSync()) {
+        throw Exception(
+          '本地 Unity 仓库不存在: ${unityWorkspace ?? '(未配置)'}\n'
+          '无 Unity 工程时请加 --unityCacheOnly，并指定 --unityBranch',
+        );
+      }
+      unityBranch = ArgumentGet(argResults).getString(
+        'unityBranch',
+        '请选择Unity分支',
+        allowed: await getLatestBranchList(unityWorkspace),
+      );
+    }
     final forceBuild = ArgumentGet(argResults).getString(
       'forceBuild',
       '是否强制打包?',

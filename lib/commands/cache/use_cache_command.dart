@@ -144,23 +144,36 @@ class UseCacheCommand extends Command {
     }
 
     if (buildLibrary == BuildLibrary.unity.name) {
-      final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
-      final platform = BuildPlatform.values.firstWhere(
-        (e) => e.name == buildPlatform,
-      );
-      final unityProjectDir = Directory(
-        switch (platform) {
-          BuildPlatform.ios => unityEnvironment.iosUnityWorkspace,
-          BuildPlatform.android => unityEnvironment.androidUnityWorkspace,
-          BuildPlatform.ohos => unityEnvironment.ohosUnityWorkspace,
-        },
-      );
-      if (!unityProjectDir.existsSync()) {
-        throw Exception('Unity项目目录不存在: ${unityProjectDir.path}');
+      Directory? unityProjectDir;
+      try {
+        final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+        final platform = BuildPlatform.values.firstWhere(
+          (e) => e.name == buildPlatform,
+        );
+        unityProjectDir = Directory(
+          switch (platform) {
+            BuildPlatform.ios => unityEnvironment.iosUnityWorkspace,
+            BuildPlatform.android => unityEnvironment.androidUnityWorkspace,
+            BuildPlatform.ohos => unityEnvironment.ohosUnityWorkspace,
+          },
+        );
+      } catch (e) {
+        loggerWarning('无法解析 Unity 工程路径: $e');
       }
 
-      /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
-      if (skipGitPull) {
+      final hasLocalUnityRepo =
+          unityProjectDir != null && unityProjectDir.existsSync();
+      if (!hasLocalUnityRepo) {
+        loggerWarning(
+          'Unity项目目录不存在，仅尝试本地/远程缓存（不编译）: '
+          '${unityProjectDir?.path ?? '(未配置)'}',
+        );
+        branch = ArgumentGet(argResults).getString(
+          'unityBranch',
+          '请输入Unity分支',
+        );
+      } else if (skipGitPull) {
+        /// 如果开启skipGitPull，则跳过Git操作，直接使用本地代码
         loggerInfo('跳过Git操作模式，使用本地代码');
         branch = ArgumentGet(argResults).getString(
           'unityBranch',
@@ -532,13 +545,22 @@ class UseCacheCommand extends Command {
       throw UnimplementedError();
     }
 
-    /// 获取当前分支的最新缓存
-    return cacheModels.last;
+    /// 获取当前分支可用缓存（Unity 按 buildId 降序后取最新一条）
+    return cacheModels.first;
   }
 
   /// 编译缓存
   Future<CacheModel?> compileCache() async {
     loggerDebug('缓存不存在,正在编译...');
+    if (buildLibrary == BuildLibrary.unity.name) {
+      final unityExists = _unityProjectExists();
+      if (!unityExists) {
+        throw Exception(
+          '分支 [$branch] 本地/远程均无 Unity 缓存，且本机无 Unity 仓库，无法编译。'
+          '请确认远程已上传该分支缓存，或提供本地 Unity 工程。',
+        );
+      }
+    }
     if (buildType == BuildType.library.name) {
       await compileUnityLibrary();
     } else {
@@ -580,6 +602,23 @@ class UseCacheCommand extends Command {
       }
     }
     return queryLocalCache();
+  }
+
+  bool _unityProjectExists() {
+    try {
+      final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
+      final platform = BuildPlatform.values.firstWhere(
+        (e) => e.name == buildPlatform,
+      );
+      final path = switch (platform) {
+        BuildPlatform.ios => unityEnvironment.iosUnityWorkspace,
+        BuildPlatform.android => unityEnvironment.androidUnityWorkspace,
+        BuildPlatform.ohos => unityEnvironment.ohosUnityWorkspace,
+      };
+      return Directory(path).existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 
   /// 编译Unity Library
