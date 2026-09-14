@@ -195,15 +195,15 @@ class AppwriteServer {
       ],
     ).then((e) {
       var docs = e.documents.map((e) => e.data).toList();
-      // 空 / 缺失 / false → 非 Shorebird；兼容尚未写入 isShorebird 的旧文档，
-      // 以及仅通过 flutter_sdk 指纹带 @shorebird 标记的历史数据。
+      // 空 / 缺失 / false → 非 Shorebird；兼容仅带 @shorebird 指纹的历史数据。
       if (isShorebird != null) {
         docs = docs.where((data) {
           final sdk = data['flutter_sdk']?.toString() ??
               data['flutterSdk']?.toString() ??
               '';
           final entryIsSb = parseCacheIsShorebird(data['isShorebird']) ||
-              sdk.contains('@shorebird');
+              sdk.contains('@shorebird') ||
+              sdk.contains('@flutterpatch');
           return isShorebird ? entryIsSb : !entryIsSb;
         }).toList();
       }

@@ -5,26 +5,26 @@ import 'package:args/command_runner.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/doctor.dart';
-import 'package:meta_tool/shorebird.dart';
-import 'package:meta_tool/shorebird_doctor.dart';
+import 'package:meta_tool/flutterpatch.dart';
+import 'package:meta_tool/flutterpatch_doctor.dart';
 import 'package:path/path.dart';
 
-/// 打包机 Shorebird 环境预检 + 接入提示。
+/// 打包机 FlutterPatch 环境预检 + 接入提示。
 ///
 /// 用法：
 /// ```
-/// metax init shorebird
-/// metax init shorebird --skip-network
+/// metax init flutterpatch
+/// metax init flutterpatch --skip-network
 /// ```
-class ShorebirdInitCommand extends Command {
+class FlutterPatchInitCommand extends Command {
   @override
-  String get name => 'shorebird';
+  String get name => 'flutterpatch';
 
   @override
   String get description =>
-      '检测打包机 Shorebird 缺什么（CLI/鉴权/网络/工程配置），避免出包末尾才失败';
+      '检测打包机 FlutterPatch 缺什么（CLI/鉴权/网络/工程配置），避免出包末尾才失败';
 
-  ShorebirdInitCommand() {
+  FlutterPatchInitCommand() {
     argParser.addFlag(
       'writeExample',
       help: '若缺少 shorebird.yaml，写入官方字段示例；并提示 pubspec 开关',
@@ -48,7 +48,7 @@ class ShorebirdInitCommand extends Command {
   @override
   FutureOr<void> run() async {
     final flutterDir = appHomeDir.flutterDir;
-    final yamlPath = ShorebirdYamlConfig.yamlFile(flutterDir).path;
+    final yamlPath = FlutterPatchYamlConfig.yamlFile(flutterDir).path;
     final pubspecPath = join(flutterDir.path, 'pubspec.yaml');
 
     loggerInfo('Flutter 目录: ${flutterDir.path}');
@@ -71,8 +71,8 @@ auto_update: true
     final skipNetwork = argResults?['skip-network'] == true;
     final strict = argResults?['strict'] == true;
 
-    loggerInfo('—— Shorebird 预检 ——');
-    final report = await ShorebirdDoctor(
+    loggerInfo('—— FlutterPatch 预检 ——');
+    final report = await FlutterPatchDoctor(
       appHomeDir: appHomeDir,
       checkNetwork: !skipNetwork,
     ).run();
@@ -101,7 +101,7 @@ auto_update: true
         }
       }
       throw Exception(
-        'Shorebird 预检未通过（${failCount + (strict ? warnCount : 0)} 项）。'
+        'FlutterPatch 预检未通过（${failCount + (strict ? warnCount : 0)} 项）。'
         '请先在打包机修好再出包，避免末尾失败。\n${lines.join('\n')}',
       );
     }
@@ -109,7 +109,7 @@ auto_update: true
     if (warnCount > 0) {
       loggerWarning('存在 $warnCount 项警告，打包机基本可用，但请确认是否符合预期');
     } else {
-      loggerSuccess('Shorebird 预检通过');
+      loggerSuccess('FlutterPatch 预检通过');
     }
 
     loggerInfo('''
@@ -118,14 +118,14 @@ auto_update: true
      metax:
        shorebird_enabled: true
 2. metaapp_flutter/shorebird.yaml 仅官方字段 + 可访问的 base_url（勿写 metax_enabled）
-3. iOS 嵌入 ShorebirdFlutter.xcframework；Android 改 Shorebird Maven + keepDebugSymbols
+3. iOS 嵌入 ShorebirdFlutter.xcframework；Android 改 FlutterPatch Maven + keepDebugSymbols
 4. CI 配置 FLUTTERPATCH_TOKEN；控制面用 shorebird.yaml base_url（勿设 SHOREBIRD_HOSTED_URL）
 5. 出包前全量预检: metax init doctor [--unity] [--patch] [--upload]
-   （仅 Shorebird: metax init shorebird）
+   （仅 FlutterPatch: metax init flutterpatch）
 6. 出包: metax upload build_upload_ipa|apk
 7. 补丁: metax patch ios|android --release-version X.Y.Z+N
 
-模板: templates/shorebird.yaml.example 、 templates/jenkins_shorebird.env.example
+模板: templates/shorebird.yaml.example 、 templates/jenkins_flutterpatch.env.example
 ''');
   }
 

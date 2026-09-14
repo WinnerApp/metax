@@ -4,8 +4,8 @@ import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/doctor.dart';
 import 'package:meta_tool/flutter_sdk.dart';
-import 'package:meta_tool/shorebird.dart';
-import 'package:meta_tool/shorebird_doctor.dart';
+import 'package:meta_tool/flutterpatch.dart';
+import 'package:meta_tool/flutterpatch_doctor.dart';
 import 'package:path/path.dart';
 
 /// `metax init doctor` 预检范围。
@@ -14,7 +14,7 @@ class MetaxDoctorOptions {
   final Set<String> platforms;
 
   final bool checkUnity;
-  final bool checkShorebird;
+  final bool checkFlutterPatch;
   final bool checkPatch;
   final bool checkUpload;
   final bool checkNetwork;
@@ -22,14 +22,14 @@ class MetaxDoctorOptions {
   const MetaxDoctorOptions({
     this.platforms = const {},
     this.checkUnity = false,
-    this.checkShorebird = true,
+    this.checkFlutterPatch = true,
     this.checkPatch = false,
     this.checkUpload = false,
     this.checkNetwork = true,
   });
 }
 
-/// 打包机全量环境预检：CLI / 工程文件 / env / Shorebird。
+/// 打包机全量环境预检：CLI / 工程文件 / env / FlutterPatch。
 class MetaxDoctor {
   final AppHomeDir appHomeDir;
   final Map<String, String> environment;
@@ -74,8 +74,8 @@ class MetaxDoctor {
       items.addAll(_checkUploadSecrets());
     }
 
-    if (options.checkShorebird) {
-      final shorebird = await ShorebirdDoctor(
+    if (options.checkFlutterPatch) {
+      final flutterpatch = await FlutterPatchDoctor(
         appHomeDir: appHomeDir,
         environment: {
           ...?appEnv,
@@ -83,27 +83,27 @@ class MetaxDoctor {
         },
         checkNetwork: options.checkNetwork,
       ).run();
-      // 未启用 Shorebird 时，CLI/鉴权缺失降为 warning，避免普通打包机被误杀
-      final enabled = resolveUseShorebird(
+      // 未启用 FlutterPatch 时，CLI/鉴权缺失降为 warning，避免普通打包机被误杀
+      final enabled = resolveUseFlutterPatch(
         appHomeDir: appHomeDir,
         environment: {...?appEnv, ...environment},
       ).enabled;
-      for (final item in shorebird.items) {
+      for (final item in flutterpatch.items) {
         if (!enabled &&
             !item.ok &&
             item.severity == DoctorCheckSeverity.error &&
             const {
-              'shorebird_cli',
-              'shorebird_auth',
+              'flutterpatch_cli',
+              'flutterpatch_auth',
               'network_api',
               'network_download',
-              'shorebird_yaml',
+              'flutterpatch_yaml',
               'flutter_version',
             }.contains(item.id)) {
           items.add(
             item.copyWith(
               severity: DoctorCheckSeverity.warning,
-              detail: '${item.detail}（当前未启用 Shorebird，仅作提示）',
+              detail: '${item.detail}（当前未启用 FlutterPatch，仅作提示）',
             ),
           );
         } else {

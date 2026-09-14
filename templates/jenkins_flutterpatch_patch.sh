@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Jenkins：Shorebird 热更补丁
+# Jenkins：FlutterPatch 热更补丁
 # 参数：
 #   PLATFORM / platform   android | ios
 #   RELEASE / release     如 3.4.100(1788746134)  （Active Choices 展示格式）
@@ -10,11 +10,11 @@
 #
 # FORCE_PATCH=true|1 时透传 --force-patch（跳过多仓库热更预审）
 #
-# 还需：FLUTTERPATCH_TOKEN, APPWRITE_* 等（见 jenkins_shorebird.env.example）
+# 还需：FLUTTERPATCH_TOKEN, APPWRITE_* 等（见 jenkins_flutterpatch.env.example）
 #
 # 用法（Execute shell）：
 #   export APP_DIR=/path/to/meta_app   # 含 metaapp_flutter 的仓库根
-#   bash /path/to/metax/templates/jenkins_shorebird_patch.sh
+#   bash /path/to/metax/templates/jenkins_flutterpatch_patch.sh
 
 set -euo pipefail
 

@@ -5,7 +5,7 @@ import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
 import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
 import 'package:meta_tool/common.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -25,7 +25,7 @@ class PatchReleaseBaselineResolver {
     required String releaseVersion,
     String? preferMelosBranch,
   }) async {
-    final parsed = parseShorebirdReleaseVersion(releaseVersion);
+    final parsed = parseFlutterPatchReleaseVersion(releaseVersion);
     final buildEnv = AppwriteBuildEnvironment(appHomeDir);
     final server = AppwriteServer(
       endpoint: buildEnv.endpoint,

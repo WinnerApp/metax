@@ -12,7 +12,7 @@ import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/commands/cache/cache_patch_engine.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -277,12 +277,12 @@ class UseCacheCommand extends Command {
     loggerSuccess('使用缓存成功');
   }
 
-  /// Shorebird Flutter framework/aar 复用缓存时，按需 `--from-release`。
+  /// FlutterPatch Flutter framework/aar 复用缓存时，按需 `--from-release`。
   Future<void> _cloneFlutterPatchReleaseIfNeeded(CacheModel cached) async {
     if (buildLibrary != BuildLibrary.flutter.name) return;
     if (buildConfiguration != BuildConfiguration.release.name) return;
-    final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
-    if (!shorebird.enabled) return;
+    final flutterpatch = resolveUseFlutterPatch(appHomeDir: appHomeDir);
+    if (!flutterpatch.enabled) return;
     if (!cacheEntryIsShorebird(
       isShorebird: cached.isShorebird,
       flutterSdk: cached.flutterSdk,
@@ -488,7 +488,7 @@ class UseCacheCommand extends Command {
       buildLibrary: buildLibrary,
       buildType: buildType,
       isShorebird: buildLibrary == BuildLibrary.flutter.name
-          ? resolveUseShorebird(appHomeDir: appHomeDir).enabled
+          ? resolveUseFlutterPatch(appHomeDir: appHomeDir).enabled
           : null,
     );
     final serverCacheModels =
@@ -517,15 +517,15 @@ class UseCacheCommand extends Command {
       cacheModels = cacheModels.where((e) => e.buildId == buildId).toList();
     }
 
-    // Shorebird 与普通 Flutter 产物不可混用（isShorebird 空/false = 非 Shorebird）
+    // FlutterPatch 与普通 Flutter 产物不可混用（isShorebird 空/false = 非 FlutterPatch）
     if (buildLibrary == BuildLibrary.flutter.name) {
-      final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
+      final flutterpatch = resolveUseFlutterPatch(appHomeDir: appHomeDir);
       cacheModels = cacheModels.where((e) {
         final isSb = cacheEntryIsShorebird(
           isShorebird: e.isShorebird,
           flutterSdk: e.flutterSdk,
         );
-        return shorebird.enabled ? isSb : !isSb;
+        return flutterpatch.enabled ? isSb : !isSb;
       }).toList();
     }
 
@@ -685,7 +685,7 @@ class UseCacheCommand extends Command {
     } else {
       throw UnimplementedError();
     }
-    final shorebird = resolveUseShorebird(appHomeDir: appHomeDir);
+    final flutterpatch = resolveUseFlutterPatch(appHomeDir: appHomeDir);
     final command = <String>[
       'metax',
       'build',
@@ -697,14 +697,14 @@ class UseCacheCommand extends Command {
       getUseMockCommand(),
       ...getUseCacheCommands(),
     ];
-    if (shorebird.enabled) {
-      command.add('--useShorebird');
+    if (flutterpatch.enabled) {
+      command.add('--useFlutterPatch');
       final releaseVersion = resolveReleaseVersionFromEnv();
       if (releaseVersion != null && releaseVersion.isNotEmpty) {
         command.addAll(['--releaseVersion', releaseVersion]);
       }
     } else {
-      command.add('--no-useShorebird');
+      command.add('--no-useFlutterPatch');
     }
     await ProcessRunner().runProcess(
       command,

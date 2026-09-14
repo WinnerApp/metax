@@ -9,7 +9,7 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:meta_tool/upload_sentry.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -162,14 +162,14 @@ abstract class BuildCacheCommand extends Command {
     loggerInfo('🔍 编译完成，用时: ${endTime.difference(startTime).inSeconds}秒');
   }
 
-  /// Shorebird Flutter framework/aar 缓存命中时，按需 `--from-release`。
+  /// FlutterPatch Flutter framework/aar 缓存命中时，按需 `--from-release`。
   Future<void> _cloneFlutterPatchReleaseIfNeeded({
     required MetaxCache cache,
     required CacheModel cached,
     required String releaseVersion,
   }) async {
     if (!cached.isShorebird &&
-        !isShorebirdFlutterSdkFingerprint(cached.flutterSdk)) {
+        !isShorebirdSdkFingerprint(cached.flutterSdk)) {
       return;
     }
     if (cache.buildLibrary != BuildLibrary.flutter) return;

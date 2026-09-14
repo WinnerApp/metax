@@ -59,7 +59,7 @@ class PatchCompatResult {
 
   String abortMessage() {
     final buffer = StringBuffer()
-      ..writeln('热更中断：检测到不支持 Shorebird 热更的改动，请重新出包（metax upload build_upload_*）。')
+      ..writeln('热更中断：检测到不支持 FlutterPatch 热更的改动，请重新出包（metax upload build_upload_*）。')
       ..writeln()
       ..writeln('对比仓库（发版基线 → 当前工作区，含未提交）：');
     for (final b in baselines) {
@@ -255,7 +255,7 @@ class PatchCompatGate {
     }
 
     if (rel.endsWith('shorebird.yaml')) {
-      return 'Shorebird 配置变更';
+      return 'FlutterPatch 配置变更';
     }
 
     if (RegExp(r'\.(png|jpg|jpeg|webp|gif|svg|ttf|otf)$', caseSensitive: false)

@@ -10,7 +10,7 @@ import 'package:meta_tool/metax_doctor.dart';
 ///
 /// ```
 /// metax init doctor
-/// metax init doctor --platform ios,android --unity --shorebird --patch --upload
+/// metax init doctor --platform ios,android --unity --flutterpatch --patch --upload
 /// metax init doctor --skip-network --strict
 /// ```
 class DoctorCommand extends Command {
@@ -34,8 +34,8 @@ class DoctorCommand extends Command {
       negatable: false,
     );
     argParser.addFlag(
-      'shorebird',
-      help: '检查 Shorebird（默认开启；未启用时缺项降为警告）',
+      'flutterpatch',
+      help: '检查 FlutterPatch（默认开启；未启用时缺项降为警告）',
       defaultsTo: true,
     );
     argParser.addFlag(
@@ -52,7 +52,7 @@ class DoctorCommand extends Command {
     );
     argParser.addFlag(
       'skip-network',
-      help: '跳过 Shorebird 外网连通性 / whoami',
+      help: '跳过 FlutterPatch 外网连通性 / whoami',
       defaultsTo: false,
       negatable: false,
     );
@@ -71,7 +71,7 @@ class DoctorCommand extends Command {
     final options = MetaxDoctorOptions(
       platforms: platforms,
       checkUnity: argResults?['unity'] == true,
-      checkShorebird: argResults?['shorebird'] != false,
+      checkFlutterPatch: argResults?['flutterpatch'] != false,
       checkPatch: argResults?['patch'] == true,
       checkUpload: argResults?['upload'] == true,
       checkNetwork: argResults?['skip-network'] != true,
@@ -80,7 +80,7 @@ class DoctorCommand extends Command {
     loggerInfo('workspace: ${appHomeDir.workspace}');
     loggerInfo(
       '范围: platform=${platforms.isEmpty ? 'auto' : platforms.join(',')} · '
-      'unity=${options.checkUnity} · shorebird=${options.checkShorebird} · '
+      'unity=${options.checkUnity} · flutterpatch=${options.checkFlutterPatch} · '
       'patch=${options.checkPatch} · upload=${options.checkUpload} · '
       'network=${options.checkNetwork}',
     );
@@ -132,7 +132,7 @@ class DoctorCommand extends Command {
     }
 
     loggerInfo(
-      '提示: 纯 Shorebird 细查可用 `metax init shorebird`；'
+      '提示: 纯 FlutterPatch 细查可用 `metax init flutterpatch`；'
       '本机打补丁加 `--patch`，上传机加 `--upload`，Unity 机加 `--unity`',
     );
   }

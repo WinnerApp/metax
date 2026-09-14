@@ -5,11 +5,11 @@ class PatchIosCommand extends BasePatchCommand {
   String get name => 'ios';
 
   @override
-  String get description => 'iOS Shorebird 补丁并推送 Meta OTA';
+  String get description => 'iOS FlutterPatch 补丁并推送 Meta OTA';
 
   @override
   String get otaPlatform => 'ios';
 
   @override
-  String get shorebirdPlatform => 'ios-framework';
+  String get flutterPatchPlatform => 'ios-framework';
 }

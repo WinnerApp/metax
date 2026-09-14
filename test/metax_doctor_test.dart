@@ -38,7 +38,7 @@ void main() {
       environment: {'PATH': '/usr/bin:/bin:/usr/local/bin'},
       options: const MetaxDoctorOptions(
         platforms: {'android'},
-        checkShorebird: false,
+        checkFlutterPatch: false,
         checkNetwork: false,
       ),
     ).run();
@@ -77,7 +77,7 @@ ndk.dir=${ndk.path}
       },
       options: const MetaxDoctorOptions(
         platforms: {'android'},
-        checkShorebird: false,
+        checkFlutterPatch: false,
         checkNetwork: false,
       ),
     ).run();
@@ -115,7 +115,7 @@ ndk.dir=${ndk.path}
       },
       options: const MetaxDoctorOptions(
         platforms: {'android'},
-        checkShorebird: true,
+        checkFlutterPatch: true,
         checkNetwork: false,
       ),
     ).run();
@@ -149,7 +149,7 @@ ndk.dir=${join(tempDir.path, 'missing_ndk_27')}
       },
       options: const MetaxDoctorOptions(
         platforms: {'android'},
-        checkShorebird: false,
+        checkFlutterPatch: false,
         checkNetwork: false,
       ),
     ).run();
@@ -177,7 +177,7 @@ ndk.dir=${join(tempDir.path, 'missing_ndk_27')}
       options: const MetaxDoctorOptions(
         platforms: {'ios'},
         checkUnity: true,
-        checkShorebird: false,
+        checkFlutterPatch: false,
         checkNetwork: false,
       ),
     ).run();

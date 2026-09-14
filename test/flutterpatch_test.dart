@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/cache/cache_model.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 import 'package:test/test.dart';
 
@@ -11,7 +11,7 @@ void main() {
   late AppHomeDir home;
 
   setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('metax_shorebird_');
+    tempDir = Directory.systemTemp.createTempSync('metax_flutterpatch_');
     Directory(join(tempDir.path, 'metaapp_flutter')).createSync();
     home = AppHomeDir(tempDir.path);
   });
@@ -22,74 +22,94 @@ void main() {
     }
   });
 
-  void writePubspec({required bool? shorebirdEnabled}) {
+  void writePubspec({required bool? flutterPatchEnabled}) {
     final buffer = StringBuffer('name: demo\n');
-    if (shorebirdEnabled != null) {
+    if (flutterPatchEnabled != null) {
       buffer.writeln('metax:');
-      buffer.writeln('  shorebird_enabled: $shorebirdEnabled');
+      buffer.writeln('  shorebird_enabled: $flutterPatchEnabled');
     }
     File(join(home.flutterDir.path, 'pubspec.yaml')).writeAsStringSync(
       buffer.toString(),
     );
   }
 
-  group('resolveUseShorebird', () {
+  group('resolveUseFlutterPatch', () {
     test('defaults off without pubspec field', () {
-      writePubspec(shorebirdEnabled: null);
+      writePubspec(flutterPatchEnabled: null);
       File(join(home.flutterDir.path, 'shorebird.yaml')).writeAsStringSync('''
 app_id: "abc"
 base_url: http://ota.local
 ''');
-      final r = resolveUseShorebird(appHomeDir: home, environment: {});
+      final r = resolveUseFlutterPatch(appHomeDir: home, environment: {});
       expect(r.enabled, isFalse);
       expect(r.reason, contains('unset'));
     });
 
     test('pubspec metax.shorebird_enabled true enables', () {
-      writePubspec(shorebirdEnabled: true);
+      writePubspec(flutterPatchEnabled: true);
       File(join(home.flutterDir.path, 'shorebird.yaml')).writeAsStringSync('''
 app_id: "abc"
 ''');
-      final r = resolveUseShorebird(appHomeDir: home, environment: {});
+      final r = resolveUseFlutterPatch(appHomeDir: home, environment: {});
       expect(r.enabled, isTrue);
       expect(r.yaml?.appId, 'abc');
       expect(r.reason, contains('pubspec.yaml'));
     });
 
     test('file existence alone does not enable', () {
-      writePubspec(shorebirdEnabled: false);
+      writePubspec(flutterPatchEnabled: false);
       File(join(home.flutterDir.path, 'shorebird.yaml')).writeAsStringSync('''
 app_id: "abc"
 ''');
-      final r = resolveUseShorebird(appHomeDir: home, environment: {});
+      final r = resolveUseFlutterPatch(appHomeDir: home, environment: {});
       expect(r.enabled, isFalse);
     });
 
     test('CLI overrides pubspec', () {
-      writePubspec(shorebirdEnabled: true);
-      final off = resolveUseShorebird(
+      writePubspec(flutterPatchEnabled: true);
+      final off = resolveUseFlutterPatch(
         appHomeDir: home,
-        explicitUseShorebird: false,
+        explicitUseFlutterPatch: false,
         environment: {},
       );
       expect(off.enabled, isFalse);
 
-      writePubspec(shorebirdEnabled: false);
-      final on = resolveUseShorebird(
+      writePubspec(flutterPatchEnabled: false);
+      final on = resolveUseFlutterPatch(
         appHomeDir: home,
-        explicitUseShorebird: true,
+        explicitUseFlutterPatch: true,
         environment: {},
       );
       expect(on.enabled, isTrue);
     });
 
     test('env overrides pubspec', () {
-      writePubspec(shorebirdEnabled: true);
-      final r = resolveUseShorebird(
+      writePubspec(flutterPatchEnabled: true);
+      final r = resolveUseFlutterPatch(
         appHomeDir: home,
-        environment: {'SHOREBIRD_ENABLED': 'false'},
+        environment: {'FLUTTERPATCH_ENABLED': 'false'},
       );
       expect(r.enabled, isFalse);
+    });
+
+    test('legacy SHOREBIRD_ENABLED still works', () {
+      writePubspec(flutterPatchEnabled: false);
+      final r = resolveUseFlutterPatch(
+        appHomeDir: home,
+        environment: {'SHOREBIRD_ENABLED': 'true'},
+      );
+      expect(r.enabled, isTrue);
+      expect(r.reason, contains('SHOREBIRD_ENABLED'));
+    });
+
+    test('legacy pubspec shorebird_enabled still works', () {
+      File(join(home.flutterDir.path, 'pubspec.yaml')).writeAsStringSync('''
+name: demo
+metax:
+  shorebird_enabled: true
+''');
+      final r = resolveUseFlutterPatch(appHomeDir: home, environment: {});
+      expect(r.enabled, isTrue);
     });
 
     test('top-level metax_enabled in pubspec', () {
@@ -97,42 +117,42 @@ app_id: "abc"
 name: demo
 metax_enabled: true
 ''');
-      final r = resolveUseShorebird(appHomeDir: home, environment: {});
+      final r = resolveUseFlutterPatch(appHomeDir: home, environment: {});
       expect(r.enabled, isTrue);
     });
   });
 
-  group('buildShorebirdReleaseVersion', () {
+  group('buildFlutterPatchReleaseVersion', () {
     test('joins name and number', () {
       expect(
-        buildShorebirdReleaseVersion(buildName: '1.2.3', buildNumber: '9'),
+        buildFlutterPatchReleaseVersion(buildName: '1.2.3', buildNumber: '9'),
         '1.2.3+9',
       );
     });
   });
 
-  group('parseShorebirdReleaseVersion', () {
-    test('round-trips with buildShorebirdReleaseVersion', () {
-      final v = buildShorebirdReleaseVersion(
+  group('parseFlutterPatchReleaseVersion', () {
+    test('round-trips with buildFlutterPatchReleaseVersion', () {
+      final v = buildFlutterPatchReleaseVersion(
         buildName: '1.2.3',
         buildNumber: '9',
       );
-      final parsed = parseShorebirdReleaseVersion(v);
+      final parsed = parseFlutterPatchReleaseVersion(v);
       expect(parsed.buildName, '1.2.3');
       expect(parsed.buildNumber, '9');
     });
   });
 
-  group('shorebirdCliEnvironment', () {
+  group('flutterPatchCliEnvironment', () {
     test('removes SHOREBIRD_HOSTED_URL and forces storage base', () {
-      final env = shorebirdCliEnvironment({
+      final env = flutterPatchCliEnvironment({
         'SHOREBIRD_HOSTED_URL': 'http://139.199.88.243:9527/',
         'FLUTTER_STORAGE_BASE_URL': 'https://storage.flutter-io.cn',
         'CUSTOM_PASS_THROUGH': 'http://139.199.88.243:9527/',
         'FLUTTERPATCH_TOKEN': 'tok',
       });
       expect(env.containsKey('SHOREBIRD_HOSTED_URL'), isFalse);
-      expect(env['FLUTTER_STORAGE_BASE_URL'], kShorebirdFlutterStorageBaseUrl);
+      expect(env['FLUTTER_STORAGE_BASE_URL'], kFlutterPatchStorageBaseUrl);
       expect(env['CUSTOM_PASS_THROUGH'], 'http://139.199.88.243:9527/');
       expect(env['FLUTTERPATCH_TOKEN'], 'tok');
     });
@@ -194,12 +214,12 @@ metax_enabled: true
     });
   });
 
-  group('clearShorebirdReleaseDir', () {
+  group('clearFlutterPatchReleaseDir', () {
     test('deletes existing flutter/release', () async {
       final release = Directory(join(home.flutterDir.path, 'release'))
         ..createSync();
       File(join(release.path, 'App.xcframework')).writeAsStringSync('ios');
-      await clearShorebirdReleaseDir(home.flutterDir);
+      await clearFlutterPatchReleaseDir(home.flutterDir);
       expect(release.existsSync(), isFalse);
     });
   });
@@ -250,7 +270,7 @@ metax_enabled: true
     });
   });
 
-  group('syncShorebirdAarReleaseToHostDir', () {
+  group('syncFlutterPatchAarReleaseToHostDir', () {
     test('copies flat release maven into build/host/outputs/repo', () async {
       final release = Directory(join(home.flutterDir.path, 'release'))
         ..createSync();
@@ -267,7 +287,7 @@ metax_enabled: true
       ).writeAsStringSync('aar');
       Directory(join(release.path, 'android_generated')).createSync();
 
-      await syncShorebirdAarReleaseToHostDir(home.flutterDir);
+      await syncFlutterPatchAarReleaseToHostDir(home.flutterDir);
 
       final aar = File(
         join(
@@ -299,7 +319,7 @@ metax_enabled: true
       File(join(releaseRepo.path, 'com', 'example', 'lib.aar'))
           .writeAsStringSync('a');
 
-      await syncShorebirdAarReleaseToHostDir(home.flutterDir);
+      await syncFlutterPatchAarReleaseToHostDir(home.flutterDir);
 
       expect(
         File(
@@ -338,7 +358,7 @@ metax_enabled: true
       Directory(join(host.path, 'com', 'winner')).createSync(recursive: true);
       File(join(host.path, 'com', 'winner', 'x.aar')).writeAsStringSync('a');
 
-      await syncShorebirdAarReleaseToHostDir(home.flutterDir);
+      await syncFlutterPatchAarReleaseToHostDir(home.flutterDir);
 
       expect(File(join(host.path, 'cache.json')).existsSync(), isTrue);
       expect(

@@ -3,18 +3,18 @@ import 'dart:io';
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/doctor.dart';
 import 'package:meta_tool/flutter_sdk.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:process_runner/process_runner.dart';
 
-/// 打包机 / CI Shorebird 环境预检（不真正出包）。
-class ShorebirdDoctor {
+/// 打包机 / CI FlutterPatch 环境预检（不真正出包）。
+class FlutterPatchDoctor {
   final AppHomeDir appHomeDir;
   final Map<String, String> environment;
   final bool checkNetwork;
   final Duration networkTimeout;
   final ProcessRunner? processRunner;
 
-  ShorebirdDoctor({
+  FlutterPatchDoctor({
     required this.appHomeDir,
     Map<String, String>? environment,
     this.checkNetwork = true,
@@ -27,7 +27,7 @@ class ShorebirdDoctor {
   Future<DoctorReport> run() async {
     final items = <DoctorCheckItem>[];
 
-    final cli = await _checkShorebirdCli();
+    final cli = await _checkFlutterPatchCli();
     items.add(cli);
 
     items.add(await _checkAuth(cliOk: cli.ok));
@@ -41,13 +41,13 @@ class ShorebirdDoctor {
 
     return DoctorReport([
       for (final item in items)
-        item.group == null ? item.copyWith(group: 'shorebird') : item,
+        item.group == null ? item.copyWith(group: 'flutterpatch') : item,
     ]);
   }
 
   ProcessRunner get _runner => processRunner ?? ProcessRunner();
 
-  Future<DoctorCheckItem> _checkShorebirdCli() async {
+  Future<DoctorCheckItem> _checkFlutterPatchCli() async {
     final cli = resolveFlutterPatchCli(environment);
     try {
       if (cli.contains(Platform.pathSeparator) || cli.startsWith('.')) {
@@ -55,12 +55,12 @@ class ShorebirdDoctor {
           return _cliMissing(cli);
         }
         return DoctorCheckItem(
-          id: 'shorebird_cli',
+          id: 'flutterpatch_cli',
           title: 'FlutterPatch CLI',
           ok: true,
           severity: DoctorCheckSeverity.info,
           detail: cli,
-          group: 'shorebird',
+          group: 'flutterpatch',
         );
       }
       final which = await _runner.runProcess(
@@ -73,12 +73,12 @@ class ShorebirdDoctor {
       }
 
       return DoctorCheckItem(
-        id: 'shorebird_cli',
+        id: 'flutterpatch_cli',
         title: 'FlutterPatch CLI',
         ok: true,
         severity: DoctorCheckSeverity.info,
         detail: path,
-        group: 'shorebird',
+        group: 'flutterpatch',
       );
     } catch (_) {
       return _cliMissing(cli);
@@ -87,7 +87,7 @@ class ShorebirdDoctor {
 
   DoctorCheckItem _cliMissing([String cli = kFlutterPatchCliName]) {
     return DoctorCheckItem(
-      id: 'shorebird_cli',
+      id: 'flutterpatch_cli',
       title: 'FlutterPatch CLI',
       ok: false,
       severity: DoctorCheckSeverity.error,
@@ -95,7 +95,7 @@ class ShorebirdDoctor {
       fix: '安装 FlutterPatch 到 ~/.flutterpatch/bin 并加入 PATH，'
           '或设置 FLUTTERPATCH_BIN=$cli\n'
           '见 flutterpatch downloads/install_cli.sh',
-      group: 'shorebird',
+      group: 'flutterpatch',
     );
   }
 
@@ -103,7 +103,7 @@ class ShorebirdDoctor {
     final flutterPatchToken = (environment['FLUTTERPATCH_TOKEN'] ?? '').trim();
     if (flutterPatchToken.isNotEmpty) {
       return DoctorCheckItem(
-        id: 'shorebird_auth',
+        id: 'flutterpatch_auth',
         title: 'FlutterPatch 鉴权',
         ok: true,
         severity: DoctorCheckSeverity.info,
@@ -116,7 +116,7 @@ class ShorebirdDoctor {
     final legacy = (environment['SHOREBIRD_TOKEN'] ?? '').trim();
     if (legacy.isNotEmpty) {
       return const DoctorCheckItem(
-        id: 'shorebird_auth',
+        id: 'flutterpatch_auth',
         title: 'FlutterPatch 鉴权',
         ok: false,
         severity: DoctorCheckSeverity.warning,
@@ -126,7 +126,7 @@ class ShorebirdDoctor {
     }
 
     return DoctorCheckItem(
-      id: 'shorebird_auth',
+      id: 'flutterpatch_auth',
       title: 'FlutterPatch 鉴权',
       ok: false,
       severity: DoctorCheckSeverity.error,
@@ -141,13 +141,13 @@ class ShorebirdDoctor {
       await _probeUrl(
         id: 'network_download',
         title: '连通 download.shorebird.dev',
-        url: kShorebirdFlutterStorageBaseUrl,
-        fix: '打包机需能下载 Shorebird Flutter 引擎。'
+        url: kFlutterPatchStorageBaseUrl,
+        fix: '打包机需能下载 FlutterPatch Flutter 引擎。'
             '请放行 https://download.shorebird.dev\n'
             '首次 release 会拉引擎，网络不通会拖到打包末尾才失败',
       ),
     ];
-    final yaml = ShorebirdYamlConfig.tryLoad(appHomeDir.flutterDir);
+    final yaml = FlutterPatchYamlConfig.tryLoad(appHomeDir.flutterDir);
     final baseUrl = yaml?.baseUrl?.trim() ?? '';
     if (baseUrl.isNotEmpty) {
       items.insert(
@@ -233,12 +233,12 @@ class ShorebirdDoctor {
       );
     }
     if (storage.isNotEmpty &&
-        !_sameHost(storage, kShorebirdFlutterStorageBaseUrl) &&
-        !storage.contains('shorebird.dev')) {
+        !_sameHost(storage, kFlutterPatchStorageBaseUrl) &&
+        !storage.contains('flutterpatch.dev')) {
       notes.add(
         '环境变量 FLUTTER_STORAGE_BASE_URL=$storage '
         '可能指向国内 Flutter 镜像；metax 出包时会强制覆盖为 '
-        '$kShorebirdFlutterStorageBaseUrl',
+        '$kFlutterPatchStorageBaseUrl',
       );
     }
 
@@ -271,7 +271,7 @@ class ShorebirdDoctor {
     final flutterDir = appHomeDir.flutterDir;
     if (!flutterDir.existsSync()) {
       return DoctorCheckItem(
-        id: 'shorebird_yaml',
+        id: 'flutterpatch_yaml',
         title: 'shorebird.yaml',
         ok: false,
         severity: DoctorCheckSeverity.error,
@@ -280,32 +280,32 @@ class ShorebirdDoctor {
       );
     }
 
-    final yaml = ShorebirdYamlConfig.tryLoad(flutterDir);
-    final path = ShorebirdYamlConfig.yamlFile(flutterDir).path;
+    final yaml = FlutterPatchYamlConfig.tryLoad(flutterDir);
+    final path = FlutterPatchYamlConfig.yamlFile(flutterDir).path;
     if (yaml == null) {
       return DoctorCheckItem(
-        id: 'shorebird_yaml',
+        id: 'flutterpatch_yaml',
         title: 'shorebird.yaml',
         ok: false,
         severity: DoctorCheckSeverity.error,
         detail: '缺少 $path',
-        fix: 'metax init shorebird --writeExample，再填入真实 app_id / base_url',
+        fix: 'metax init flutterpatch --writeExample，再填入真实 app_id / base_url',
       );
     }
     final appId = yaml.appId?.trim() ?? '';
     if (appId.isEmpty) {
       return DoctorCheckItem(
-        id: 'shorebird_yaml',
+        id: 'flutterpatch_yaml',
         title: 'shorebird.yaml',
         ok: false,
         severity: DoctorCheckSeverity.error,
         detail: '存在 $path 但缺少 app_id',
-        fix: '在 shorebird.yaml 写入 Shorebird Console 的 app_id',
+        fix: '在 shorebird.yaml 写入 FlutterPatch Console 的 app_id',
       );
     }
     final baseUrl = yaml.baseUrl?.trim() ?? '';
     return DoctorCheckItem(
-      id: 'shorebird_yaml',
+      id: 'flutterpatch_yaml',
       title: 'shorebird.yaml',
       ok: true,
       severity: DoctorCheckSeverity.info,
@@ -317,7 +317,7 @@ class ShorebirdDoctor {
   DoctorCheckItem _checkFlutterVersion() {
     final flutterDir = appHomeDir.flutterDir;
     try {
-      final version = resolveShorebirdFlutterVersion(
+      final version = resolveFlutterPatchVersion(
         flutterDir: flutterDir,
         workspaceDir: Directory(appHomeDir.workspace),
       );
@@ -333,7 +333,7 @@ class ShorebirdDoctor {
           : ' @ ${configDir.path}';
       return DoctorCheckItem(
         id: 'flutter_version',
-        title: 'Shorebird --flutter-version',
+        title: 'FlutterPatch --flutter-version',
         ok: true,
         severity: DoctorCheckSeverity.info,
         detail: configured == null || configured == version
@@ -343,7 +343,7 @@ class ShorebirdDoctor {
     } catch (e) {
       return DoctorCheckItem(
         id: 'flutter_version',
-        title: 'Shorebird --flutter-version',
+        title: 'FlutterPatch --flutter-version',
         ok: false,
         severity: DoctorCheckSeverity.error,
         detail: '$e',
@@ -353,14 +353,14 @@ class ShorebirdDoctor {
   }
 
   DoctorCheckItem _checkEnabledFlag() {
-    final resolved = resolveUseShorebird(
+    final resolved = resolveUseFlutterPatch(
       appHomeDir: appHomeDir,
       environment: environment,
     );
     if (resolved.enabled) {
       return DoctorCheckItem(
         id: 'shorebird_enabled',
-        title: 'Shorebird 开关',
+        title: 'FlutterPatch 开关',
         ok: true,
         severity: DoctorCheckSeverity.info,
         detail: 'enabled=true（${resolved.reason}）',
@@ -368,12 +368,12 @@ class ShorebirdDoctor {
     }
     return DoctorCheckItem(
       id: 'shorebird_enabled',
-      title: 'Shorebird 开关',
+      title: 'FlutterPatch 开关',
       ok: false,
       severity: DoctorCheckSeverity.warning,
       detail: '当前未启用（${resolved.reason}）——机器就绪后打包仍会走普通 Flutter',
       fix: 'pubspec.yaml 设置 metax.shorebird_enabled: true，'
-          '或 SHOREBIRD_ENABLED=true / --useShorebird',
+          '或 FLUTTERPATCH_ENABLED=true / --useFlutterPatch',
     );
   }
 }

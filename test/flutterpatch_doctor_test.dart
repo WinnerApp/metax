@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/doctor.dart';
-import 'package:meta_tool/shorebird_doctor.dart';
+import 'package:meta_tool/flutterpatch_doctor.dart';
 import 'package:path/path.dart';
 import 'package:test/test.dart';
 
@@ -11,7 +11,7 @@ void main() {
   late AppHomeDir home;
 
   setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('metax_shorebird_doctor_');
+    tempDir = Directory.systemTemp.createTempSync('metax_flutterpatch_doctor_');
     Directory(join(tempDir.path, 'metaapp_flutter')).createSync();
     home = AppHomeDir(tempDir.path);
   });
@@ -22,11 +22,11 @@ void main() {
     }
   });
 
-  void writePubspec({bool? shorebirdEnabled}) {
+  void writePubspec({bool? flutterPatchEnabled}) {
     final buffer = StringBuffer('name: demo\n');
-    if (shorebirdEnabled != null) {
+    if (flutterPatchEnabled != null) {
       buffer.writeln('metax:');
-      buffer.writeln('  shorebird_enabled: $shorebirdEnabled');
+      buffer.writeln('  shorebird_enabled: $flutterPatchEnabled');
     }
     File(join(home.flutterDir.path, 'pubspec.yaml')).writeAsStringSync(
       buffer.toString(),
@@ -51,30 +51,30 @@ void main() {
   }
 
   test('reports missing yaml / fvm / token as errors when offline', () async {
-    writePubspec(shorebirdEnabled: false);
-    final report = await ShorebirdDoctor(
+    writePubspec(flutterPatchEnabled: false);
+    final report = await FlutterPatchDoctor(
       appHomeDir: home,
       environment: const {},
       checkNetwork: false,
     ).run();
 
-    expect(item(report, 'shorebird_yaml').ok, isFalse);
+    expect(item(report, 'flutterpatch_yaml').ok, isFalse);
     expect(item(report, 'flutter_version').ok, isFalse);
     expect(item(report, 'shorebird_enabled').ok, isFalse);
     expect(
       item(report, 'shorebird_enabled').severity,
       DoctorCheckSeverity.warning,
     );
-    expect(item(report, 'shorebird_auth').ok, isFalse);
-    expect(item(report, 'shorebird_auth').detail, contains('FLUTTERPATCH_TOKEN'));
+    expect(item(report, 'flutterpatch_auth').ok, isFalse);
+    expect(item(report, 'flutterpatch_auth').detail, contains('FLUTTERPATCH_TOKEN'));
   });
 
   test('passes project checks when configured', () async {
-    writePubspec(shorebirdEnabled: true);
+    writePubspec(flutterPatchEnabled: true);
     writeYaml(appId: 'app-123', baseUrl: 'http://ota.local/');
     writeFvmrc('3.27.4');
 
-    final report = await ShorebirdDoctor(
+    final report = await FlutterPatchDoctor(
       appHomeDir: home,
       environment: const {
         'FLUTTERPATCH_TOKEN': 'fp_test_token',
@@ -82,20 +82,20 @@ void main() {
       checkNetwork: false,
     ).run();
 
-    expect(item(report, 'shorebird_yaml').ok, isTrue);
+    expect(item(report, 'flutterpatch_yaml').ok, isTrue);
     expect(item(report, 'flutter_version').ok, isTrue);
     expect(item(report, 'flutter_version').detail, contains('3.27.4'));
     expect(item(report, 'shorebird_enabled').ok, isTrue);
-    expect(item(report, 'shorebird_auth').ok, isTrue);
-    expect(item(report, 'shorebird_auth').detail, contains('FLUTTERPATCH_TOKEN'));
+    expect(item(report, 'flutterpatch_auth').ok, isTrue);
+    expect(item(report, 'flutterpatch_auth').detail, contains('FLUTTERPATCH_TOKEN'));
   });
 
   test('resolves flutter version from melos root .fvmrc', () async {
-    writePubspec(shorebirdEnabled: true);
+    writePubspec(flutterPatchEnabled: true);
     writeYaml(appId: 'app-123');
     File(join(tempDir.path, '.fvmrc')).writeAsStringSync('3.29.0');
 
-    final report = await ShorebirdDoctor(
+    final report = await FlutterPatchDoctor(
       appHomeDir: home,
       environment: const {
         'FLUTTERPATCH_TOKEN': 'fp_test_token',
@@ -108,28 +108,28 @@ void main() {
   });
 
   test('warns when only legacy SHOREBIRD_TOKEN is set', () async {
-    writePubspec(shorebirdEnabled: true);
+    writePubspec(flutterPatchEnabled: true);
     writeYaml(appId: 'app-123');
     writeFvmrc('3.27.4');
 
-    final report = await ShorebirdDoctor(
+    final report = await FlutterPatchDoctor(
       appHomeDir: home,
       environment: const {'SHOREBIRD_TOKEN': 'sb_api_x'},
       checkNetwork: false,
     ).run();
 
-    final auth = item(report, 'shorebird_auth');
+    final auth = item(report, 'flutterpatch_auth');
     expect(auth.ok, isFalse);
     expect(auth.severity, DoctorCheckSeverity.warning);
     expect(auth.detail, contains('FLUTTERPATCH_TOKEN'));
   });
 
   test('warns when SHOREBIRD_HOSTED_URL is set', () async {
-    writePubspec(shorebirdEnabled: true);
+    writePubspec(flutterPatchEnabled: true);
     writeYaml(appId: 'app-123');
     writeFvmrc('3.27.4');
 
-    final report = await ShorebirdDoctor(
+    final report = await FlutterPatchDoctor(
       appHomeDir: home,
       environment: const {
         'FLUTTERPATCH_TOKEN': 'fp_test_token',

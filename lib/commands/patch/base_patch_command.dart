@@ -7,7 +7,7 @@ import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
 import 'package:meta_tool/commands/patch/patch_release_baseline.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -15,7 +15,7 @@ abstract class BasePatchCommand extends Command {
   BasePatchCommand() {
     argParser.addOption(
       'release-version',
-      help: '宿主版本，如 1.2.3+456，须与当初 Shorebird release 一致',
+      help: '宿主版本，如 1.2.3+456，须与当初 FlutterPatch release 一致',
     );
     argParser.addOption(
       'branch',
@@ -28,14 +28,14 @@ abstract class BasePatchCommand extends Command {
       negatable: false,
     );
     argParser.addFlag(
-      'useShorebird',
-      help: '显式启用 Shorebird（覆盖 yaml）',
+      'useFlutterPatch',
+      help: '显式启用 FlutterPatch（覆盖 yaml）',
       defaultsTo: null,
     );
     argParser.addFlag(
       'allow-asset-diffs',
       help:
-          '透传 shorebird --allow-asset-diffs：允许补丁相对 release 有 asset 差异'
+          '透传 flutterpatch --allow-asset-diffs：允许补丁相对 release 有 asset 差异'
           '（asset 不会打进补丁，仅跳过拦截）',
       defaultsTo: false,
       negatable: false,
@@ -43,7 +43,7 @@ abstract class BasePatchCommand extends Command {
   }
 
   String get otaPlatform; // android | ios
-  String get shorebirdPlatform; // aar | ios-framework
+  String get flutterPatchPlatform; // aar | ios-framework
 
   @override
   FutureOr<void> run() async {
@@ -52,16 +52,16 @@ abstract class BasePatchCommand extends Command {
       throw Exception('Flutter 目录不存在: ${flutterDir.path}');
     }
 
-    final explicit = argResults?['useShorebird'] as bool?;
-    final resolved = resolveUseShorebird(
+    final explicit = argResults?['useFlutterPatch'] as bool?;
+    final resolved = resolveUseFlutterPatch(
       appHomeDir: appHomeDir,
-      explicitUseShorebird: explicit,
+      explicitUseFlutterPatch: explicit,
     );
-    loggerInfo('Shorebird: enabled=${resolved.enabled} (${resolved.reason})');
+    loggerInfo('FlutterPatch: enabled=${resolved.enabled} (${resolved.reason})');
     if (!resolved.enabled) {
       throw Exception(
-        '当前未启用 Shorebird 热更。请在 pubspec.yaml 设置 metax.shorebird_enabled: true，'
-        '或传 --useShorebird / SHOREBIRD_ENABLED=true。',
+        '当前未启用 FlutterPatch 热更。请在 pubspec.yaml 设置 metax.shorebird_enabled: true，'
+        '或传 --useFlutterPatch / FLUTTERPATCH_ENABLED=true。',
       );
     }
 
@@ -114,15 +114,15 @@ abstract class BasePatchCommand extends Command {
     }
 
     final allowAssetDiffs = argResults?['allow-asset-diffs'] == true;
-    await runShorebirdPatch(
+    await runFlutterPatchPatch(
       flutterDir: flutterDir,
-      platform: shorebirdPlatform,
+      platform: flutterPatchPlatform,
       releaseVersion: releaseVersion,
       allowAssetDiffs: allowAssetDiffs,
     );
 
     loggerSuccess(
-      'Shorebird 补丁完成: version=$releaseVersion platform=$otaPlatform',
+      'FlutterPatch 补丁完成: version=$releaseVersion platform=$otaPlatform',
     );
   }
 }

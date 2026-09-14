@@ -5,11 +5,11 @@ class PatchAndroidCommand extends BasePatchCommand {
   String get name => 'android';
 
   @override
-  String get description => 'Android Shorebird 补丁并推送 Meta OTA';
+  String get description => 'Android FlutterPatch 补丁并推送 Meta OTA';
 
   @override
   String get otaPlatform => 'android';
 
   @override
-  String get shorebirdPlatform => 'aar';
+  String get flutterPatchPlatform => 'aar';
 }

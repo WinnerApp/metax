@@ -1,6 +1,6 @@
 import 'dart:io';
 
-/// 环境预检通用结果类型（Shorebird / metax doctor 共用）。
+/// 环境预检通用结果类型（FlutterPatch / metax doctor 共用）。
 enum DoctorCheckSeverity {
   /// 阻断后续打包 / 上传 / 补丁
   error,

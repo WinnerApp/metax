@@ -11,7 +11,7 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/cache/metax_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 
 class DownloadCacheCommand extends Command {
   @override
@@ -58,7 +58,7 @@ class DownloadCacheCommand extends Command {
     );
     argParser.addOption(
       'isShorebird',
-      help: '是否下载 Shorebird 编译缓存（true/false）',
+      help: '是否下载 FlutterPatch 编译缓存（true/false）',
       allowed: ['true', 'false'],
     );
   }
@@ -101,13 +101,13 @@ class DownloadCacheCommand extends Command {
     );
     final bool? wantShorebird;
     if (buildLibrary == BuildLibrary.flutter.name) {
-      final shorebirdDefault =
-          resolveUseShorebird(appHomeDir: appHomeDir).enabled;
+      final flutterpatchDefault =
+          resolveUseFlutterPatch(appHomeDir: appHomeDir).enabled;
       wantShorebird = ArgumentGet(argResults).getString(
             'isShorebird',
-            '是否下载 Shorebird 编译缓存',
+            '是否下载 FlutterPatch 编译缓存',
             allowed: const ['true', 'false'],
-            defaultValue: shorebirdDefault ? 'true' : 'false',
+            defaultValue: flutterpatchDefault ? 'true' : 'false',
           ) ==
           'true';
     } else {

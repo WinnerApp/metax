@@ -6,7 +6,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutter_sdk.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -29,21 +29,21 @@ class FlutterAarCommand extends BuildCacheCommand {
       help: '分支名称,指定分支则进行切换到对应分支',
     );
     argParser.addFlag(
-      'useShorebird',
-      help: '显式启用/关闭 Shorebird（覆盖 yaml/env）',
+      'useFlutterPatch',
+      help: '显式启用/关闭 FlutterPatch（覆盖 yaml/env）',
       defaultsTo: null,
     );
     argParser.addOption(
       'releaseVersion',
-      help: 'Shorebird --release-version，如 1.2.3+456',
+      help: 'FlutterPatch --release-version，如 1.2.3+456',
     );
   }
 
   late String configuration;
   late FlutterSdkInfo flutterSdk;
   late List<String> flutterCommand;
-  late bool shorebirdEnabled;
-  String? shorebirdReleaseVersion;
+  late bool flutterPatchEnabled;
+  String? flutterPatchReleaseVersion;
 
   @override
   Future<void> run() async {
@@ -76,31 +76,31 @@ class FlutterAarCommand extends BuildCacheCommand {
       }
     }
 
-    final shorebird = resolveUseShorebird(
+    final flutterpatch = resolveUseFlutterPatch(
       appHomeDir: appHomeDir,
-      explicitUseShorebird: argResults?['useShorebird'] as bool?,
+      explicitUseFlutterPatch: argResults?['useFlutterPatch'] as bool?,
     );
-    shorebirdEnabled = shorebird.enabled && configuration == 'release';
-    if (shorebird.enabled && configuration != 'release') {
+    flutterPatchEnabled = flutterpatch.enabled && configuration == 'release';
+    if (flutterpatch.enabled && configuration != 'release') {
       loggerWarning(
-        'Shorebird 仅支持 release，当前 configuration=$configuration，回退 flutter build',
+        'FlutterPatch 仅支持 release，当前 configuration=$configuration，回退 flutter build',
       );
     }
     loggerInfo(
-      'Shorebird: enabled=$shorebirdEnabled (${shorebird.reason})',
+      'FlutterPatch: enabled=$flutterPatchEnabled (${flutterpatch.reason})',
     );
-    if (shorebirdEnabled) {
-      shorebirdReleaseVersion = (argResults?['releaseVersion'] as String?)
+    if (flutterPatchEnabled) {
+      flutterPatchReleaseVersion = (argResults?['releaseVersion'] as String?)
               ?.trim()
               .isNotEmpty ==
           true
           ? (argResults?['releaseVersion'] as String).trim()
           : resolveReleaseVersionFromEnv();
-      if (shorebirdReleaseVersion == null ||
-          shorebirdReleaseVersion!.isEmpty) {
+      if (flutterPatchReleaseVersion == null ||
+          flutterPatchReleaseVersion!.isEmpty) {
         throw Exception(
-          '启用 Shorebird 时需要 --releaseVersion 或 '
-          'SHOREBIRD_RELEASE_VERSION / BUILD_VERSION_NAME+BUILD_VERSION_NUMBER',
+          '启用 FlutterPatch 时需要 --releaseVersion 或 '
+          'FLUTTERPATCH_RELEASE_VERSION / BUILD_VERSION_NAME+BUILD_VERSION_NUMBER',
         );
       }
     }
@@ -123,8 +123,8 @@ class FlutterAarCommand extends BuildCacheCommand {
       buildId: 0,
     );
     final buildCacheDir = join(workspaceDir.path, 'build', 'host');
-    final sdkFingerprint = shorebirdEnabled
-        ? shorebirdFlutterSdkFingerprint(flutterSdk.fingerprint)
+    final sdkFingerprint = flutterPatchEnabled
+        ? shorebirdSdkFingerprint(flutterSdk.fingerprint)
         : flutterSdk.fingerprint;
     await updateCache(
       cache: flutterCache,
@@ -134,8 +134,8 @@ class FlutterAarCommand extends BuildCacheCommand {
       cacheId: commitHash,
       forceUpdate: forceUpdate || gate.didClean,
       flutterSdk: sdkFingerprint,
-      isShorebird: shorebirdEnabled,
-      releaseVersion: shorebirdEnabled ? (shorebirdReleaseVersion ?? '') : '',
+      isShorebird: flutterPatchEnabled,
+      releaseVersion: flutterPatchEnabled ? (flutterPatchReleaseVersion ?? '') : '',
     );
     await saveFlutterSdkFingerprint(
       projectPath: workspaceDir.path,
@@ -201,20 +201,20 @@ class FlutterAarCommand extends BuildCacheCommand {
         workingDirectory: appHomeDir.flutterDir,
         printOutput: true,
       );
-    } else if (shorebirdEnabled) {
-      final flutterVersion = resolveShorebirdFlutterVersion(
+    } else if (flutterPatchEnabled) {
+      final flutterVersion = resolveFlutterPatchVersion(
         flutterDir: appHomeDir.flutterDir,
         sdk: flutterSdk,
         workspaceDir: Directory(appHomeDir.workspace),
       );
-      await runShorebirdRelease(
+      await runFlutterPatchRelease(
         flutterDir: appHomeDir.flutterDir,
         platform: 'aar',
-        releaseVersion: shorebirdReleaseVersion!,
+        releaseVersion: flutterPatchReleaseVersion!,
         flutterVersion: flutterVersion,
-        // ABI 必须作为 Shorebird 自身选项（-- 前），不能透传给 flutter，
-        // 否则会与 Shorebird 默认三 ABI 合并导致 arm64 重复、libapp.so duplicate。
-        extraShorebirdArgs: const [
+        // ABI 必须作为 FlutterPatch 自身选项（-- 前），不能透传给 flutter，
+        // 否则会与 FlutterPatch 默认三 ABI 合并导致 arm64 重复、libapp.so duplicate。
+        extraFlutterPatchArgs: const [
           '--target-platform=android-arm64',
         ],
         extraFlutterArgs: const [
@@ -223,7 +223,7 @@ class FlutterAarCommand extends BuildCacheCommand {
           '--no-tree-shake-icons',
         ],
       );
-      await syncShorebirdAarReleaseToHostDir(appHomeDir.flutterDir);
+      await syncFlutterPatchAarReleaseToHostDir(appHomeDir.flutterDir);
     } else {
       /// flutter build aar --no-debug --no-profile --verbose
       await ProcessRunner().runProcess(

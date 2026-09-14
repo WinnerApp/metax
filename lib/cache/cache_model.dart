@@ -1,6 +1,6 @@
 import 'package:darty_json_safe/darty_json_safe.dart';
 
-/// 解析 zip 缓存上的 `isShorebird`：空 / 缺失 / false → 非 Shorebird。
+/// 解析 zip 缓存上的 `isShorebird`：空 / 缺失 / false → 非 Shorebird/FlutterPatch 产物。
 bool parseCacheIsShorebird(dynamic value) {
   if (value == null) return false;
   if (value is bool) return value;
@@ -23,7 +23,7 @@ class CacheModel {
   /// Flutter SDK 指纹；Unity 等非 Flutter 产物为空字符串
   final String flutterSdk;
 
-  /// 是否由 Shorebird / FlutterPatch 编译；空或 false 表示不是
+  /// 是否由 FlutterPatch（Shorebird fork）编译；空或 false 表示不是
   final bool isShorebird;
 
   /// 写入缓存时登记到 FlutterPatch 的 `--release-version`（如 `1.2.3+456`）。

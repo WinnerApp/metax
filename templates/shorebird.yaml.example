@@ -1,7 +1,7 @@
 # 复制到 metaapp_flutter/shorebird.yaml（或合并字段）。
-# 只放 Shorebird 官方支持的 key：app_id / flavors / base_url / auto_update / patch_verification
+# 只放 FlutterPatch 官方支持的 key：app_id / flavors / base_url / auto_update / patch_verification
 #
-# metax 是否启用 Shorebird：写在 metaapp_flutter/pubspec.yaml
+# metax 是否启用 FlutterPatch：写在 metaapp_flutter/pubspec.yaml
 #   metax:
 #     shorebird_enabled: true
 # 不要用「shorebird.yaml 是否存在」判断；也不要在本文件加 metax_enabled（CLI 会报 Unrecognized keys）。

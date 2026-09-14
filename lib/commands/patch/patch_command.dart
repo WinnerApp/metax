@@ -7,7 +7,7 @@ class PatchCommand extends Command {
   String get name => 'patch';
 
   @override
-  String get description => 'Shorebird 打补丁并推送到 Meta Code Push';
+  String get description => 'FlutterPatch 打补丁并推送到 Meta Code Push';
 
   PatchCommand() {
     addSubcommand(PatchIosCommand());

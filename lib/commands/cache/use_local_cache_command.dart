@@ -7,7 +7,7 @@ import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/commands/cache/use_local_cache_mixin.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:prompts/prompts.dart' as prompts;
 
 class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
@@ -41,7 +41,7 @@ class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
     );
     argParser.addOption(
       'isShorebird',
-      help: '是否使用 Shorebird 编译缓存（true/false）',
+      help: '是否使用 FlutterPatch 编译缓存（true/false）',
       allowed: ['true', 'false'],
     );
   }
@@ -133,13 +133,13 @@ class UseLocalCacheCommand extends Command with UseLocalCacheMixin {
         .toList();
 
     if (buildLibrary == BuildLibrary.flutter.name) {
-      final shorebirdDefault =
-          resolveUseShorebird(appHomeDir: appHomeDir).enabled;
+      final flutterpatchDefault =
+          resolveUseFlutterPatch(appHomeDir: appHomeDir).enabled;
       final wantShorebird = ArgumentGet(argResults).getString(
             'isShorebird',
-            '是否使用 Shorebird 编译缓存',
+            '是否使用 FlutterPatch 编译缓存',
             allowed: const ['true', 'false'],
-            defaultValue: shorebirdDefault ? 'true' : 'false',
+            defaultValue: flutterpatchDefault ? 'true' : 'false',
           ) ==
           'true';
       cacheModels = cacheModels.where((e) {

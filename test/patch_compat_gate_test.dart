@@ -1,17 +1,17 @@
 import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('parseShorebirdReleaseVersion', () {
+  group('parseFlutterPatchReleaseVersion', () {
     test('splits name and number', () {
-      final parsed = parseShorebirdReleaseVersion('1.2.3+456');
+      final parsed = parseFlutterPatchReleaseVersion('1.2.3+456');
       expect(parsed.buildName, '1.2.3');
       expect(parsed.buildNumber, '456');
     });
 
     test('rejects missing plus', () {
-      expect(() => parseShorebirdReleaseVersion('1.2.3'), throwsArgumentError);
+      expect(() => parseFlutterPatchReleaseVersion('1.2.3'), throwsArgumentError);
     });
   });
 

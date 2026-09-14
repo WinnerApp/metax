@@ -8,7 +8,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutter_sdk.dart';
-import 'package:meta_tool/shorebird.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -31,19 +31,19 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       help: '分支名称,指定分支则进行切换到对应分支',
     );
     argParser.addFlag(
-      'useShorebird',
-      help: '显式启用/关闭 Shorebird（覆盖 yaml/env）',
+      'useFlutterPatch',
+      help: '显式启用/关闭 FlutterPatch（覆盖 yaml/env）',
       defaultsTo: null,
     );
     argParser.addOption(
       'releaseVersion',
-      help: 'Shorebird --release-version，如 1.2.3+456',
+      help: 'FlutterPatch --release-version，如 1.2.3+456',
     );
     argParser.addFlag(
       'skipBuild',
       help:
-          '跳过编译与 shorebird release，仅复用本地 release/ 做 sync + podspec + 写缓存。'
-          '注意：Shorebird 官方 CLI 不支持单独重传 artifacts，远端上传失败需删掉不完整 release 后重新完整 release',
+          '跳过编译与 flutterpatch release，仅复用本地 release/ 做 sync + podspec + 写缓存。'
+          '注意：FlutterPatch 官方 CLI 不支持单独重传 artifacts，远端上传失败需删掉不完整 release 后重新完整 release',
       defaultsTo: false,
     );
   }
@@ -51,9 +51,9 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
   late String configuration;
   late FlutterSdkInfo flutterSdk;
   late List<String> flutterCommand;
-  late bool shorebirdEnabled;
+  late bool flutterPatchEnabled;
   late bool skipBuild;
-  String? shorebirdReleaseVersion;
+  String? flutterPatchReleaseVersion;
 
   @override
   Future<void> run() async {
@@ -84,32 +84,32 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       }
     }
 
-    final shorebird = resolveUseShorebird(
+    final flutterpatch = resolveUseFlutterPatch(
       appHomeDir: appHomeDir,
-      explicitUseShorebird: argResults?['useShorebird'] as bool?,
+      explicitUseFlutterPatch: argResults?['useFlutterPatch'] as bool?,
     );
-    shorebirdEnabled =
-        shorebird.enabled && configuration == 'release';
-    if (shorebird.enabled && configuration != 'release') {
+    flutterPatchEnabled =
+        flutterpatch.enabled && configuration == 'release';
+    if (flutterpatch.enabled && configuration != 'release') {
       loggerWarning(
-        'Shorebird 仅支持 release，当前 configuration=$configuration，回退 flutter build',
+        'FlutterPatch 仅支持 release，当前 configuration=$configuration，回退 flutter build',
       );
     }
     loggerInfo(
-      'Shorebird: enabled=$shorebirdEnabled (${shorebird.reason})',
+      'FlutterPatch: enabled=$flutterPatchEnabled (${flutterpatch.reason})',
     );
-    if (shorebirdEnabled) {
-      shorebirdReleaseVersion = (argResults?['releaseVersion'] as String?)
+    if (flutterPatchEnabled) {
+      flutterPatchReleaseVersion = (argResults?['releaseVersion'] as String?)
               ?.trim()
               .isNotEmpty ==
           true
           ? (argResults?['releaseVersion'] as String).trim()
           : resolveReleaseVersionFromEnv();
-      if (shorebirdReleaseVersion == null ||
-          shorebirdReleaseVersion!.isEmpty) {
+      if (flutterPatchReleaseVersion == null ||
+          flutterPatchReleaseVersion!.isEmpty) {
         throw Exception(
-          '启用 Shorebird 时需要 --releaseVersion 或 '
-          'SHOREBIRD_RELEASE_VERSION / BUILD_VERSION_NAME+BUILD_VERSION_NUMBER',
+          '启用 FlutterPatch 时需要 --releaseVersion 或 '
+          'FLUTTERPATCH_RELEASE_VERSION / BUILD_VERSION_NAME+BUILD_VERSION_NUMBER',
         );
       }
     }
@@ -139,8 +139,8 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       buildCacheDir =
           join(flutterDir.path, 'build', 'ios', 'framework', 'Release');
     }
-    final sdkFingerprint = shorebirdEnabled
-        ? shorebirdFlutterSdkFingerprint(flutterSdk.fingerprint)
+    final sdkFingerprint = flutterPatchEnabled
+        ? shorebirdSdkFingerprint(flutterSdk.fingerprint)
         : flutterSdk.fingerprint;
 
     if (skipBuild) {
@@ -150,7 +150,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         commitHash: commitHash,
         commitTime: commitTime,
         flutterSdkFingerprint: sdkFingerprint,
-        shorebirdResolveReason: shorebird.reason,
+        flutterPatchResolveReason: flutterpatch.reason,
       );
     } else {
       await updateCache(
@@ -161,8 +161,8 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         cacheId: commitHash,
         forceUpdate: forceUpdate || gate.didClean,
         flutterSdk: sdkFingerprint,
-        isShorebird: shorebirdEnabled,
-        releaseVersion: shorebirdEnabled ? (shorebirdReleaseVersion ?? '') : '',
+        isShorebird: flutterPatchEnabled,
+        releaseVersion: flutterPatchEnabled ? (flutterPatchReleaseVersion ?? '') : '',
       );
     }
     await saveFlutterSdkFingerprint(
@@ -185,9 +185,9 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     }
   }
 
-  /// --skipBuild：跳过编译与 shorebird release，只做本地 sync / podspec / 写缓存。
+  /// --skipBuild：跳过编译与 flutterpatch release，只做本地 sync / podspec / 写缓存。
   ///
-  /// Shorebird CLI 把 build + 远端上传绑在同一条 `shorebird release` 里，
+  /// FlutterPatch CLI 把 build + 远端上传绑在同一条 `flutterpatch release` 里，
   /// 没有官方「只上传已有产物」能力；因此这里无法替你重试 Uploading artifacts。
   Future<void> _runSkipBuildPipeline({
     required FrameworkCache cache,
@@ -195,50 +195,50 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     required String commitHash,
     required DateTime commitTime,
     required String flutterSdkFingerprint,
-    required String shorebirdResolveReason,
+    required String flutterPatchResolveReason,
   }) async {
     final started = DateTime.now();
     loggerInfo(
-      '========== --skipBuild：跳过编译与 shorebird release，'
+      '========== --skipBuild：跳过编译与 flutterpatch release，'
       '仅本地 sync ==========',
     );
     loggerInfo(
-      'Shorebird enabled=$shorebirdEnabled ($shorebirdResolveReason), '
+      'FlutterPatch enabled=$flutterPatchEnabled ($flutterPatchResolveReason), '
       'configuration=$configuration',
     );
     loggerWarning(
-      'Shorebird 官方 CLI 不支持只上传、不编译；'
+      'FlutterPatch 官方 CLI 不支持只上传、不编译；'
       '若上次卡在 Uploading artifacts，远端需删掉不完整 release 后去掉 --skipBuild 重跑完整流程',
     );
 
-    final wantShorebird = argResults?.wasParsed('useShorebird') == true &&
-        argResults!['useShorebird'] == true;
-    if (wantShorebird && !shorebirdEnabled) {
+    final wantFlutterPatch = argResults?.wasParsed('useFlutterPatch') == true &&
+        argResults!['useFlutterPatch'] == true;
+    if (wantFlutterPatch && !flutterPatchEnabled) {
       throw Exception(
-        '--useShorebird 已传入，但 Shorebird 未生效（configuration=$configuration）。'
+        '--useFlutterPatch 已传入，但 FlutterPatch 未生效（configuration=$configuration）。'
         '请使用 --configuration=release',
       );
     }
 
-    if (shorebirdEnabled) {
+    if (flutterPatchEnabled) {
       final releaseDir =
           Directory(join(appHomeDir.flutterDir.path, 'release'));
       if (!releaseDir.existsSync()) {
         throw Exception(
-          '--skipBuild + Shorebird 需要本地产物目录: ${releaseDir.path}\n'
+          '--skipBuild + FlutterPatch 需要本地产物目录: ${releaseDir.path}\n'
           '若目录不存在，请去掉 --skipBuild 重新完整编译。',
         );
       }
       loggerInfo(
-        '开始 Shorebird sync: ${releaseDir.path} -> $buildCacheDir',
+        '开始 FlutterPatch sync: ${releaseDir.path} -> $buildCacheDir',
       );
-      await syncShorebirdIosReleaseToFrameworkDir(appHomeDir.flutterDir);
-      loggerSuccess('Shorebird sync 完成（含 rename / Flutter.podspec）');
+      await syncFlutterPatchIosReleaseToFrameworkDir(appHomeDir.flutterDir);
+      loggerSuccess('FlutterPatch sync 完成（含 rename / Flutter.podspec）');
     } else {
       loggerWarning(
-        'Shorebird 未启用（$shorebirdResolveReason），'
+        'FlutterPatch 未启用（$flutterPatchResolveReason），'
         '--skipBuild 仅复用本地 Framework。'
-        '若需要 Shorebird sync，请加 --useShorebird 且 --configuration=release',
+        '若需要 FlutterPatch sync，请加 --useFlutterPatch 且 --configuration=release',
       );
       await _ensureLocalFrameworkBuildDir();
     }
@@ -250,7 +250,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
     }
 
     final releaseVer =
-        shorebirdEnabled ? (shorebirdReleaseVersion ?? '') : '';
+        flutterPatchEnabled ? (flutterPatchReleaseVersion ?? '') : '';
     await BuildCacheManager(buildCacheDir).write([
       CacheModel(
         buildPlatform: cache.buildPlatform.value,
@@ -262,7 +262,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         buildId: cache.buildId.toString(),
         commitTime: commitTime,
         flutterSdk: flutterSdkFingerprint,
-        isShorebird: shorebirdEnabled,
+        isShorebird: flutterPatchEnabled,
         releaseVersion: releaseVer,
       ),
     ]);
@@ -272,7 +272,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       commitHash: commitHash,
       commitTime: commitTime,
       flutterSdk: flutterSdkFingerprint,
-      isShorebird: shorebirdEnabled,
+      isShorebird: flutterPatchEnabled,
       releaseVersion: releaseVer,
     );
 
@@ -363,22 +363,22 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
           workingDirectory: appHomeDir.flutterDir,
           printOutput: true,
         );
-      } else if (shorebirdEnabled) {
-        final flutterVersion = resolveShorebirdFlutterVersion(
+      } else if (flutterPatchEnabled) {
+        final flutterVersion = resolveFlutterPatchVersion(
           flutterDir: appHomeDir.flutterDir,
           sdk: flutterSdk,
           workspaceDir: Directory(appHomeDir.workspace),
         );
         // 不要传 --cocoapods：该 flag 只生成 Flutter.podspec、不产出
-        // Flutter.xcframework；Shorebird 随后会 rename
+        // Flutter.xcframework；FlutterPatch 随后会 rename
         // Flutter.xcframework → ShorebirdFlutter.xcframework 并失败。
         // 宿主 CocoaPods：sync 时再改回 Flutter.xcframework 并写
         // Flutter.podspec，由 setup_ios_framework_podspec.sh /
         // generate-podfile 以 pod 'Flutter', :path 接入。
-        await runShorebirdRelease(
+        await runFlutterPatchRelease(
           flutterDir: appHomeDir.flutterDir,
           platform: 'ios-framework',
-          releaseVersion: shorebirdReleaseVersion!,
+          releaseVersion: flutterPatchReleaseVersion!,
           flutterVersion: flutterVersion,
           extraFlutterArgs: const [
             '--no-debug',
@@ -387,7 +387,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
             '--no-tree-shake-icons',
           ],
         );
-        await syncShorebirdIosReleaseToFrameworkDir(appHomeDir.flutterDir);
+        await syncFlutterPatchIosReleaseToFrameworkDir(appHomeDir.flutterDir);
       } else {
         /// flutter build ios-framework --no-debug --no-profile --xcframework --cocoapods --verbose
         await ProcessRunner().runProcess(
