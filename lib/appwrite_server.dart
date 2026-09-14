@@ -59,6 +59,31 @@ class AppwriteServer {
     });
   }
 
+  /// 按 platform + buildName 取最新一条打包记录（不限定 buildNumber）。
+  Future<Document?> queryLatestBuildConfigByBuildName({
+    required String databaseId,
+    required String buildConfigCollectionId,
+    required String platform,
+    required String buildName,
+  }) async {
+    return databases.listDocuments(
+      databaseId: databaseId,
+      collectionId: buildConfigCollectionId,
+      queries: [
+        Query.equal('platform', platform),
+        Query.equal('build_name', buildName),
+        Query.orderDesc('\$createdAt'),
+        Query.limit(1),
+      ],
+    ).then((e) {
+      if (e.documents.isEmpty) return null;
+      return e.documents.first;
+    }).catchError((e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
+      throw e;
+    });
+  }
+
   /// 按宿主版本号 + buildNumber 查打包记录（热更预审基线）。
   ///
   /// 同一 version 可能打过多次；优先匹配 [preferMelosBranch]，否则取最新一条。

@@ -27,6 +27,10 @@ abstract class BasePatchCommand extends Command {
       defaultsTo: false,
       negatable: false,
     );
+    argParser.addOption(
+      'channel',
+      help: '已废弃，忽略（兼容旧 Jenkins 脚本）',
+    );
     argParser.addFlag(
       'useFlutterPatch',
       help: '显式启用 FlutterPatch（覆盖 yaml）',
@@ -83,6 +87,11 @@ abstract class BasePatchCommand extends Command {
       'release-version',
       '请输入 release-version（如 1.2.3+456）',
     );
+
+    final channel = (argResults?['channel'] as String?)?.trim();
+    if (channel != null && channel.isNotEmpty) {
+      loggerWarning('已忽略已废弃参数 --channel=$channel');
+    }
 
     final forcePatch = argResults?['force-patch'] == true;
     if (!forcePatch) {

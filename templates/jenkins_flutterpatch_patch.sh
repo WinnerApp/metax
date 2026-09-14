@@ -8,7 +8,8 @@
 #                         优先于 Jenkins 内置 WORKSPACE；未设时回退 WORKSPACE_DIR / WORKSPACE / pwd
 # 兼容旧参数：VERSION + BUILD（若仍传入且无 RELEASE，则直接使用）
 #
-# FORCE_PATCH=true|1 时透传 --force-patch（跳过多仓库热更预审）
+# 热更预检：打补丁前执行 metax check-ota；不支持则 exit 2 中断
+# FORCE_PATCH=true|1 时跳过预检，并透传 --force-patch
 #
 # 还需：FLUTTERPATCH_TOKEN, APPWRITE_* 等（见 jenkins_flutterpatch.env.example）
 #
@@ -91,6 +92,33 @@ echo "==> force-patch=${FORCE_PATCH}"
 echo "==> app-dir=${APP_DIR}"
 
 cd "${APP_DIR}"
+
+# ---- 热更预检（FORCE_PATCH 时跳过）----
+# metax check-ota：exit 0=支持 / 2=不支持 / 其它=执行失败
+if [[ "${FORCE_PATCH}" == "true" || "${FORCE_PATCH}" == "1" ]]; then
+  echo "==> FORCE_PATCH 已开启，跳过 metax check-ota"
+else
+  CHECK_ARGS=(
+    --workspace "${APP_DIR}"
+    check-ota
+    --platform "${PLATFORM}"
+    --buildName "${VERSION}"
+  )
+  echo "==> 热更检测: ${METAX_BIN} ${CHECK_ARGS[*]}"
+  set +e
+  "${METAX_BIN}" "${CHECK_ARGS[@]}"
+  check_rc=$?
+  set -e
+  if [[ "${check_rc}" -eq 2 ]]; then
+    echo "ERROR: 当前工程相对 ${VERSION} 不支持热更，已中断。强行打补丁请设 FORCE_PATCH=true" >&2
+    exit 2
+  fi
+  if [[ "${check_rc}" -ne 0 ]]; then
+    echo "ERROR: metax check-ota 失败 exit=${check_rc}" >&2
+    exit "${check_rc}"
+  fi
+  echo "==> 热更检测通过，继续打补丁"
+fi
 
 # ---- 组装 metax patch 命令 ----
 ARGS=(
