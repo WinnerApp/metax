@@ -674,6 +674,8 @@ Future<void> runFlutterPatchPatch({
   bool allowAssetDiffs = false,
 }) async {
   await ensureFlutterPatchInstalled();
+  // iOS / Android 共用 flutter/release；不清空会把上一平台残留误当成下一平台产物。
+  await clearFlutterPatchReleaseDir(flutterDir);
   final cli = resolveFlutterPatchCli();
   final args = <String>[
     'patch',
@@ -704,27 +706,52 @@ Future<void> runFlutterPatchPatch({
   }
 }
 
+/// `release/` / framework 目录是否含 iOS xcframework（相对 Android Maven 残留）。
+bool looksLikeIosFrameworkDir(Directory dir) {
+  if (!dir.existsSync()) return false;
+  for (final name in const [
+    'ShorebirdFlutter.xcframework',
+    'Flutter.xcframework',
+    'App.xcframework',
+  ]) {
+    if (Directory(join(dir.path, name)).existsSync()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// 将 FlutterPatch iOS release 产物同步到 metax 习惯的 framework 缓存目录
 Future<void> syncFlutterPatchIosReleaseToFrameworkDir(Directory flutterDir) async {
   final releaseDir = Directory(join(flutterDir.path, 'release'));
   final targetDir =
       Directory(join(flutterDir.path, 'build', 'ios', 'framework', 'Release'));
 
-  if (releaseDir.existsSync()) {
+  // patch 常把 framework 写到 build/ios/framework；release/ 可能仍是上一平台 Android 残留。
+  // 仅当 release/ 真有 iOS xcframework 时才覆盖 build 目录。
+  if (looksLikeIosFrameworkDir(releaseDir)) {
     if (targetDir.existsSync()) {
       await targetDir.delete(recursive: true);
     }
     await targetDir.create(recursive: true);
     await copyDirToDir(releaseDir, targetDir);
     loggerInfo('已从 FlutterPatch release 同步产物到 ${targetDir.path}');
-  } else if (targetDir.existsSync()) {
-    // flutterpatch release 上传失败时，可能只留下 build 目录产物
-    loggerWarning(
-      '未找到 ${releaseDir.path}，改用已有产物目录: ${targetDir.path}',
-    );
+  } else if (targetDir.existsSync() && looksLikeIosFrameworkDir(targetDir)) {
+    if (releaseDir.existsSync()) {
+      loggerWarning(
+        'release/ 无 iOS xcframework（可能是 Android 残留），'
+        '保留已有产物目录: ${targetDir.path}',
+      );
+    } else {
+      // flutterpatch release 上传失败时，可能只留下 build 目录产物
+      loggerWarning(
+        '未找到 ${releaseDir.path}，改用已有产物目录: ${targetDir.path}',
+      );
+    }
   } else {
     throw Exception(
-      'FlutterPatch iOS 产物不存在（需要 ${releaseDir.path} 或 ${targetDir.path}）',
+      'FlutterPatch iOS 产物不存在（需要 ${releaseDir.path} 或 ${targetDir.path} '
+      '含 ShorebirdFlutter/Flutter/App.xcframework）',
     );
   }
 

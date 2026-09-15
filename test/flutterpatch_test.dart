@@ -411,4 +411,76 @@ metax_enabled: true
       expect(Directory(join(host.path, 'com')).existsSync(), isFalse);
     });
   });
+
+  group('looksLikeIosFrameworkDir', () {
+    test('true when ShorebirdFlutter or Flutter or App xcframework present',
+        () {
+      final dir = Directory(join(tempDir.path, 'ios_release'))..createSync();
+      expect(looksLikeIosFrameworkDir(dir), isFalse);
+      Directory(join(dir.path, 'ShorebirdFlutter.xcframework')).createSync();
+      expect(looksLikeIosFrameworkDir(dir), isTrue);
+    });
+  });
+
+  group('syncFlutterPatchIosReleaseToFrameworkDir', () {
+    test('copies iOS release and renames ShorebirdFlutter to Flutter',
+        () async {
+      final release = Directory(join(home.flutterDir.path, 'release'))
+        ..createSync();
+      Directory(join(release.path, 'ShorebirdFlutter.xcframework')).createSync();
+      Directory(join(release.path, 'App.xcframework')).createSync();
+
+      await syncFlutterPatchIosReleaseToFrameworkDir(home.flutterDir);
+
+      final target = join(
+        home.flutterDir.path,
+        'build',
+        'ios',
+        'framework',
+        'Release',
+      );
+      expect(
+        Directory(join(target, 'Flutter.xcframework')).existsSync(),
+        isTrue,
+      );
+      expect(
+        Directory(join(target, 'ShorebirdFlutter.xcframework')).existsSync(),
+        isFalse,
+      );
+      expect(File(join(target, 'Flutter.podspec')).existsSync(), isTrue);
+    });
+
+    test('keeps build/ios/framework when release is Android maven residue',
+        () async {
+      final release = Directory(join(home.flutterDir.path, 'release'))
+        ..createSync();
+      Directory(join(release.path, 'android_generated')).createSync();
+      Directory(join(release.path, 'com', 'example')).createSync(recursive: true);
+
+      final target = Directory(
+        join(
+          home.flutterDir.path,
+          'build',
+          'ios',
+          'framework',
+          'Release',
+        ),
+      )..createSync(recursive: true);
+      Directory(join(target.path, 'Flutter.xcframework')).createSync();
+      Directory(join(target.path, 'App.xcframework')).createSync();
+      File(join(target.path, 'marker.txt')).writeAsStringSync('keep');
+
+      await syncFlutterPatchIosReleaseToFrameworkDir(home.flutterDir);
+
+      expect(File(join(target.path, 'marker.txt')).readAsStringSync(), 'keep');
+      expect(
+        Directory(join(target.path, 'Flutter.xcframework')).existsSync(),
+        isTrue,
+      );
+      expect(
+        Directory(join(target.path, 'android_generated')).existsSync(),
+        isFalse,
+      );
+    });
+  });
 }
