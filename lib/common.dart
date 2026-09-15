@@ -177,6 +177,40 @@ Future<Set<String>> getLatestBranchList(String workingDirectory) async {
       .then((e) => e.map((e) => getBranchName(e)).toSet());
 }
 
+/// 把 [path] 记入 `git config --global safe.directory`，避免 CI 因目录属主
+/// 与执行用户不一致而报 `detected dubious ownership`。
+Future<void> ensureGitSafeDirectory(
+  String path, {
+  ProcessRunner? processRunner,
+}) async {
+  final abs = Directory(path).absolute.path;
+  if (abs.isEmpty) return;
+  final runner = processRunner ?? ProcessRunner();
+  try {
+    final existing = await runner.runProcess(
+      ['git', 'config', '--global', '--get-all', 'safe.directory'],
+      printOutput: false,
+      failOk: true,
+    );
+    final listed = existing.stdout
+        .toString()
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (listed.contains(abs) || listed.contains('*')) {
+      return;
+    }
+  } catch (_) {
+    // 未配置过 safe.directory 时 git 可能非 0，继续添加
+  }
+  loggerInfo('授权 Git 目录: $abs');
+  await runner.runProcess(
+    ['git', 'config', '--global', '--add', 'safe.directory', abs],
+    printOutput: false,
+  );
+}
+
 /// 切换分支
 /// 功能：
 /// 1. 获取最新远程分支信息

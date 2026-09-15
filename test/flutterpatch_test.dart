@@ -171,6 +171,45 @@ metax_enabled: true
     });
   });
 
+  group('buildFlutterPatchCheckOtaArgs', () {
+    test('passes --flutter after code update so CLI can authorize the tree', () {
+      expect(
+        buildFlutterPatchCheckOtaArgs(
+          flutterDir: '/app/metaapp_flutter',
+          platform: 'android',
+          releaseVersion: '3.4.100+1',
+          androidDir: '/app/android',
+          unsupportedOut: '/tmp/u.json',
+        ),
+        [
+          '--json',
+          'check-ota',
+          '--flutter',
+          '/app/metaapp_flutter',
+          '--platform',
+          'android',
+          '--version',
+          '3.4.100+1',
+          '--no-write',
+          '--unsupported-out',
+          '/tmp/u.json',
+          '--android',
+          '/app/android',
+        ],
+      );
+    });
+  });
+
+  group('parseLastJsonObject', () {
+    test('reads last JSON object from mixed output', () {
+      final json = parseLastJsonObject(
+        'log\n{"ota_supported":false}\n{"ota_supported":true,"n":1}\n',
+      );
+      expect(json?['ota_supported'], isTrue);
+      expect(json?['n'], 1);
+    });
+  });
+
   group('maybeCloneFlutterPatchReleaseFromCache', () {
     test('skips when cached releaseVersion empty', () async {
       final cloned = await maybeCloneFlutterPatchReleaseFromCache(

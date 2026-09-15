@@ -18,6 +18,24 @@ void main() {
     expect(result.command!['buildName'], '3.4.100');
   });
 
+  test('check-ota accepts branch, release-version and unsupported-out', () {
+    final runner = CommandRunner('metax', '')..addCommand(CheckOtaCommand());
+    final result = runner.parse([
+      'check-ota',
+      '--platform',
+      'ios',
+      '--release-version',
+      '3.4.100+1788746134',
+      '--branch',
+      'development',
+      '--unsupported-out',
+      '/tmp/unsupported.json',
+    ]);
+    expect(result.command!['release-version'], '3.4.100+1788746134');
+    expect(result.command!['branch'], 'development');
+    expect(result.command!['unsupported-out'], '/tmp/unsupported.json');
+  });
+
   test('patch android still accepts deprecated --channel', () {
     final cmd = PatchAndroidCommand();
     final result = cmd.argParser.parse(['--channel', 'stable']);

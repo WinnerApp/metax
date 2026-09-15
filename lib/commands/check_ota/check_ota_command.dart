@@ -5,15 +5,14 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/appwrite_environment.dart';
 import 'package:meta_tool/appwrite_server.dart';
-import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
-import 'package:meta_tool/commands/patch/patch_release_baseline.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/flutterpatch.dart';
 
-/// 查询 Appwrite 上一版打包记录后，用 [PatchCompatGate] 判断当前工程是否支持热更。
+/// 同步工作区后，用 Flutter 目录调用 `flutterpatch check-ota` 判断是否支持热更。
 ///
 /// 对外形态（Jenkins / 旧脚本）：
-/// `metax check-ota --platform ios --buildName 1.0.0 [--json]`
+/// `metax check-ota --platform ios --buildName 1.0.0 [--branch ...] [--json]`
 ///
 /// 退出码：0 支持热更 / 2 不支持 / 其它为执行失败。
 class CheckOtaCommand extends Command {
@@ -26,8 +25,19 @@ class CheckOtaCommand extends Command {
     );
     argParser.addOption(
       'buildName',
-      help: '宿主版本名，如 1.0.0（用于查 Appwrite 上一版打包记录）',
-      mandatory: true,
+      help: '宿主版本名，如 1.0.0（未传 --release-version 时查 Appwrite 上一版打包记录）',
+    );
+    argParser.addOption(
+      'release-version',
+      help: '精确宿主版本，如 1.2.3+456；优先于仅按 --buildName 取最新一条',
+    );
+    argParser.addOption(
+      'branch',
+      help: 'Melos 分支：检测前先切主仓并同步子模块（与 metax patch 一致）',
+    );
+    argParser.addOption(
+      'unsupported-out',
+      help: '透传 flutterpatch --unsupported-out：不支持热更的文件列表 JSON 路径',
     );
     argParser.addFlag(
       'json',
@@ -42,7 +52,7 @@ class CheckOtaCommand extends Command {
 
   @override
   String get description =>
-      '按 platform + buildName 查上一版打包记录，并检测当前工程是否支持热更';
+      '同步代码后按 Flutter 工程调用 flutterpatch check-ota，检测是否支持热更';
 
   void _log(String message, {required bool jsonMode}) {
     if (jsonMode) {
@@ -56,16 +66,138 @@ class CheckOtaCommand extends Command {
   FutureOr<void> run() async {
     final jsonMode = argResults?['json'] == true;
     final platform = (argResults?['platform'] as String).trim();
-    final buildName = (argResults?['buildName'] as String).trim();
-    if (buildName.isEmpty) {
-      throw Exception('--buildName 不能为空');
+    final buildNameArg = (argResults?['buildName'] as String?)?.trim() ?? '';
+    final releaseVersionArg =
+        (argResults?['release-version'] as String?)?.trim() ?? '';
+    final branch = (argResults?['branch'] as String?)?.trim() ?? '';
+    final unsupportedOut =
+        (argResults?['unsupported-out'] as String?)?.trim() ?? '';
+
+    if (buildNameArg.isEmpty && releaseVersionArg.isEmpty) {
+      throw Exception('请提供 --release-version 或 --buildName');
+    }
+
+    await ensureGitSafeDirectory(appHomeDir.workspace);
+
+    if (skipGitPull) {
+      _log('跳过 Git 操作模式，使用本地代码', jsonMode: jsonMode);
+    } else if (branch.isNotEmpty) {
+      _log('同步工作区到 Melos 分支: $branch', jsonMode: jsonMode);
+      await syncMelosWorkspaceToBranch(appHomeDir.workspace, branch);
+    } else {
+      _log('未指定 --branch，使用当前工作区代码检测', jsonMode: jsonMode);
     }
 
     final flutterDir = appHomeDir.flutterDir;
     if (!flutterDir.existsSync()) {
       throw Exception('Flutter 目录不存在: ${flutterDir.path}');
     }
+    await ensureGitSafeDirectory(flutterDir.path);
+    _log('Flutter 目录: ${flutterDir.path}（已授权 Git safe.directory）',
+        jsonMode: jsonMode);
 
+    late final String version;
+    late final String recordedName;
+    late final String buildNumber;
+    if (releaseVersionArg.isNotEmpty) {
+      version = releaseVersionArg;
+      final parsed = parseFlutterPatchReleaseVersion(version);
+      recordedName = parsed.buildName;
+      buildNumber = parsed.buildNumber;
+    } else {
+      final resolved = await _resolveVersionFromBuildName(
+        platform: platform,
+        buildName: buildNameArg,
+        jsonMode: jsonMode,
+      );
+      version = resolved.version;
+      recordedName = resolved.buildName;
+      buildNumber = resolved.buildNumber;
+    }
+
+    _log(
+      '热更检测基线: $version platform=$platform flutter=${flutterDir.path}',
+      jsonMode: jsonMode,
+    );
+
+    final check = await runFlutterPatchCheckOta(
+      flutterDir: flutterDir,
+      platform: platform,
+      releaseVersion: version,
+      androidDir: platform == 'android' && appHomeDir.androidDir.existsSync()
+          ? appHomeDir.androidDir
+          : null,
+      iosDir: platform == 'ios' && appHomeDir.iosDir.existsSync()
+          ? appHomeDir.iosDir
+          : null,
+      unsupportedOut: unsupportedOut.isEmpty ? null : unsupportedOut,
+    );
+
+    if (check.stdout.trim().isNotEmpty) {
+      _log(check.stdout.trim(), jsonMode: jsonMode);
+    }
+    if (check.stderr.trim().isNotEmpty) {
+      stderr.writeln(check.stderr.trim());
+    }
+
+    if (check.exitCode != 0 && check.exitCode != 2) {
+      throw Exception(
+        'flutterpatch check-ota 失败 exit=${check.exitCode}'
+        '${check.stderr.trim().isEmpty ? '' : ': ${check.stderr.trim()}'}',
+      );
+    }
+
+    final otaSupported = check.otaSupported && check.exitCode == 0;
+    final output = <String, dynamic>{
+      'ota_supported': otaSupported,
+      'platform': platform,
+      'version': version,
+      'flutter_dir': flutterDir.path,
+      'build_name': recordedName,
+      'build_number': buildNumber,
+      if (check.json != null) ..._pickFlutterPatchFields(check.json!),
+    };
+
+    if (jsonMode) {
+      stdout.writeln(jsonEncode(output));
+    } else {
+      loggerInfo(
+        'ota_supported=$otaSupported version=$version platform=$platform',
+      );
+      if (!otaSupported) {
+        loggerWarning('当前工程相对 $version 不支持热更');
+      } else {
+        loggerSuccess('当前工程相对 $version 支持热更');
+      }
+    }
+
+    exitCode = otaSupported ? 0 : 2;
+  }
+
+  Map<String, dynamic> _pickFlutterPatchFields(Map<String, dynamic> json) {
+    const keys = [
+      'blocking_change_count',
+      'patchable_change_count',
+      'asset_change_count',
+      'change_count',
+      'has_baseline',
+      'baseline_source',
+    ];
+    final out = <String, dynamic>{};
+    for (final key in keys) {
+      if (json.containsKey(key)) {
+        out[key] = json[key];
+      }
+    }
+    return out;
+  }
+
+  Future<({String version, String buildName, String buildNumber})>
+      _resolveVersionFromBuildName({
+    required String platform,
+    required String buildName,
+    required bool jsonMode,
+  }) async {
     final buildEnv = AppwriteBuildEnvironment(appHomeDir);
     final server = AppwriteServer(
       endpoint: buildEnv.endpoint,
@@ -97,45 +229,15 @@ class CheckOtaCommand extends Command {
         '打包记录 ${buildDoc.$id} 缺少 build_name / build_number',
       );
     }
-    final version = '$recordedName+$buildNumber';
-    final preferMelos = buildDoc.data['melos_branch']?.toString();
     _log(
-      '上一版打包: $version (id=${buildDoc.$id} '
-      'melos_branch=$preferMelos)',
+      '上一版打包: $recordedName+$buildNumber (id=${buildDoc.$id} '
+      'melos_branch=${buildDoc.data['melos_branch']})',
       jsonMode: jsonMode,
     );
-
-    final baselines = await PatchReleaseBaselineResolver(
-      appHomeDir: appHomeDir,
-      platform: platform,
-    ).resolve(
-      releaseVersion: version,
-      preferMelosBranch: preferMelos,
+    return (
+      version: '$recordedName+$buildNumber',
+      buildName: recordedName,
+      buildNumber: buildNumber,
     );
-    final result = await PatchCompatGate(appHomeDir).check(baselines);
-    final output = <String, dynamic>{
-      'ota_supported': result.ok,
-      'platform': platform,
-      'version': version,
-      'build_name': recordedName,
-      'build_number': buildNumber,
-      'blocking_change_count': result.issues.length,
-      'baseline_repo_count': result.baselines.length,
-    };
-
-    if (jsonMode) {
-      stdout.writeln(jsonEncode(output));
-    } else {
-      loggerInfo(
-        'ota_supported=${result.ok} version=$version platform=$platform',
-      );
-      if (!result.ok) {
-        loggerWarning(result.abortMessage());
-      } else {
-        loggerSuccess('当前工程相对 $version 支持热更');
-      }
-    }
-
-    exitCode = result.ok ? 0 : 2;
   }
 }

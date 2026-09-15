@@ -8,8 +8,8 @@
 #                         优先于 Jenkins 内置 WORKSPACE；未设时回退 WORKSPACE_DIR / WORKSPACE / pwd
 # 兼容旧参数：VERSION + BUILD（若仍传入且无 RELEASE，则直接使用）
 #
-# 热更预检：打补丁前执行 metax check-ota；不支持则 exit 2 中断
-# FORCE_PATCH=true|1 时跳过预检，并透传 --force-patch
+# 热更预检：metax check-ota 内部先同步分支，再对 Flutter 目录授权并跑 flutterpatch check-ota
+# 不支持则 exit 2 中断；FORCE_PATCH=true|1 时跳过预检，并透传 --force-patch
 #
 # 还需：FLUTTERPATCH_TOKEN, APPWRITE_* 等（见 jenkins_flutterpatch.env.example）
 #
@@ -78,23 +78,26 @@ if [[ ! -d "${APP_DIR}" ]]; then
   echo "ERROR: APP_DIR 不存在: ${APP_DIR}" >&2
   exit 1
 fi
-if [[ ! -d "${APP_DIR}/metaapp_flutter" ]]; then
-  echo "ERROR: APP_DIR 下缺少 metaapp_flutter/: ${APP_DIR}" >&2
-  echo "       请 export APP_DIR=meta_app 仓库根（不要用 Jenkins WORKSPACE 空目录）" >&2
-  exit 1
-fi
+# metaapp_flutter 可能是子模块：check-ota 同步代码后再校验 / 授权 Flutter 目录
 
 echo "==> platform=${PLATFORM}"
 echo "==> branch=${BRANCH:-"(当前分支，不切换)"}"
 echo "==> release=${RELEASE:-"(from VERSION+BUILD)"}"
 echo "==> release-version=${RELEASE_VERSION}"
+JOB_DIR="${WORKSPACE_DIR:-${WORKSPACE:-$(pwd)}}"
+OUT_DIR="${JOB_DIR}/${BUILD_ID:-${BUILD_NUMBER:-manual}}"
+mkdir -p "${OUT_DIR}"
+UNSUPPORTED_JSON="${OUT_DIR}/unsupported-files.json"
+
 echo "==> force-patch=${FORCE_PATCH}"
 echo "==> app-dir=${APP_DIR}"
+echo "==> out-dir=${OUT_DIR}"
 
 cd "${APP_DIR}"
 
 # ---- 热更预检（FORCE_PATCH 时跳过）----
-# metax check-ota：exit 0=支持 / 2=不支持 / 其它=执行失败
+# metax check-ota：先更新代码 → 授权 Flutter 目录 → flutterpatch check-ota
+# exit 0=支持 / 2=不支持 / 其它=执行失败
 if [[ "${FORCE_PATCH}" == "true" || "${FORCE_PATCH}" == "1" ]]; then
   echo "==> FORCE_PATCH 已开启，跳过 metax check-ota"
 else
@@ -103,7 +106,12 @@ else
     check-ota
     --platform "${PLATFORM}"
     --buildName "${VERSION}"
+    --release-version "${RELEASE_VERSION}"
+    --unsupported-out "${UNSUPPORTED_JSON}"
   )
+  if [[ -n "${BRANCH}" ]]; then
+    CHECK_ARGS+=(--branch "${BRANCH}")
+  fi
   echo "==> 热更检测: ${METAX_BIN} ${CHECK_ARGS[*]}"
   set +e
   "${METAX_BIN}" "${CHECK_ARGS[@]}"

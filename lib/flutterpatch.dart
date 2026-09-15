@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
@@ -262,6 +263,122 @@ String resolveFlutterPatchCli([Map<String, String>? environment]) {
   final fromBin = (env['FLUTTERPATCH_BIN'] ?? '').trim();
   if (fromBin.isNotEmpty) return fromBin;
   return kFlutterPatchCliName;
+}
+
+/// 组装 `flutterpatch check-ota` 参数（不含可执行文件名）。
+///
+/// `--json` 放在子命令前，与 FlutterPatch 全局选项一致。
+List<String> buildFlutterPatchCheckOtaArgs({
+  required String flutterDir,
+  required String platform,
+  required String releaseVersion,
+  String? androidDir,
+  String? iosDir,
+  String? unsupportedOut,
+  bool json = true,
+}) {
+  return <String>[
+    if (json) '--json',
+    'check-ota',
+    '--flutter',
+    flutterDir,
+    '--platform',
+    platform,
+    '--version',
+    releaseVersion,
+    '--no-write',
+    if (unsupportedOut != null && unsupportedOut.trim().isNotEmpty) ...[
+      '--unsupported-out',
+      unsupportedOut.trim(),
+    ],
+    if (platform == 'android' &&
+        androidDir != null &&
+        androidDir.trim().isNotEmpty) ...[
+      '--android',
+      androidDir.trim(),
+    ],
+    if (platform == 'ios' && iosDir != null && iosDir.trim().isNotEmpty) ...[
+      '--ios',
+      iosDir.trim(),
+    ],
+  ];
+}
+
+class FlutterPatchCheckOtaResult {
+  final int exitCode;
+  final bool otaSupported;
+  final Map<String, dynamic>? json;
+  final String stdout;
+  final String stderr;
+
+  const FlutterPatchCheckOtaResult({
+    required this.exitCode,
+    required this.otaSupported,
+    required this.json,
+    required this.stdout,
+    required this.stderr,
+  });
+}
+
+Map<String, dynamic>? parseLastJsonObject(String text) {
+  for (final line in text.split('\n').reversed) {
+    final trimmed = line.trim();
+    if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) continue;
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
+}
+
+/// 调用 `flutterpatch check-ota`：对照服务端 snapshot 判断当前 Flutter 工程是否可热更。
+///
+/// 退出码与 CLI 对齐：0 支持 / 2 不支持；其它为执行失败。
+Future<FlutterPatchCheckOtaResult> runFlutterPatchCheckOta({
+  required Directory flutterDir,
+  required String platform,
+  required String releaseVersion,
+  Directory? androidDir,
+  Directory? iosDir,
+  String? unsupportedOut,
+}) async {
+  await ensureFlutterPatchInstalled();
+  final cli = resolveFlutterPatchCli();
+  final args = buildFlutterPatchCheckOtaArgs(
+    flutterDir: flutterDir.path,
+    platform: platform,
+    releaseVersion: releaseVersion,
+    androidDir: androidDir?.path,
+    iosDir: iosDir?.path,
+    unsupportedOut: unsupportedOut,
+  );
+  loggerInfo('执行: $cli ${args.join(' ')}');
+  final result = await ProcessRunner(
+    environment: flutterPatchCliEnvironment(),
+  ).runProcess(
+    [cli, ...args],
+    workingDirectory: flutterDir,
+    printOutput: false,
+    failOk: true,
+  );
+  final stdoutText = result.stdout.toString();
+  final stderrText = result.stderr.toString();
+  final json = parseLastJsonObject(stdoutText) ?? parseLastJsonObject(stderrText);
+  final otaSupported = json?['ota_supported'] == true ||
+      (json?['ota_supported'] == null && result.exitCode == 0);
+  return FlutterPatchCheckOtaResult(
+    exitCode: result.exitCode,
+    otaSupported: otaSupported && result.exitCode != 2,
+    json: json,
+    stdout: stdoutText,
+    stderr: stderrText,
+  );
 }
 
 Future<void> ensureFlutterPatchInstalled([Map<String, String>? environment]) async {
