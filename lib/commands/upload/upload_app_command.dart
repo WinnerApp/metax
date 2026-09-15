@@ -690,6 +690,7 @@ $changeLog
       unityBuilderVersion:
           (currentUnityBuildVersionId ?? buildUnityBuildVersionId ?? '0')
               .toString(),
+      shorebirdEnabled: flutterPatchEnabled,
       buildBranchConfigs: buildBranchConfigs,
     );
 

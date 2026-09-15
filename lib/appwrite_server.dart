@@ -156,6 +156,7 @@ class AppwriteServer {
     required String unityBuilderVersion,
     required String unityCommitId,
     required int buildNumber,
+    required bool shorebirdEnabled,
     required List<AppwriteBuildBranchConfig> buildBranchConfigs,
   }) async {
     final document = await databases.createDocument(
@@ -170,6 +171,7 @@ class AppwriteServer {
         'unity_build_version': unityBuilderVersion,
         'unity_commit_id': unityCommitId,
         'build_number': buildNumber.toString(),
+        'shorebird_enabled': shorebirdEnabled,
       },
     ).catchError((e, stackTrace) {
       loggerError("e.toString() ${stackTrace.toString()}");
