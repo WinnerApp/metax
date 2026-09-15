@@ -275,6 +275,7 @@ List<String> buildFlutterPatchCheckOtaArgs({
   String? androidDir,
   String? iosDir,
   String? unsupportedOut,
+  String? supportedOut,
   bool json = true,
 }) {
   return <String>[
@@ -290,6 +291,10 @@ List<String> buildFlutterPatchCheckOtaArgs({
     if (unsupportedOut != null && unsupportedOut.trim().isNotEmpty) ...[
       '--unsupported-out',
       unsupportedOut.trim(),
+    ],
+    if (supportedOut != null && supportedOut.trim().isNotEmpty) ...[
+      '--supported-out',
+      supportedOut.trim(),
     ],
     if (platform == 'android' &&
         androidDir != null &&
@@ -347,6 +352,7 @@ Future<FlutterPatchCheckOtaResult> runFlutterPatchCheckOta({
   Directory? androidDir,
   Directory? iosDir,
   String? unsupportedOut,
+  String? supportedOut,
 }) async {
   await ensureFlutterPatchInstalled();
   final cli = resolveFlutterPatchCli();
@@ -357,6 +363,7 @@ Future<FlutterPatchCheckOtaResult> runFlutterPatchCheckOta({
     androidDir: androidDir?.path,
     iosDir: iosDir?.path,
     unsupportedOut: unsupportedOut,
+    supportedOut: supportedOut,
   );
   loggerInfo('执行: $cli ${args.join(' ')}');
   final result = await ProcessRunner(

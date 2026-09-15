@@ -84,7 +84,7 @@ class AppwriteServer {
     });
   }
 
-  /// 按宿主版本号 + buildNumber 查打包记录（热更预审基线）。
+  /// 按宿主版本号 + buildNumber 查打包记录。
   ///
   /// 同一 version 可能打过多次；优先匹配 [preferMelosBranch]，否则取最新一条。
   Future<Document?> queryBuildConfigByVersion({

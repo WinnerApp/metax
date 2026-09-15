@@ -39,6 +39,10 @@ class CheckOtaCommand extends Command {
       'unsupported-out',
       help: '透传 flutterpatch --unsupported-out：不支持热更的文件列表 JSON 路径',
     );
+    argParser.addOption(
+      'supported-out',
+      help: '透传 flutterpatch --supported-out：支持热更的文件列表 JSON 路径',
+    );
     argParser.addFlag(
       'json',
       help: 'stdout 仅输出一行机器可读 JSON',
@@ -72,6 +76,8 @@ class CheckOtaCommand extends Command {
     final branch = (argResults?['branch'] as String?)?.trim() ?? '';
     final unsupportedOut =
         (argResults?['unsupported-out'] as String?)?.trim() ?? '';
+    final supportedOut =
+        (argResults?['supported-out'] as String?)?.trim() ?? '';
 
     if (buildNameArg.isEmpty && releaseVersionArg.isEmpty) {
       throw Exception('请提供 --release-version 或 --buildName');
@@ -131,6 +137,7 @@ class CheckOtaCommand extends Command {
           ? appHomeDir.iosDir
           : null,
       unsupportedOut: unsupportedOut.isEmpty ? null : unsupportedOut,
+      supportedOut: supportedOut.isEmpty ? null : supportedOut,
     );
 
     if (check.stdout.trim().isNotEmpty) {

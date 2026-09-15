@@ -288,24 +288,15 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       'release' => 'Release',
       _ => throw Exception('不支持的配置: $configuration'),
     };
-    await ProcessRunner().runProcess(
-      [
-        'bash',
-        join(
-          'jenkins_ci',
-          'setup_ios_framework_podspec.sh',
-        ),
+    await runSetupIosFrameworkPodspec(
+      configurationDirName: configurationDirName,
+      frameworkOutputDir: join(
+        appHomeDir.flutterDir.path,
+        'build',
+        'ios',
+        'framework',
         configurationDirName,
-        join(
-          appHomeDir.flutterDir.path,
-          'build',
-          'ios',
-          'framework',
-          configurationDirName,
-        ),
-      ],
-      workingDirectory: appHomeDir.directory,
-      printOutput: true,
+      ),
     );
   }
 
@@ -550,4 +541,21 @@ end
     }
     return defaultContent;
   }
+}
+
+/// 按正常打包流程生成 iOS Framework 的 CocoaPods 封装。
+Future<void> runSetupIosFrameworkPodspec({
+  required String configurationDirName,
+  required String frameworkOutputDir,
+}) async {
+  await ProcessRunner().runProcess(
+    [
+      'bash',
+      join('jenkins_ci', 'setup_ios_framework_podspec.sh'),
+      configurationDirName,
+      frameworkOutputDir,
+    ],
+    workingDirectory: appHomeDir.directory,
+    printOutput: true,
+  );
 }

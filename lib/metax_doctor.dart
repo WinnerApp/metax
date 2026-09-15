@@ -754,7 +754,7 @@ class MetaxDoctor {
           'APPWRITE_BUILD_COLLECTION_ID',
           'APPWRITE_BUILD_BRANCH_COLLECTION_ID',
         ],
-        fix: '补全 APPWRITE_BUILD_*（upload 记录 / patch 预审）',
+        fix: '补全 APPWRITE_BUILD_*（upload 记录 / check-ota 查版本）',
         missingSeverity: DoctorCheckSeverity.warning,
         group: group,
       ),

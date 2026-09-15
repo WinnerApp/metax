@@ -40,7 +40,7 @@ class DoctorCommand extends Command {
     );
     argParser.addFlag(
       'patch',
-      help: '同时检查补丁预审所需的 Appwrite 构建记录凭据',
+      help: '同时检查 upload / check-ota 所需的 Appwrite 构建记录凭据',
       defaultsTo: false,
       negatable: false,
     );

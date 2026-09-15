@@ -180,6 +180,7 @@ metax_enabled: true
           releaseVersion: '3.4.100+1',
           androidDir: '/app/android',
           unsupportedOut: '/tmp/u.json',
+          supportedOut: '/tmp/s.json',
         ),
         [
           '--json',
@@ -193,6 +194,8 @@ metax_enabled: true
           '--no-write',
           '--unsupported-out',
           '/tmp/u.json',
+          '--supported-out',
+          '/tmp/s.json',
           '--android',
           '/app/android',
         ],

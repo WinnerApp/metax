@@ -3,8 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:meta_tool/argument_get.dart';
-import 'package:meta_tool/commands/patch/patch_compat_gate.dart';
-import 'package:meta_tool/commands/patch/patch_release_baseline.dart';
+import 'package:meta_tool/commands/patch/patch_artifact_cache.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutterpatch.dart';
@@ -23,7 +22,7 @@ abstract class BasePatchCommand extends Command {
     );
     argParser.addFlag(
       'force-patch',
-      help: '跳过多仓库热更预审（危险，仅排障/强行热更）',
+      help: '跳过 flutterpatch check-ota（危险，仅排障/强行热更）',
       defaultsTo: false,
       negatable: false,
     );
@@ -43,6 +42,11 @@ abstract class BasePatchCommand extends Command {
           '（asset 不会打进补丁，仅跳过拦截）',
       defaultsTo: false,
       negatable: false,
+    );
+    argParser.addFlag(
+      'isUpload',
+      help: '将补丁产生的完整 aar/framework 按正常打包逻辑写入本地缓存后上传云端',
+      defaultsTo: true,
     );
   }
 
@@ -69,12 +73,11 @@ abstract class BasePatchCommand extends Command {
       );
     }
 
-    String? melosBranch = argResults?['branch'] as String?;
     if (skipGitPull) {
       loggerInfo('跳过 Git 操作模式，使用本地代码');
     } else {
       // 与打包一致：选择 Melos 分支 → 拉最新 → 同步全部子模块到执行分支
-      melosBranch = ArgumentGet(argResults).getString(
+      final melosBranch = ArgumentGet(argResults).getString(
         'branch',
         '请选择Melos分支',
         allowed: await getLatestBranchList(appHomeDir.workspace),
@@ -95,16 +98,43 @@ abstract class BasePatchCommand extends Command {
 
     final forcePatch = argResults?['force-patch'] == true;
     if (!forcePatch) {
-      final baselines = await PatchReleaseBaselineResolver(
-        appHomeDir: appHomeDir,
-        platform: otaPlatform,
-      ).resolve(
-        releaseVersion: releaseVersion,
-        preferMelosBranch: melosBranch,
+      await ensureGitSafeDirectory(flutterDir.path);
+      loggerInfo(
+        '热更预检: flutterpatch check-ota version=$releaseVersion '
+        'platform=$otaPlatform',
       );
-      await PatchCompatGate(appHomeDir).assertCompatible(baselines);
+      final check = await runFlutterPatchCheckOta(
+        flutterDir: flutterDir,
+        platform: otaPlatform,
+        releaseVersion: releaseVersion,
+        androidDir: otaPlatform == 'android' && appHomeDir.androidDir.existsSync()
+            ? appHomeDir.androidDir
+            : null,
+        iosDir: otaPlatform == 'ios' && appHomeDir.iosDir.existsSync()
+            ? appHomeDir.iosDir
+            : null,
+      );
+      if (check.stdout.trim().isNotEmpty) {
+        loggerInfo(check.stdout.trim());
+      }
+      if (check.stderr.trim().isNotEmpty) {
+        loggerWarning(check.stderr.trim());
+      }
+      if (check.exitCode != 0 && check.exitCode != 2) {
+        throw Exception(
+          'flutterpatch check-ota 失败 exit=${check.exitCode}'
+          '${check.stderr.trim().isEmpty ? '' : ': ${check.stderr.trim()}'}',
+        );
+      }
+      if (!check.otaSupported || check.exitCode == 2) {
+        throw Exception(
+          '当前工程相对 $releaseVersion 不支持热更（flutterpatch check-ota）。'
+          '请重新出包，或加 --force-patch 强行打补丁。',
+        );
+      }
+      loggerSuccess('flutterpatch check-ota 通过，继续打补丁');
     } else {
-      loggerWarning('已启用 --force-patch，跳过多仓库热更预审');
+      loggerWarning('已启用 --force-patch，跳过 flutterpatch check-ota');
     }
 
     // 可选 bootstrap
@@ -128,6 +158,14 @@ abstract class BasePatchCommand extends Command {
       platform: flutterPatchPlatform,
       releaseVersion: releaseVersion,
       allowAssetDiffs: allowAssetDiffs,
+    );
+
+    final isUpload = argResults?['isUpload'] as bool? ?? true;
+    await cacheAndUploadFlutterPatchArtifacts(
+      flutterDir: flutterDir,
+      otaPlatform: otaPlatform,
+      releaseVersion: releaseVersion,
+      isUpload: isUpload,
     );
 
     loggerSuccess(

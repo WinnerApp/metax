@@ -88,6 +88,7 @@ JOB_DIR="${WORKSPACE_DIR:-${WORKSPACE:-$(pwd)}}"
 OUT_DIR="${JOB_DIR}/${BUILD_ID:-${BUILD_NUMBER:-manual}}"
 mkdir -p "${OUT_DIR}"
 UNSUPPORTED_JSON="${OUT_DIR}/unsupported-files.json"
+SUPPORTED_JSON="${OUT_DIR}/supported-files.json"
 
 echo "==> force-patch=${FORCE_PATCH}"
 echo "==> app-dir=${APP_DIR}"
@@ -108,6 +109,7 @@ else
     --buildName "${VERSION}"
     --release-version "${RELEASE_VERSION}"
     --unsupported-out "${UNSUPPORTED_JSON}"
+    --supported-out "${SUPPORTED_JSON}"
   )
   if [[ -n "${BRANCH}" ]]; then
     CHECK_ARGS+=(--branch "${BRANCH}")

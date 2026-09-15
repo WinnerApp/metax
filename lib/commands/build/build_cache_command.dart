@@ -237,42 +237,16 @@ abstract class BuildCacheCommand extends Command {
     String flutterSdk = '',
     bool isShorebird = false,
     String releaseVersion = '',
-  }) async {
-    final buildCacheParentDir = Directory(buildCacheDir).parent;
-    // final cacheBaseName = basename(buildCacheDir);
-
-    String cacheId = commitHash;
-
-    /// 压缩
-    await ProcessRunner().runProcess(
-      [
-        'zip',
-        "-r",
-        join(buildCacheParentDir.path, '$cacheId.zip'),
-        './',
-      ],
-      workingDirectory: Directory(buildCacheDir),
-      printOutput: true,
+  }) {
+    return writeBuildDirToCacheSystem(
+      buildCacheDir: buildCacheDir,
+      cache: cache,
+      commitHash: commitHash,
+      commitTime: commitTime,
+      flutterSdk: flutterSdk,
+      isShorebird: isShorebird,
+      releaseVersion: releaseVersion,
     );
-
-    final zipFile = File(join(buildCacheParentDir.path, '$cacheId.zip'));
-    await cache.updateCacheData(
-      zipFile,
-      CacheModel(
-        branch: cache.branch,
-        commitHash: commitHash,
-        buildId: cache.buildId.toString(),
-        configuration: cache.buildConfiguration.value,
-        buildPlatform: cache.buildPlatform.value,
-        buildLibrary: cache.buildLibrary.value,
-        buildType: cache.buildType.value,
-        commitTime: commitTime,
-        flutterSdk: flutterSdk,
-        isShorebird: isShorebird,
-        releaseVersion: releaseVersion,
-      ),
-    );
-    await zipFile.delete();
   }
 
   Future<void> buildCache() async {}
@@ -285,4 +259,48 @@ abstract class BuildCacheCommand extends Command {
     if (lastBuildConfig == null) return false;
     return buildModel == lastBuildConfig;
   }
+}
+
+/// 将产物目录打成 zip 并写入 `~/.metax` 本地缓存索引。
+Future<void> writeBuildDirToCacheSystem({
+  required String buildCacheDir,
+  required MetaxCache cache,
+  required String commitHash,
+  required DateTime commitTime,
+  String flutterSdk = '',
+  bool isShorebird = false,
+  String releaseVersion = '',
+}) async {
+  final buildCacheParentDir = Directory(buildCacheDir).parent;
+  final cacheId = commitHash;
+
+  await ProcessRunner().runProcess(
+    [
+      'zip',
+      '-r',
+      join(buildCacheParentDir.path, '$cacheId.zip'),
+      './',
+    ],
+    workingDirectory: Directory(buildCacheDir),
+    printOutput: true,
+  );
+
+  final zipFile = File(join(buildCacheParentDir.path, '$cacheId.zip'));
+  await cache.updateCacheData(
+    zipFile,
+    CacheModel(
+      branch: cache.branch,
+      commitHash: commitHash,
+      buildId: cache.buildId.toString(),
+      configuration: cache.buildConfiguration.value,
+      buildPlatform: cache.buildPlatform.value,
+      buildLibrary: cache.buildLibrary.value,
+      buildType: cache.buildType.value,
+      commitTime: commitTime,
+      flutterSdk: flutterSdk,
+      isShorebird: isShorebird,
+      releaseVersion: releaseVersion,
+    ),
+  );
+  await zipFile.delete();
 }
