@@ -32,11 +32,30 @@ void main() {
       '/tmp/unsupported.json',
       '--supported-out',
       '/tmp/supported.json',
+      '--resources-out',
+      '/tmp/resources.json',
     ]);
     expect(result.command!['release-version'], '3.4.100+1788746134');
     expect(result.command!['branch'], 'development');
     expect(result.command!['unsupported-out'], '/tmp/unsupported.json');
     expect(result.command!['supported-out'], '/tmp/supported.json');
+    expect(result.command!['resources-out'], '/tmp/resources.json');
+  });
+
+  test('patch android accepts whitelist, unique-ids and check-only', () {
+    final cmd = PatchAndroidCommand();
+    final result = cmd.argParser.parse([
+      '--whitelist',
+      '--unique-ids',
+      'a,b',
+      '--check-only',
+      '--resources-out',
+      '/tmp/resources.json',
+    ]);
+    expect(result['whitelist'], isTrue);
+    expect(result['unique-ids'], ['a', 'b']);
+    expect(result['check-only'], isTrue);
+    expect(result['resources-out'], '/tmp/resources.json');
   });
 
   test('patch android still accepts deprecated --channel', () {

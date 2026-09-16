@@ -309,6 +309,64 @@ List<String> buildFlutterPatchCheckOtaArgs({
   ];
 }
 
+/// 从 check-ota JSON 抽出可热更资源配置（`asset_changes`）并写入 [path]。
+///
+/// 即使列表为空也会写文件，便于 Jenkins 产物归档。
+void writeHotUpdatableResourcesJson({
+  required Map<String, dynamic>? checkJson,
+  required String path,
+  bool? otaSupported,
+}) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty) return;
+  final assetChanges = checkJson?['asset_changes'];
+  final list = assetChanges is List ? assetChanges : const [];
+  final unsupported = checkJson?['unsupported_asset_changes'];
+  final unsupportedList = unsupported is List ? unsupported : const [];
+  final payload = <String, dynamic>{
+    'ota_supported': otaSupported ?? checkJson?['ota_supported'] == true,
+    'asset_change_count': list.length,
+    'unsupported_asset_change_count': unsupportedList.length,
+    // 与 flutterpatch patch 上传的 changed_resources 同形（add/update/remove）
+    'resources': list,
+    if (unsupportedList.isNotEmpty)
+      'unsupported_asset_changes': unsupportedList,
+  };
+  final file = File(trimmed);
+  file.parent.createSync(recursive: true);
+  file.writeAsStringSync(
+    '${const JsonEncoder.withIndent('  ').convert(payload)}\n',
+  );
+}
+
+/// 组装 `flutterpatch patch` 参数（不含可执行文件名）。
+List<String> buildFlutterPatchPatchArgs({
+  required String platform,
+  required String releaseVersion,
+  bool allowAssetDiffs = false,
+  bool? whitelist,
+  List<String> uniqueIds = const [],
+}) {
+  final ids = <String>[];
+  final seen = <String>{};
+  for (final raw in uniqueIds) {
+    final id = raw.trim();
+    if (id.isEmpty || !seen.add(id)) continue;
+    ids.add(id);
+  }
+  return <String>[
+    'patch',
+    platform,
+    '--release-version',
+    releaseVersion,
+    if (allowAssetDiffs) '--allow-asset-diffs',
+    if (whitelist == true) '--whitelist',
+    if (whitelist == false) '--no-whitelist',
+    if (ids.isNotEmpty) ...['--unique-ids', ids.join(',')],
+    ..._flutterPatchFlutterPassthroughArgs(const []),
+  ];
+}
+
 class FlutterPatchCheckOtaResult {
   final int exitCode;
   final bool otaSupported;
@@ -672,19 +730,21 @@ Future<void> runFlutterPatchPatch({
   required String platform, // ios-framework | aar
   required String releaseVersion,
   bool allowAssetDiffs = false,
+  /// `true`/`false` 显式开关白名单；`null` 不传（由 CLI/unique-ids 默认行为决定）。
+  bool? whitelist,
+  List<String> uniqueIds = const [],
 }) async {
   await ensureFlutterPatchInstalled();
   // iOS / Android 共用 flutter/release；不清空会把上一平台残留误当成下一平台产物。
   await clearFlutterPatchReleaseDir(flutterDir);
   final cli = resolveFlutterPatchCli();
-  final args = <String>[
-    'patch',
-    platform,
-    '--release-version',
-    releaseVersion,
-    if (allowAssetDiffs) '--allow-asset-diffs',
-    ..._flutterPatchFlutterPassthroughArgs(const []),
-  ];
+  final args = buildFlutterPatchPatchArgs(
+    platform: platform,
+    releaseVersion: releaseVersion,
+    allowAssetDiffs: allowAssetDiffs,
+    whitelist: whitelist,
+    uniqueIds: uniqueIds,
+  );
   loggerInfo('执行: $cli ${args.join(' ')}');
   final sw = Stopwatch()..start();
   try {

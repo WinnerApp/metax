@@ -26,6 +26,12 @@ abstract class BasePatchCommand extends Command {
       defaultsTo: false,
       negatable: false,
     );
+    argParser.addFlag(
+      'check-only',
+      help: '仅检测是否支持热更（跑 check-ota 并写出 JSON），不打补丁、不上传',
+      defaultsTo: false,
+      negatable: false,
+    );
     argParser.addOption(
       'channel',
       help: '已废弃，忽略（兼容旧 Jenkins 脚本）',
@@ -42,6 +48,35 @@ abstract class BasePatchCommand extends Command {
           '（asset 不会打进补丁，仅跳过拦截）',
       defaultsTo: false,
       negatable: false,
+    );
+    argParser.addFlag(
+      'whitelist',
+      help:
+          '透传 flutterpatch --whitelist：本补丁开启设备白名单。'
+          '未给 --unique-ids 时，需在控制台补 ID 后设备才能更新。'
+          '全量放量用 --no-whitelist',
+      defaultsTo: false,
+    );
+    argParser.addMultiOption(
+      'unique-ids',
+      help:
+          '透传 flutterpatch --unique-ids：白名单开启时允许更新的 client_id'
+          '（逗号分隔或重复传参）',
+      splitCommas: true,
+    );
+    argParser.addOption(
+      'unsupported-out',
+      help: '透传 flutterpatch --unsupported-out：不支持热更的文件列表 JSON',
+    );
+    argParser.addOption(
+      'supported-out',
+      help: '透传 flutterpatch --supported-out：支持热更的文件/资源变更 JSON',
+    );
+    argParser.addOption(
+      'resources-out',
+      help:
+          '写出当前可热更资源配置 JSON（asset_changes → resources），'
+          '便于 Jenkins 归档；列表为空也会写',
     );
     argParser.addFlag(
       'isUpload',
@@ -96,12 +131,25 @@ abstract class BasePatchCommand extends Command {
       loggerWarning('已忽略已废弃参数 --channel=$channel');
     }
 
+    final checkOnly = argResults?['check-only'] == true;
     final forcePatch = argResults?['force-patch'] == true;
+    if (checkOnly && forcePatch) {
+      throw Exception('--check-only 与 --force-patch 不能同时使用');
+    }
+
+    final unsupportedOut =
+        (argResults?['unsupported-out'] as String?)?.trim() ?? '';
+    final supportedOut =
+        (argResults?['supported-out'] as String?)?.trim() ?? '';
+    final resourcesOut =
+        (argResults?['resources-out'] as String?)?.trim() ?? '';
+
     if (!forcePatch) {
       await ensureGitSafeDirectory(flutterDir.path);
       loggerInfo(
         '热更预检: flutterpatch check-ota version=$releaseVersion '
-        'platform=$otaPlatform',
+        'platform=$otaPlatform'
+        '${checkOnly ? ' (check-only)' : ''}',
       );
       final check = await runFlutterPatchCheckOta(
         flutterDir: flutterDir,
@@ -113,6 +161,8 @@ abstract class BasePatchCommand extends Command {
         iosDir: otaPlatform == 'ios' && appHomeDir.iosDir.existsSync()
             ? appHomeDir.iosDir
             : null,
+        unsupportedOut: unsupportedOut.isEmpty ? null : unsupportedOut,
+        supportedOut: supportedOut.isEmpty ? null : supportedOut,
       );
       if (check.stdout.trim().isNotEmpty) {
         loggerInfo(check.stdout.trim());
@@ -126,7 +176,33 @@ abstract class BasePatchCommand extends Command {
           '${check.stderr.trim().isEmpty ? '' : ': ${check.stderr.trim()}'}',
         );
       }
-      if (!check.otaSupported || check.exitCode == 2) {
+
+      final otaSupported = check.otaSupported && check.exitCode == 0;
+      if (resourcesOut.isNotEmpty) {
+        writeHotUpdatableResourcesJson(
+          checkJson: check.json,
+          path: resourcesOut,
+          otaSupported: otaSupported,
+        );
+        loggerInfo('已写出可热更资源配置: $resourcesOut');
+      }
+
+      if (checkOnly) {
+        if (otaSupported) {
+          loggerSuccess(
+            'check-only: 当前工程相对 $releaseVersion 支持热更',
+          );
+          exitCode = 0;
+        } else {
+          loggerWarning(
+            'check-only: 当前工程相对 $releaseVersion 不支持热更',
+          );
+          exitCode = 2;
+        }
+        return;
+      }
+
+      if (!otaSupported || check.exitCode == 2) {
         throw Exception(
           '当前工程相对 $releaseVersion 不支持热更（flutterpatch check-ota）。'
           '请重新出包，或加 --force-patch 强行打补丁。',
@@ -153,11 +229,25 @@ abstract class BasePatchCommand extends Command {
     }
 
     final allowAssetDiffs = argResults?['allow-asset-diffs'] == true;
+    final whitelistParsed = argResults?.wasParsed('whitelist') == true;
+    final uniqueIds = _parseUniqueIds(argResults?['unique-ids']);
+    final bool? whitelist;
+    if (whitelistParsed) {
+      whitelist = argResults?['whitelist'] == true;
+    } else if (uniqueIds.isNotEmpty) {
+      // 与 flutterpatch 一致：只给 unique-ids 时默认开白名单
+      whitelist = true;
+    } else {
+      whitelist = null;
+    }
+
     await runFlutterPatchPatch(
       flutterDir: flutterDir,
       platform: flutterPatchPlatform,
       releaseVersion: releaseVersion,
       allowAssetDiffs: allowAssetDiffs,
+      whitelist: whitelist,
+      uniqueIds: uniqueIds,
     );
 
     final isUpload = argResults?['isUpload'] as bool? ?? true;
@@ -171,5 +261,17 @@ abstract class BasePatchCommand extends Command {
     loggerSuccess(
       'FlutterPatch 补丁完成: version=$releaseVersion platform=$otaPlatform',
     );
+  }
+
+  List<String> _parseUniqueIds(Object? raw) {
+    if (raw is! List) return const [];
+    final out = <String>[];
+    final seen = <String>{};
+    for (final item in raw) {
+      final id = '$item'.trim();
+      if (id.isEmpty || !seen.add(id)) continue;
+      out.add(id);
+    }
+    return out;
   }
 }

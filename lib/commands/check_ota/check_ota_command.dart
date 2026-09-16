@@ -43,6 +43,12 @@ class CheckOtaCommand extends Command {
       'supported-out',
       help: '透传 flutterpatch --supported-out：支持热更的文件列表 JSON 路径',
     );
+    argParser.addOption(
+      'resources-out',
+      help:
+          '写出当前可热更资源配置 JSON（check-ota 的 asset_changes → resources）；'
+          '列表为空也会写，便于 Jenkins 归档',
+    );
     argParser.addFlag(
       'json',
       help: 'stdout 仅输出一行机器可读 JSON',
@@ -78,6 +84,8 @@ class CheckOtaCommand extends Command {
         (argResults?['unsupported-out'] as String?)?.trim() ?? '';
     final supportedOut =
         (argResults?['supported-out'] as String?)?.trim() ?? '';
+    final resourcesOut =
+        (argResults?['resources-out'] as String?)?.trim() ?? '';
 
     if (buildNameArg.isEmpty && releaseVersionArg.isEmpty) {
       throw Exception('请提供 --release-version 或 --buildName');
@@ -155,6 +163,16 @@ class CheckOtaCommand extends Command {
     }
 
     final otaSupported = check.otaSupported && check.exitCode == 0;
+
+    if (resourcesOut.isNotEmpty) {
+      writeHotUpdatableResourcesJson(
+        checkJson: check.json,
+        path: resourcesOut,
+        otaSupported: otaSupported,
+      );
+      _log('已写出可热更资源配置: $resourcesOut', jsonMode: jsonMode);
+    }
+
     final output = <String, dynamic>{
       'ota_supported': otaSupported,
       'platform': platform,
@@ -163,6 +181,9 @@ class CheckOtaCommand extends Command {
       'build_name': recordedName,
       'build_number': buildNumber,
       if (check.json != null) ..._pickFlutterPatchFields(check.json!),
+      if (resourcesOut.isNotEmpty) 'resources_out': resourcesOut,
+      if (supportedOut.isNotEmpty) 'supported_out': supportedOut,
+      if (unsupportedOut.isNotEmpty) 'unsupported_out': unsupportedOut,
     };
 
     if (jsonMode) {
@@ -186,9 +207,13 @@ class CheckOtaCommand extends Command {
       'blocking_change_count',
       'patchable_change_count',
       'asset_change_count',
+      'unsupported_asset_change_count',
       'change_count',
       'has_baseline',
       'baseline_source',
+      // 可热更资源配置（与 patch changed_resources 同形）
+      'asset_changes',
+      'unsupported_asset_changes',
     ];
     final out = <String, dynamic>{};
     for (final key in keys) {

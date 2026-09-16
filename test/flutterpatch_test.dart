@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
@@ -200,6 +201,66 @@ metax_enabled: true
           '/app/android',
         ],
       );
+    });
+  });
+
+  group('buildFlutterPatchPatchArgs', () {
+    test('includes whitelist and unique-ids', () {
+      expect(
+        buildFlutterPatchPatchArgs(
+          platform: 'aar',
+          releaseVersion: '1.0.0+1',
+          whitelist: true,
+          uniqueIds: ['id-a', 'id-b', 'id-a'],
+        ),
+        [
+          'patch',
+          'aar',
+          '--release-version',
+          '1.0.0+1',
+          '--whitelist',
+          '--unique-ids',
+          'id-a,id-b',
+          '--',
+          '--no-tree-shake-icons',
+        ],
+      );
+    });
+
+    test('passes --no-whitelist when explicitly disabled', () {
+      expect(
+        buildFlutterPatchPatchArgs(
+          platform: 'ios-framework',
+          releaseVersion: '1.0.0+1',
+          whitelist: false,
+        ),
+        contains('--no-whitelist'),
+      );
+    });
+  });
+
+  group('writeHotUpdatableResourcesJson', () {
+    test('writes resources from asset_changes', () {
+      final out = File(join(tempDir.path, 'resources.json'));
+      writeHotUpdatableResourcesJson(
+        checkJson: {
+          'ota_supported': true,
+          'asset_changes': [
+            {
+              'package': 'demo',
+              'path': 'assets/a.png',
+              'change': 'update',
+              'hash': 'abc',
+            },
+          ],
+        },
+        path: out.path,
+        otaSupported: true,
+      );
+      final decoded = jsonDecode(out.readAsStringSync()) as Map;
+      expect(decoded['ota_supported'], isTrue);
+      expect(decoded['asset_change_count'], 1);
+      expect((decoded['resources'] as List).single['path'], 'assets/a.png');
     });
   });
 

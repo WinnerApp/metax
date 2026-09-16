@@ -2,38 +2,51 @@
 # Jenkins：FlutterPatch 热更补丁
 # 参数：
 #   PLATFORM / platform   android | ios
-#   RELEASE / release     如 3.4.100(1788746134)  （Active Choices 展示格式）
-#   BRANCH / branch       可选，Flutter / Melos 分支
-#   APP_DIR / app_dir     meta_app 工程根（其下须有 metaapp_flutter/）
-#                         优先于 Jenkins 内置 WORKSPACE；未设时回退 WORKSPACE_DIR / WORKSPACE / pwd
-# 兼容旧参数：VERSION + BUILD（若仍传入且无 RELEASE，则直接使用）
+#   RELEASE / release     如 3.4.100(1788746134)
+#   BRANCH / branch       可选，Melos 分支（check-ota / patch 都会切）
+#   APP_DIR / app_dir     meta_app 工程根
+# 可选：
+#   CHECK_ONLY=true|1     仅检测是否支持热更，写出 JSON 后退出（不打补丁）
+#   FORCE_PATCH=true|1    跳过预检并透传 --force-patch（与 CHECK_ONLY 互斥）
+#   WHITELIST=true|1      本补丁开启设备白名单（透传 --whitelist）
+#   WHITELIST=false|0     显式全量放量（透传 --no-whitelist）
+#   UNIQUE_IDS            白名单 client_id，逗号分隔（透传 --unique-ids）
+#   ALLOW_ASSET_DIFFS     透传 --allow-asset-diffs
+# 兼容旧参数：VERSION + BUILD
 #
-# 热更预检：metax check-ota 内部先同步分支，再对 Flutter 目录授权并跑 flutterpatch check-ota
-# 不支持则 exit 2 中断；FORCE_PATCH=true|1 时跳过预检，并透传 --force-patch
+# 热更预检在 metax check-ota 内部：同步代码 → 授权 Flutter 目录 → flutterpatch check-ota
+# 产物：
+#   ${WORKSPACE}/${BUILD_ID}/unsupported-files.json
+#   ${WORKSPACE}/${BUILD_ID}/supported-files.json
+#   ${WORKSPACE}/${BUILD_ID}/supported-resources.json   # 可热更资源配置
 #
-# 还需：FLUTTERPATCH_TOKEN, APPWRITE_* 等（见 jenkins_flutterpatch.env.example）
-#
-# 用法（Execute shell）：
-#   export APP_DIR=/path/to/meta_app   # 含 metaapp_flutter 的仓库根
-#   bash /path/to/metax/templates/jenkins_flutterpatch_patch.sh
+# 还需：FLUTTERPATCH_TOKEN、APPWRITE_*（节点或下面 ENV_FILE）
+# 需 metax 已支持：--check-only / --whitelist / --unique-ids / --resources-out
 
 set -euo pipefail
 
-# ---- 参数映射 ----
 BRANCH="${BRANCH:-${branch:-${FLUTTER_BRANCH:-}}}"
 PLATFORM="${PLATFORM:-${platform:-}}"
 RELEASE="${RELEASE:-${release:-}}"
 VERSION="${VERSION:-${version:-${BUILD_NAME:-${buildName:-}}}}"
-BUILD="${BUILD:-${build:-}}"   # 不要用 Jenkins 内置 BUILD_NUMBER 顶替业务 build
+BUILD="${BUILD:-${build:-}}"
 
 METAX_BIN="${METAX_BIN:-metax}"
 FORCE_PATCH="${FORCE_PATCH:-false}"
+CHECK_ONLY="${CHECK_ONLY:-false}"
 ALLOW_ASSET_DIFFS="${ALLOW_ASSET_DIFFS:-false}"
-# 工程根：APP_DIR 优先，避免误用 Jenkins 空 WORKSPACE
-APP_DIR="${APP_DIR:-${app_dir:-${WORKSPACE_DIR:-${WORKSPACE:-$(pwd)}}}}"
+WHITELIST="${WHITELIST:-}"
+UNIQUE_IDS="${UNIQUE_IDS:-${unique_ids:-}}"
 
-# ---- 从 RELEASE 解析 VERSION / BUILD ----
-# 支持：3.4.100(1788746134)  或  3.4.100+1788746134  或  3.4.100#1788746134
+ENV_FILE="${ENV_FILE:-${HOME}/jenkins_shorebird.env}"
+if [[ -f "${ENV_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+fi
+
+JOB_DIR="${WORKSPACE_DIR:-${WORKSPACE:-$(pwd)}}"
+APP_DIR="${APP_DIR:-${app_dir:-${JOB_DIR}}}"
+
 parse_release() {
   local raw="$1"
   raw="$(echo "${raw}" | sed 's/&#43;/+/g; s/[[:space:]]//g')"
@@ -53,7 +66,6 @@ if [[ -n "${RELEASE}" ]]; then
   parse_release "${RELEASE}"
 fi
 
-# ---- 校验 ----
 if [[ -z "${PLATFORM}" ]]; then
   echo "ERROR: 缺少 PLATFORM（android|ios）" >&2
   exit 1
@@ -74,31 +86,41 @@ fi
 
 RELEASE_VERSION="${VERSION}+${BUILD}"
 
+if [[ -z "${APP_DIR}" ]]; then
+  echo "ERROR: 缺少 APP_DIR" >&2
+  exit 1
+fi
 if [[ ! -d "${APP_DIR}" ]]; then
   echo "ERROR: APP_DIR 不存在: ${APP_DIR}" >&2
   exit 1
 fi
-# metaapp_flutter 可能是子模块：check-ota 同步代码后再校验 / 授权 Flutter 目录
+
+if [[ ("${CHECK_ONLY}" == "true" || "${CHECK_ONLY}" == "1") && \
+      ("${FORCE_PATCH}" == "true" || "${FORCE_PATCH}" == "1") ]]; then
+  echo "ERROR: CHECK_ONLY 与 FORCE_PATCH 不能同时开启" >&2
+  exit 1
+fi
+
+OUT_DIR="${JOB_DIR}/${BUILD_ID:-${BUILD_NUMBER:-manual}}"
+mkdir -p "${OUT_DIR}"
+UNSUPPORTED_JSON="${OUT_DIR}/unsupported-files.json"
+SUPPORTED_JSON="${OUT_DIR}/supported-files.json"
+RESOURCES_JSON="${OUT_DIR}/supported-resources.json"
 
 echo "==> platform=${PLATFORM}"
 echo "==> branch=${BRANCH:-"(当前分支，不切换)"}"
 echo "==> release=${RELEASE:-"(from VERSION+BUILD)"}"
 echo "==> release-version=${RELEASE_VERSION}"
-JOB_DIR="${WORKSPACE_DIR:-${WORKSPACE:-$(pwd)}}"
-OUT_DIR="${JOB_DIR}/${BUILD_ID:-${BUILD_NUMBER:-manual}}"
-mkdir -p "${OUT_DIR}"
-UNSUPPORTED_JSON="${OUT_DIR}/unsupported-files.json"
-SUPPORTED_JSON="${OUT_DIR}/supported-files.json"
-
 echo "==> force-patch=${FORCE_PATCH}"
+echo "==> check-only=${CHECK_ONLY}"
+echo "==> whitelist=${WHITELIST:-"(未指定)"}"
+echo "==> unique-ids=${UNIQUE_IDS:-"(无)"}"
+echo "==> job-dir=${JOB_DIR}"
 echo "==> app-dir=${APP_DIR}"
 echo "==> out-dir=${OUT_DIR}"
 
 cd "${APP_DIR}"
 
-# ---- 热更预检（FORCE_PATCH 时跳过）----
-# metax check-ota：先更新代码 → 授权 Flutter 目录 → flutterpatch check-ota
-# exit 0=支持 / 2=不支持 / 其它=执行失败
 if [[ "${FORCE_PATCH}" == "true" || "${FORCE_PATCH}" == "1" ]]; then
   echo "==> FORCE_PATCH 已开启，跳过 metax check-ota"
 else
@@ -110,6 +132,7 @@ else
     --release-version "${RELEASE_VERSION}"
     --unsupported-out "${UNSUPPORTED_JSON}"
     --supported-out "${SUPPORTED_JSON}"
+    --resources-out "${RESOURCES_JSON}"
   )
   if [[ -n "${BRANCH}" ]]; then
     CHECK_ARGS+=(--branch "${BRANCH}")
@@ -119,8 +142,15 @@ else
   "${METAX_BIN}" "${CHECK_ARGS[@]}"
   check_rc=$?
   set -e
+  echo "==> unsupported JSON → ${UNSUPPORTED_JSON}"
+  echo "==> supported JSON → ${SUPPORTED_JSON}"
+  echo "==> resources JSON → ${RESOURCES_JSON}"
+  if [[ "${CHECK_ONLY}" == "true" || "${CHECK_ONLY}" == "1" ]]; then
+    echo "==> CHECK_ONLY：仅检测，退出码=${check_rc}"
+    exit "${check_rc}"
+  fi
   if [[ "${check_rc}" -eq 2 ]]; then
-    echo "ERROR: 当前工程相对 ${VERSION} 不支持热更，已中断。强行打补丁请设 FORCE_PATCH=true" >&2
+    echo "ERROR: 当前工程相对 ${RELEASE_VERSION} 不支持热更，已中断。强行打补丁请设 FORCE_PATCH=true" >&2
     exit 2
   fi
   if [[ "${check_rc}" -ne 0 ]]; then
@@ -130,23 +160,35 @@ else
   echo "==> 热更检测通过，继续打补丁"
 fi
 
-# ---- 组装 metax patch 命令 ----
 ARGS=(
   --workspace "${APP_DIR}"
   patch "${PLATFORM}"
   --release-version "${RELEASE_VERSION}"
 )
-
 if [[ -n "${BRANCH}" ]]; then
   ARGS+=(--branch "${BRANCH}")
 fi
-
 if [[ "${FORCE_PATCH}" == "true" || "${FORCE_PATCH}" == "1" ]]; then
   ARGS+=(--force-patch)
 fi
-
 if [[ "${ALLOW_ASSET_DIFFS}" == "true" || "${ALLOW_ASSET_DIFFS}" == "1" ]]; then
   ARGS+=(--allow-asset-diffs)
+fi
+
+case "$(echo "${WHITELIST}" | tr '[:upper:]' '[:lower:]')" in
+  true|1|yes)
+    ARGS+=(--whitelist)
+    ;;
+  false|0|no)
+    ARGS+=(--no-whitelist)
+    ;;
+esac
+
+if [[ -n "${UNIQUE_IDS}" ]]; then
+  ARGS+=(--unique-ids "${UNIQUE_IDS}")
+  if [[ -z "${WHITELIST}" ]]; then
+    ARGS+=(--whitelist)
+  fi
 fi
 
 echo "==> 执行: ${METAX_BIN} ${ARGS[*]}"
