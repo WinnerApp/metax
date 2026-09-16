@@ -46,8 +46,8 @@ class CheckOtaCommand extends Command {
     argParser.addOption(
       'resources-out',
       help:
-          '写出当前可热更资源配置 JSON（check-ota 的 asset_changes → resources）；'
-          '列表为空也会写，便于 Jenkins 归档',
+          '写出资源热更配置 JSON：全量 resources + 增量 asset_changes + '
+          '不支持 unsupported_asset_changes；列表为空也会写',
     );
     argParser.addFlag(
       'json',
@@ -146,6 +146,7 @@ class CheckOtaCommand extends Command {
           : null,
       unsupportedOut: unsupportedOut.isEmpty ? null : unsupportedOut,
       supportedOut: supportedOut.isEmpty ? null : supportedOut,
+      resourcesOut: resourcesOut.isEmpty ? null : resourcesOut,
     );
 
     if (check.stdout.trim().isNotEmpty) {
@@ -164,13 +165,17 @@ class CheckOtaCommand extends Command {
 
     final otaSupported = check.otaSupported && check.exitCode == 0;
 
-    if (resourcesOut.isNotEmpty) {
+    // Prefer CLI-written --resources-out; fall back to reconstructing from JSON
+    // for older flutterpatch builds that lack the flag.
+    if (resourcesOut.isNotEmpty && !File(resourcesOut).existsSync()) {
       writeHotUpdatableResourcesJson(
         checkJson: check.json,
         path: resourcesOut,
         otaSupported: otaSupported,
       );
-      _log('已写出可热更资源配置: $resourcesOut', jsonMode: jsonMode);
+      _log('已写出资源热更配置: $resourcesOut', jsonMode: jsonMode);
+    } else if (resourcesOut.isNotEmpty) {
+      _log('已写出资源热更配置: $resourcesOut', jsonMode: jsonMode);
     }
 
     final output = <String, dynamic>{
@@ -211,7 +216,9 @@ class CheckOtaCommand extends Command {
       'change_count',
       'has_baseline',
       'baseline_source',
-      // 可热更资源配置（与 patch changed_resources 同形）
+      // 全量 / 增量 / 不支持
+      'resources',
+      'resource_count',
       'asset_changes',
       'unsupported_asset_changes',
     ];

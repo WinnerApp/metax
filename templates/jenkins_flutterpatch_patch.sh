@@ -18,7 +18,7 @@
 # 产物：
 #   ${WORKSPACE}/${BUILD_ID}/unsupported-files.json
 #   ${WORKSPACE}/${BUILD_ID}/supported-files.json
-#   ${WORKSPACE}/${BUILD_ID}/supported-resources.json   # 可热更资源配置
+#   ${WORKSPACE}/${BUILD_ID}/supported-resources.json   # 全量+增量+不支持资源热更配置
 #
 # 还需：FLUTTERPATCH_TOKEN、APPWRITE_*（节点或下面 ENV_FILE）
 # 需 metax 已支持：--check-only / --whitelist / --unique-ids / --resources-out

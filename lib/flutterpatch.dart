@@ -276,6 +276,7 @@ List<String> buildFlutterPatchCheckOtaArgs({
   String? iosDir,
   String? unsupportedOut,
   String? supportedOut,
+  String? resourcesOut,
   bool json = true,
 }) {
   return <String>[
@@ -296,6 +297,10 @@ List<String> buildFlutterPatchCheckOtaArgs({
       '--supported-out',
       supportedOut.trim(),
     ],
+    if (resourcesOut != null && resourcesOut.trim().isNotEmpty) ...[
+      '--resources-out',
+      resourcesOut.trim(),
+    ],
     if (platform == 'android' &&
         androidDir != null &&
         androidDir.trim().isNotEmpty) ...[
@@ -309,9 +314,23 @@ List<String> buildFlutterPatchCheckOtaArgs({
   ];
 }
 
-/// 从 check-ota JSON 抽出可热更资源配置（`asset_changes`）并写入 [path]。
+/// Unwrap FlutterPatch `--json` envelope `{status, data, meta}` → `data`.
+///
+/// Older CLIs / tests may emit a flat check-ota payload; those pass through.
+Map<String, dynamic>? unwrapFlutterPatchJson(Map<String, dynamic>? raw) {
+  if (raw == null) return null;
+  final data = raw['data'];
+  if (raw.containsKey('status') && data is Map) {
+    return Map<String, dynamic>.from(data);
+  }
+  return raw;
+}
+
+/// 从 check-ota JSON 写出资源热更配置：
+/// 全量清单 + 增量变动 + 不支持热更的变动。
 ///
 /// 即使列表为空也会写文件，便于 Jenkins 产物归档。
+/// 优先使用 CLI `--resources-out`；本函数仅作旧版 CLI 的回退。
 void writeHotUpdatableResourcesJson({
   required Map<String, dynamic>? checkJson,
   required String path,
@@ -319,18 +338,26 @@ void writeHotUpdatableResourcesJson({
 }) {
   final trimmed = path.trim();
   if (trimmed.isEmpty) return;
-  final assetChanges = checkJson?['asset_changes'];
-  final list = assetChanges is List ? assetChanges : const [];
-  final unsupported = checkJson?['unsupported_asset_changes'];
-  final unsupportedList = unsupported is List ? unsupported : const [];
+
+  final payloadIn = unwrapFlutterPatchJson(checkJson);
+  final resourcesRaw = payloadIn?['resources'];
+  final resources = resourcesRaw is List ? resourcesRaw : const [];
+  final assetChangesRaw = payloadIn?['asset_changes'];
+  final assetChanges = assetChangesRaw is List ? assetChangesRaw : const [];
+  final unsupportedRaw = payloadIn?['unsupported_asset_changes'];
+  final unsupportedList = unsupportedRaw is List ? unsupportedRaw : const [];
+
   final payload = <String, dynamic>{
-    'ota_supported': otaSupported ?? checkJson?['ota_supported'] == true,
-    'asset_change_count': list.length,
+    'ota_supported': otaSupported ?? payloadIn?['ota_supported'] == true,
+    'resource_count': resources.length,
+    // 当前工程全量 Flutter asset 清单（非 diff）
+    'resources': resources,
+    'asset_change_count': assetChanges.length,
+    // 相对服务端资源基线的增量（add/update/remove，可热更）
+    'asset_changes': assetChanges,
     'unsupported_asset_change_count': unsupportedList.length,
-    // 与 flutterpatch patch 上传的 changed_resources 同形（add/update/remove）
-    'resources': list,
-    if (unsupportedList.isNotEmpty)
-      'unsupported_asset_changes': unsupportedList,
+    // 命中 .flutterpatch-unsupported-resources，变了需整包发版
+    'unsupported_asset_changes': unsupportedList,
   };
   final file = File(trimmed);
   file.parent.createSync(recursive: true);
@@ -411,6 +438,7 @@ Future<FlutterPatchCheckOtaResult> runFlutterPatchCheckOta({
   Directory? iosDir,
   String? unsupportedOut,
   String? supportedOut,
+  String? resourcesOut,
 }) async {
   await ensureFlutterPatchInstalled();
   final cli = resolveFlutterPatchCli();
@@ -422,6 +450,7 @@ Future<FlutterPatchCheckOtaResult> runFlutterPatchCheckOta({
     iosDir: iosDir?.path,
     unsupportedOut: unsupportedOut,
     supportedOut: supportedOut,
+    resourcesOut: resourcesOut,
   );
   loggerInfo('执行: $cli ${args.join(' ')}');
   final result = await ProcessRunner(
@@ -434,7 +463,9 @@ Future<FlutterPatchCheckOtaResult> runFlutterPatchCheckOta({
   );
   final stdoutText = result.stdout.toString();
   final stderrText = result.stderr.toString();
-  final json = parseLastJsonObject(stdoutText) ?? parseLastJsonObject(stderrText);
+  final raw = parseLastJsonObject(stdoutText) ?? parseLastJsonObject(stderrText);
+  // FlutterPatch `--json` wraps payloads as {status, data, meta}.
+  final json = unwrapFlutterPatchJson(raw);
   final otaSupported = json?['ota_supported'] == true ||
       (json?['ota_supported'] == null && result.exitCode == 0);
   return FlutterPatchCheckOtaResult(

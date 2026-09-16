@@ -75,8 +75,8 @@ abstract class BasePatchCommand extends Command {
     argParser.addOption(
       'resources-out',
       help:
-          '写出当前可热更资源配置 JSON（asset_changes → resources），'
-          '便于 Jenkins 归档；列表为空也会写',
+          '写出资源热更配置 JSON：全量 resources + 增量 asset_changes + '
+          '不支持 unsupported_asset_changes；列表为空也会写',
     );
     argParser.addFlag(
       'isUpload',
@@ -163,6 +163,7 @@ abstract class BasePatchCommand extends Command {
             : null,
         unsupportedOut: unsupportedOut.isEmpty ? null : unsupportedOut,
         supportedOut: supportedOut.isEmpty ? null : supportedOut,
+        resourcesOut: resourcesOut.isEmpty ? null : resourcesOut,
       );
       if (check.stdout.trim().isNotEmpty) {
         loggerInfo(check.stdout.trim());
@@ -178,13 +179,15 @@ abstract class BasePatchCommand extends Command {
       }
 
       final otaSupported = check.otaSupported && check.exitCode == 0;
-      if (resourcesOut.isNotEmpty) {
+      if (resourcesOut.isNotEmpty && !File(resourcesOut).existsSync()) {
         writeHotUpdatableResourcesJson(
           checkJson: check.json,
           path: resourcesOut,
           otaSupported: otaSupported,
         );
-        loggerInfo('已写出可热更资源配置: $resourcesOut');
+        loggerInfo('已写出资源热更配置: $resourcesOut');
+      } else if (resourcesOut.isNotEmpty) {
+        loggerInfo('已写出资源热更配置: $resourcesOut');
       }
 
       if (checkOnly) {

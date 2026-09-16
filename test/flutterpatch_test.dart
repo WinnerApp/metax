@@ -182,6 +182,7 @@ metax_enabled: true
           androidDir: '/app/android',
           unsupportedOut: '/tmp/u.json',
           supportedOut: '/tmp/s.json',
+          resourcesOut: '/tmp/r.json',
         ),
         [
           '--json',
@@ -197,6 +198,8 @@ metax_enabled: true
           '/tmp/u.json',
           '--supported-out',
           '/tmp/s.json',
+          '--resources-out',
+          '/tmp/r.json',
           '--android',
           '/app/android',
         ],
@@ -240,11 +243,25 @@ metax_enabled: true
   });
 
   group('writeHotUpdatableResourcesJson', () {
-    test('writes resources from asset_changes', () {
+    test('writes full inventory, incremental, and unsupported', () {
       final out = File(join(tempDir.path, 'resources.json'));
       writeHotUpdatableResourcesJson(
         checkJson: {
           'ota_supported': true,
+          'resources': [
+            {
+              'package': 'demo',
+              'path': 'assets/a.png',
+              'hash': 'abc',
+              'size': 3,
+            },
+            {
+              'package': 'demo',
+              'path': 'fonts/x.ttf',
+              'hash': 'def',
+              'size': 1,
+            },
+          ],
           'asset_changes': [
             {
               'package': 'demo',
@@ -253,14 +270,29 @@ metax_enabled: true
               'hash': 'abc',
             },
           ],
+          'unsupported_asset_changes': [
+            {
+              'package': 'demo',
+              'path': 'fonts/x.ttf',
+              'change': 'update',
+              'hash': 'def',
+            },
+          ],
         },
         path: out.path,
         otaSupported: true,
       );
       final decoded = jsonDecode(out.readAsStringSync()) as Map;
       expect(decoded['ota_supported'], isTrue);
+      expect(decoded['resource_count'], 2);
+      expect((decoded['resources'] as List).length, 2);
       expect(decoded['asset_change_count'], 1);
-      expect((decoded['resources'] as List).single['path'], 'assets/a.png');
+      expect((decoded['asset_changes'] as List).single['path'], 'assets/a.png');
+      expect(decoded['unsupported_asset_change_count'], 1);
+      expect(
+        (decoded['unsupported_asset_changes'] as List).single['path'],
+        'fonts/x.ttf',
+      );
     });
   });
 
@@ -271,6 +303,64 @@ metax_enabled: true
       );
       expect(json?['ota_supported'], isTrue);
       expect(json?['n'], 1);
+    });
+  });
+
+  group('unwrapFlutterPatchJson', () {
+    test('unwraps status/data/meta envelope', () {
+      final unwrapped = unwrapFlutterPatchJson({
+        'status': 'success',
+        'data': {
+          'ota_supported': true,
+          'asset_changes': [
+            {'path': 'assets/a.png', 'change': 'update'},
+          ],
+          'resources': [
+            {'path': 'assets/a.png'},
+          ],
+        },
+        'meta': {'command': 'check-ota'},
+      });
+      expect(unwrapped?['ota_supported'], isTrue);
+      expect((unwrapped?['asset_changes'] as List).length, 1);
+      expect((unwrapped?['resources'] as List).length, 1);
+    });
+
+    test('passes through flat check-ota payloads', () {
+      final flat = unwrapFlutterPatchJson({
+        'ota_supported': false,
+        'asset_change_count': 0,
+      });
+      expect(flat?['ota_supported'], isFalse);
+      expect(flat?['asset_change_count'], 0);
+    });
+  });
+
+  group('writeHotUpdatableResourcesJson envelope', () {
+    test('reads nested data from FlutterPatch --json envelope', () {
+      final out = File(join(tempDir.path, 'resources-envelope.json'));
+      writeHotUpdatableResourcesJson(
+        checkJson: {
+          'status': 'success',
+          'data': {
+            'ota_supported': true,
+            'resources': [
+              {'package': 'demo', 'path': 'assets/a.png', 'hash': 'abc'},
+            ],
+            'asset_changes': [
+              {'package': 'demo', 'path': 'assets/a.png', 'change': 'update'},
+            ],
+            'unsupported_asset_changes': <Map<String, Object?>>[],
+          },
+          'meta': {'command': 'check-ota'},
+        },
+        path: out.path,
+      );
+      final decoded = jsonDecode(out.readAsStringSync()) as Map;
+      expect(decoded['ota_supported'], isTrue);
+      expect(decoded['resource_count'], 1);
+      expect((decoded['resources'] as List).single['path'], 'assets/a.png');
+      expect(decoded['asset_change_count'], 1);
     });
   });
 
