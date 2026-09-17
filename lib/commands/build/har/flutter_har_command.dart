@@ -6,6 +6,7 @@ import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutter_sdk.dart';
+import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
 
@@ -26,6 +27,16 @@ class FlutterHarCommand extends BuildCacheCommand {
     argParser.addOption(
       'branch',
       help: '分支名称，指定分支则切换到对应分支',
+    );
+    // 与 aar/framework / cache use 对齐：接受开关，但 ohos HAR 不走 FlutterPatch。
+    argParser.addFlag(
+      'useFlutterPatch',
+      help: '显式启用/关闭 FlutterPatch（覆盖 yaml/env；ohos HAR 不支持，仅解析兼容）',
+      defaultsTo: null,
+    );
+    argParser.addOption(
+      'releaseVersion',
+      help: 'FlutterPatch --release-version，如 1.2.3+456（ohos HAR 忽略）',
     );
   }
 
@@ -49,6 +60,17 @@ class FlutterHarCommand extends BuildCacheCommand {
       '请选择 Flutter HAR 构建配置',
       allowed: BuildConfiguration.values.map((e) => e.name).toList(),
     );
+    final flutterpatch = resolveUseFlutterPatch(
+      appHomeDir: appHomeDir,
+      explicitUseFlutterPatch: argResults?['useFlutterPatch'] as bool?,
+    );
+    if (flutterpatch.enabled) {
+      loggerWarning(
+        'ohos HAR 不支持 FlutterPatch，已忽略（${flutterpatch.reason}）',
+      );
+    } else {
+      loggerInfo('FlutterPatch: enabled=false (${flutterpatch.reason})');
+    }
     final workspaceDir = appHomeDir.flutterDir;
     final pubspecFile = File(join(workspaceDir.path, 'pubspec.yaml'));
     if (!pubspecFile.existsSync()) {
