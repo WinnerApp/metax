@@ -182,7 +182,10 @@ class DownloadCacheCommand extends Command {
     );
     // final cacheModel =
     //     await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
-    final cacheFile = metaxCache.getZipCachePath(commitHash);
+    final cacheFile = metaxCache.getZipCachePath(
+      commitHash,
+      artifactKind: CacheArtifactKind.release,
+    );
     final cacheHomeDir = Directory(metaxCache.cacheHomeDir);
     if (!cacheHomeDir.existsSync()) {
       cacheHomeDir.createSync(recursive: true);
@@ -204,10 +207,19 @@ class DownloadCacheCommand extends Command {
           if (camel.isNotEmpty) return camel;
           return cacheDocument['release_version']?.toString().trim() ?? '';
         }(),
+        artifactKind: CacheArtifactKind.release,
+        contentHash: () {
+          final camel = cacheDocument['contentHash']?.toString().trim() ?? '';
+          if (camel.isNotEmpty) return camel;
+          return cacheDocument['content_hash']?.toString().trim() ?? '';
+        }(),
       ),
     );
     loggerDebug('写入配置到本地!');
-    if (!await metaxCache.isCacheExists(commitHash)) {
+    if (!await metaxCache.isCacheExists(
+      commitHash,
+      artifactKind: CacheArtifactKind.release,
+    )) {
       loggerDebug('下载缓存到本地中，请稍等......');
       // https://appwrite.winnermedical.com/v1/storage/buckets/67d26a1b002de170d9a0/files/69a93d0fa9b0386b39d6/download?project=677f626b0012252b422e&project=677f626b0012252b422e&mode=admin
       final downloadUrl =

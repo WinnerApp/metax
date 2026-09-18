@@ -244,7 +244,7 @@ abstract class BasePatchCommand extends Command {
       whitelist = null;
     }
 
-    await runFlutterPatchPatch(
+    final patchNumber = await runFlutterPatchPatch(
       flutterDir: flutterDir,
       platform: flutterPatchPlatform,
       releaseVersion: releaseVersion,
@@ -259,6 +259,7 @@ abstract class BasePatchCommand extends Command {
       otaPlatform: otaPlatform,
       releaseVersion: releaseVersion,
       isUpload: isUpload,
+      sourcePatchNumber: patchNumber,
     );
 
     loggerSuccess(

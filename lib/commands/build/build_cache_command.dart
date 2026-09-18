@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:crypto/crypto.dart';
 import 'package:meta_tool/cache/build_cache.dart';
 import 'package:meta_tool/cache/cache_cleaner.dart';
 import 'package:meta_tool/cache/cache_manager.dart';
@@ -66,6 +67,7 @@ abstract class BuildCacheCommand extends Command {
       flutterSdk: flutterSdk,
       isShorebird: isShorebird,
       releaseVersion: releaseVersion,
+      artifactKind: CacheArtifactKind.release,
     );
 
     if (forceUpdate) {
@@ -99,7 +101,11 @@ abstract class BuildCacheCommand extends Command {
 
     if (!disableAllCache &&
         cacheModel != null &&
-        await cache.isCacheExists(cacheModel.commitHash) &&
+        cacheModel.artifactKind == CacheArtifactKind.release &&
+        await cache.isCacheExists(
+          cacheModel.commitHash,
+          artifactKind: CacheArtifactKind.release,
+        ) &&
         !forceUpdate) {
       loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
       commitHash = cacheModel.commitHash;
@@ -121,6 +127,7 @@ abstract class BuildCacheCommand extends Command {
         flutterSdk: flutterSdk,
         isShorebird: isShorebird,
         releaseVersion: releaseVersion,
+        artifactKind: CacheArtifactKind.release,
       );
     } else {
       await buildCache();
@@ -140,6 +147,7 @@ abstract class BuildCacheCommand extends Command {
           flutterSdk: flutterSdk,
           isShorebird: isShorebird,
           releaseVersion: releaseVersion,
+          artifactKind: CacheArtifactKind.release,
         ),
       ]);
       await writeToCacheSystem(
@@ -150,6 +158,7 @@ abstract class BuildCacheCommand extends Command {
         flutterSdk: flutterSdk,
         isShorebird: isShorebird,
         releaseVersion: releaseVersion,
+        artifactKind: CacheArtifactKind.release,
       );
       if (cache.buildPlatform == BuildPlatform.android) {
         // android/unityLibrary/symbols
@@ -189,14 +198,22 @@ abstract class BuildCacheCommand extends Command {
       platform: platform,
       releaseVersion: current,
       cachedReleaseVersion: cached.releaseVersion,
+      artifactKind: cached.artifactKind,
+      contentHash: cached.contentHash,
+      sourcePatchNumber: cached.sourcePatchNumber,
     );
     if (!cloned) return;
 
-    // 索引记为当前宿主版本，方便下次链式 from-release
+    // 索引记为当前宿主版本，方便下次链式 from-release。
+    // patched promote 成功后视为新 release 基线（OTA 已登记 origin=release）。
     final infos = [...await cache.cacheManager.read()];
     final index = infos.indexWhere((e) => e == cached);
     if (index != -1) {
-      infos[index] = infos[index].copyWith(releaseVersion: current);
+      infos[index] = infos[index].copyWith(
+        releaseVersion: current,
+        artifactKind: CacheArtifactKind.release,
+        clearSourcePatchNumber: true,
+      );
       await cache.cacheManager.write(infos);
     }
   }
@@ -237,6 +254,7 @@ abstract class BuildCacheCommand extends Command {
     String flutterSdk = '',
     bool isShorebird = false,
     String releaseVersion = '',
+    CacheArtifactKind artifactKind = CacheArtifactKind.release,
   }) {
     return writeBuildDirToCacheSystem(
       buildCacheDir: buildCacheDir,
@@ -246,6 +264,7 @@ abstract class BuildCacheCommand extends Command {
       flutterSdk: flutterSdk,
       isShorebird: isShorebird,
       releaseVersion: releaseVersion,
+      artifactKind: artifactKind,
     );
   }
 
@@ -261,7 +280,7 @@ abstract class BuildCacheCommand extends Command {
   }
 }
 
-/// 将产物目录打成 zip 并写入 `~/.metax` 本地缓存索引。
+/// 将产物目录打成 zip 并写入 `~/.metax` 本地缓存索引（按 [artifactKind] 分槽）。
 Future<void> writeBuildDirToCacheSystem({
   required String buildCacheDir,
   required MetaxCache cache,
@@ -270,22 +289,44 @@ Future<void> writeBuildDirToCacheSystem({
   String flutterSdk = '',
   bool isShorebird = false,
   String releaseVersion = '',
+  CacheArtifactKind artifactKind = CacheArtifactKind.release,
+  String? contentHashOverride,
+  int? sourcePatchNumber,
 }) async {
   final buildCacheParentDir = Directory(buildCacheDir).parent;
-  final cacheId = commitHash;
+  final stagingZipName = '$commitHash.${artifactKind.name}.staging.zip';
+  final stagingZipPath = join(buildCacheParentDir.path, stagingZipName);
 
   await ProcessRunner().runProcess(
     [
       'zip',
       '-r',
-      join(buildCacheParentDir.path, '$cacheId.zip'),
+      stagingZipPath,
       './',
     ],
     workingDirectory: Directory(buildCacheDir),
     printOutput: true,
   );
 
-  final zipFile = File(join(buildCacheParentDir.path, '$cacheId.zip'));
+  final zipFile = File(stagingZipPath);
+  final zipHash = (await sha256.bind(zipFile.openRead()).first).toString();
+  var contentHash = (contentHashOverride ?? '').trim();
+  if (contentHash.isEmpty && isShorebird) {
+    contentHash = (await hashFlutterPatchPackageArtifact(
+          buildCacheDir: Directory(buildCacheDir),
+          buildType: cache.buildType,
+        ))
+            ?.trim() ??
+        '';
+  }
+  if (contentHash.isEmpty) {
+    contentHash = zipHash;
+  }
+  loggerInfo(
+    '写入本地缓存槽 ${artifactKind.name}: commit=$commitHash '
+    'sha256=${contentHash.substring(0, 12)}…'
+    '${sourcePatchNumber != null ? ' patch=#$sourcePatchNumber' : ''}',
+  );
   await cache.updateCacheData(
     zipFile,
     CacheModel(
@@ -300,6 +341,9 @@ Future<void> writeBuildDirToCacheSystem({
       flutterSdk: flutterSdk,
       isShorebird: isShorebird,
       releaseVersion: releaseVersion,
+      artifactKind: artifactKind,
+      contentHash: contentHash,
+      sourcePatchNumber: sourcePatchNumber,
     ),
   );
   await zipFile.delete();

@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
 import 'package:meta_tool/app_home_dir.dart';
+import 'package:meta_tool/cache/cache_model.dart';
 import 'package:meta_tool/common.dart';
+import 'package:meta_tool/define.dart';
 import 'package:meta_tool/estimated_progress.dart';
 import 'package:meta_tool/flutter_sdk.dart';
 import 'package:path/path.dart';
@@ -585,6 +589,10 @@ Future<void> runFlutterPatchRelease({
   /// 从已有 release clone 产物登记新宿主版本（不重编 Flutter）。
   /// 与 [flutterVersion] / 透传 build 参数互斥使用。
   String? fromRelease,
+  /// 与 `--from-release` 联用：按全量二进制 hash 解析 OTA 基线（硬失败）。
+  String? artifactHash,
+  /// 与 `--from-release` 联用：从指定 patch 全量基线 clone。
+  int? sourcePatchNumber,
 }) async {
   await ensureFlutterPatchInstalled();
   final yaml = FlutterPatchYamlConfig.tryLoad(flutterDir);
@@ -612,6 +620,14 @@ Future<void> runFlutterPatchRelease({
       releaseVersion,
       '--from-release',
       from,
+      if (artifactHash != null && artifactHash.trim().isNotEmpty) ...[
+        '--artifact-hash',
+        artifactHash.trim(),
+      ],
+      if (sourcePatchNumber != null) ...[
+        '--source-patch-number',
+        '$sourcePatchNumber',
+      ],
     ];
   } else {
     // iOS / Android 共用 flutter/release；不清空会把上一平台残留打进下一平台缓存。
@@ -653,14 +669,20 @@ Future<void> runFlutterPatchRelease({
   }
 }
 
-/// framework/aar 缓存命中后：若宿主版本变了，用 `--from-release` 登记新版本。
+/// framework/aar 缓存命中后：若宿主版本变了，按 by-hash 校验后 `--from-release`。
 ///
-/// 返回是否执行了 clone。旧缓存无 [CacheModel.releaseVersion] 时仅告警并跳过。
+/// - [CacheArtifactKind.release]：校验 `origin=release` + version，再 clone
+/// - [CacheArtifactKind.patched]：校验 `origin=patch`，clone 基线到新 version（promote）
+///
+/// hash / origin / version 不一致一律抛错（硬失败）。
 Future<bool> maybeCloneFlutterPatchReleaseFromCache({
   required Directory flutterDir,
   required String platform, // ios-framework | aar
   required String releaseVersion,
   required String? cachedReleaseVersion,
+  CacheArtifactKind artifactKind = CacheArtifactKind.release,
+  String? contentHash,
+  int? sourcePatchNumber,
 }) async {
   final current = releaseVersion.trim();
   final from = (cachedReleaseVersion ?? '').trim();
@@ -681,8 +703,37 @@ Future<bool> maybeCloneFlutterPatchReleaseFromCache({
     );
     return false;
   }
+
+  final hash = (contentHash ?? '').trim();
+  final patchNo = sourcePatchNumber;
+  if (hash.isEmpty && patchNo == null) {
+    if (artifactKind == CacheArtifactKind.patched) {
+      throw Exception(
+        '本地 patched 缓存缺少 contentHash / sourcePatchNumber，'
+        '无法 by-hash 将补丁基线 promote 到 $current。请重新 patch 一次。',
+      );
+    }
+    loggerWarning(
+      'FlutterPatch release 缓存缺少 contentHash，仍将尝试 --from-release；'
+      '建议对本库重新完整 release 一次以写入哈希，便于后续校验。',
+    );
+  }
+
+  if (hash.isNotEmpty || patchNo != null) {
+    await _assertFlutterPatchBaselineProvenance(
+      flutterDir: flutterDir,
+      artifactHash: hash,
+      expectedReleaseVersion: from,
+      expectedKind: artifactKind,
+      expectedPatchNumber: patchNo,
+    );
+  }
+
   loggerInfo(
-    'FlutterPatch 缓存命中：clone release $from → $current（跳过 Flutter 重编）',
+    artifactKind == CacheArtifactKind.patched
+        ? 'FlutterPatch patched 缓存命中：clone patch 基线 $from → $current'
+            '${patchNo != null ? ' (patch #$patchNo)' : ''}'
+        : 'FlutterPatch 缓存命中：clone release $from → $current（跳过 Flutter 重编）',
   );
   await runFlutterPatchRelease(
     flutterDir: flutterDir,
@@ -690,8 +741,207 @@ Future<bool> maybeCloneFlutterPatchReleaseFromCache({
     releaseVersion: current,
     flutterVersion: '', // clone 路径不使用
     fromRelease: from,
+    artifactHash: hash.isEmpty ? null : hash,
+    sourcePatchNumber: artifactKind == CacheArtifactKind.patched ? patchNo : null,
   );
   return true;
+}
+
+/// GET /admin/v1/baselines/by-artifact-hash and validate origin / version.
+Future<void> _assertFlutterPatchBaselineProvenance({
+  required Directory flutterDir,
+  required String artifactHash,
+  required String expectedReleaseVersion,
+  required CacheArtifactKind expectedKind,
+  int? expectedPatchNumber,
+}) async {
+  final hash = artifactHash.trim();
+  if (hash.isEmpty && expectedPatchNumber == null) {
+    return;
+  }
+
+  Map<String, dynamic>? body;
+  if (hash.isNotEmpty) {
+    body = await lookupFlutterPatchBaselinesByArtifactHash(
+      flutterDir: flutterDir,
+      artifactHash: hash,
+    );
+    if (body == null) {
+      throw Exception(
+        '控制面未找到 artifact_hash=$hash 的 OTA 基线（by-hash 404）。'
+        '请确认 release/patch 已上传带 provenance 的全量基线。',
+      );
+    }
+  }
+
+  Map<String, dynamic>? row;
+  final resource = body?['resource'];
+  final snapshot = body?['snapshot'];
+  if (resource is Map) {
+    row = Map<String, dynamic>.from(resource);
+  } else if (snapshot is Map) {
+    row = Map<String, dynamic>.from(snapshot);
+  }
+  if (row == null && expectedPatchNumber != null) {
+    // Hash optional when promoting by patch number alone — still require
+    // hash when available; without hash we rely on CLI --source-patch-number.
+    return;
+  }
+  if (row == null) {
+    throw Exception('by-hash 响应缺少 resource/snapshot 行');
+  }
+
+  final origin = '${row['origin'] ?? 'release'}'.trim().toLowerCase();
+  final version = '${row['release_version'] ?? ''}'.trim();
+  final patch = (row['patch_number'] as num?)?.toInt();
+
+  if (version.isNotEmpty && version != expectedReleaseVersion) {
+    throw Exception(
+      '基线 release_version=$version，与缓存记录 $expectedReleaseVersion 不一致',
+    );
+  }
+
+  if (expectedKind == CacheArtifactKind.release) {
+    if (origin != 'release') {
+      throw Exception(
+        '期望 origin=release，实际 origin=$origin'
+        '${patch != null ? ' patch=#$patch' : ''}；'
+        'patched 槽请走补丁基线 promote',
+      );
+    }
+  } else {
+    if (origin != 'patch') {
+      throw Exception(
+        '期望 origin=patch，实际 origin=$origin（contentHash 可能对不上补丁全量包）',
+      );
+    }
+    if (expectedPatchNumber != null && patch != expectedPatchNumber) {
+      throw Exception(
+        '期望 patch #$expectedPatchNumber，实际 patch=${patch ?? "(none)"}',
+      );
+    }
+  }
+}
+
+/// Looks up baselines by full binary hash on the control plane.
+///
+/// Returns null on 404. Throws on auth / other errors.
+Future<Map<String, dynamic>?> lookupFlutterPatchBaselinesByArtifactHash({
+  required Directory flutterDir,
+  required String artifactHash,
+  String? appId,
+}) async {
+  final hash = artifactHash.trim();
+  if (hash.isEmpty) {
+    throw ArgumentError.value(artifactHash, 'artifactHash', 'must be non-empty');
+  }
+  final yaml = FlutterPatchYamlConfig.tryLoad(flutterDir);
+  final baseUrl = (yaml?.baseUrl ?? '').trim();
+  if (baseUrl.isEmpty) {
+    throw Exception(
+      'shorebird.yaml 缺少 base_url，无法 by-hash 查询 OTA 基线',
+    );
+  }
+  final resolvedAppId = (appId ?? yaml?.appId ?? '').trim();
+  final token = (Platform.environment['FLUTTERPATCH_TOKEN'] ?? '').trim();
+  if (token.isEmpty) {
+    throw Exception('未设置 FLUTTERPATCH_TOKEN，无法 by-hash 查询 OTA 基线');
+  }
+
+  final uri = Uri.parse(baseUrl).replace(
+    path: _joinUrlPath(Uri.parse(baseUrl).path, '/admin/v1/baselines/by-artifact-hash'),
+    queryParameters: {
+      'hash': hash,
+      if (resolvedAppId.isNotEmpty) 'app_id': resolvedAppId,
+    },
+  );
+  final response = await http.get(
+    uri,
+    headers: {
+      'authorization': 'Bearer $token',
+      'accept': 'application/json',
+    },
+  );
+  if (response.statusCode == 404) return null;
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw Exception(
+      'by-hash 查询失败 HTTP ${response.statusCode}: ${response.body}',
+    );
+  }
+  final decoded = jsonDecode(response.body);
+  if (decoded is! Map) {
+    throw Exception('by-hash 响应不是 JSON object');
+  }
+  return decoded.cast<String, dynamic>();
+}
+
+String _joinUrlPath(String basePath, String suffix) {
+  final left = basePath.endsWith('/')
+      ? basePath.substring(0, basePath.length - 1)
+      : basePath;
+  final right = suffix.startsWith('/') ? suffix : '/$suffix';
+  if (left.isEmpty || left == '/') return right;
+  return '$left$right';
+}
+
+/// SHA-256 of the primary aar / xcframework package under [buildCacheDir].
+///
+/// Aligns with FlutterPatch CLI baseline `artifact_hash` for promote flows.
+Future<String?> hashFlutterPatchPackageArtifact({
+  required Directory buildCacheDir,
+  required BuildType buildType,
+}) async {
+  if (!buildCacheDir.existsSync()) return null;
+  if (buildType == BuildType.aar) {
+    File? best;
+    await for (final entity in buildCacheDir.list(recursive: true)) {
+      if (entity is! File) continue;
+      final name = basename(entity.path);
+      if (!name.endsWith('.aar')) continue;
+      if (best == null ||
+          name.startsWith('flutter_release-') ||
+          entity.lengthSync() > best.lengthSync()) {
+        best = entity;
+        if (name.startsWith('flutter_release-')) break;
+      }
+    }
+    if (best == null) return null;
+    return (await sha256.bind(best.openRead()).first).toString();
+  }
+
+  // ios-framework: zip App/Flutter xcframework like CLI release upload.
+  Directory? xc;
+  for (final name in const [
+    'App.xcframework',
+    'Flutter.xcframework',
+    'ShorebirdFlutter.xcframework',
+  ]) {
+    final dir = Directory(join(buildCacheDir.path, name));
+    if (dir.existsSync()) {
+      xc = dir;
+      break;
+    }
+  }
+  if (xc == null) return null;
+  final staging = File(
+    join(
+      Directory.systemTemp.path,
+      'metax_xcframework_${DateTime.now().microsecondsSinceEpoch}.zip',
+    ),
+  );
+  try {
+    await ProcessRunner().runProcess(
+      ['zip', '-r', staging.path, basename(xc.path)],
+      workingDirectory: Directory(xc.parent.path),
+      printOutput: false,
+    );
+    if (!staging.existsSync()) return null;
+    return (await sha256.bind(staging.openRead()).first).toString();
+  } finally {
+    if (staging.existsSync()) {
+      staging.deleteSync();
+    }
+  }
 }
 
 /// 清理 FlutterPatch 共用的 `flutter/release`，避免跨平台产物混入。
@@ -756,7 +1006,7 @@ Future<int> stripAndroidArtifactsFromCacheDir(Directory dir) async {
   return removed;
 }
 
-Future<void> runFlutterPatchPatch({
+Future<int?> runFlutterPatchPatch({
   required Directory flutterDir,
   required String platform, // ios-framework | aar
   required String releaseVersion,
@@ -779,7 +1029,8 @@ Future<void> runFlutterPatchPatch({
   loggerInfo('执行: $cli ${args.join(' ')}');
   final sw = Stopwatch()..start();
   try {
-    await ProcessRunner(environment: flutterPatchCliEnvironment()).runProcess(
+    final result = await ProcessRunner(environment: flutterPatchCliEnvironment())
+        .runProcess(
       [cli, ...args],
       workingDirectory: flutterDir,
       printOutput: true,
@@ -788,6 +1039,9 @@ Future<void> runFlutterPatchPatch({
       'shell 完成: $cli ${args.take(2).join(' ')} · '
       '用时 ${formatElapsedDuration(sw.elapsed)}',
     );
+    return parseFlutterPatchPublishedPatchNumber(
+      '${result.stdout}\n${result.stderr}',
+    );
   } catch (e) {
     loggerInfo(
       'shell 失败: $cli ${args.take(2).join(' ')} · '
@@ -795,6 +1049,13 @@ Future<void> runFlutterPatchPatch({
     );
     rethrow;
   }
+}
+
+/// Parses `✅ Published Patch N!` from flutterpatch patch stdout.
+int? parseFlutterPatchPublishedPatchNumber(String output) {
+  final match = RegExp(r'Published Patch\s+(\d+)').firstMatch(output);
+  if (match == null) return null;
+  return int.tryParse(match.group(1)!);
 }
 
 /// `release/` / framework 目录是否含 iOS xcframework（相对 Android Maven 残留）。

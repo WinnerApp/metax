@@ -28,23 +28,58 @@ abstract class Cache {
     return models.first;
   }
 
-  /// 判断指定Commit Hash缓存是否存在
-  Future<bool> isCacheExists(String commitHash) async {
-    final cacheZipPath = getZipCachePath(commitHash);
-    return File(cacheZipPath).exists();
+  /// 判断指定 Commit Hash + 槽位的缓存 zip 是否存在。
+  ///
+  /// release 槽兼容旧路径 `{commit}.zip`。
+  Future<bool> isCacheExists(
+    String commitHash, {
+    CacheArtifactKind artifactKind = CacheArtifactKind.release,
+  }) async {
+    return resolveExistingZipCachePath(
+          commitHash,
+          artifactKind: artifactKind,
+        ) !=
+        null;
   }
 
-  String getZipCachePath(String commitHash) {
-    return join(cacheHomeDir, '$commitHash.zip');
+  /// 写入用的规范路径：`{commit}.{release|patched}.zip`
+  String getZipCachePath(
+    String commitHash, {
+    CacheArtifactKind artifactKind = CacheArtifactKind.release,
+  }) {
+    return join(
+      cacheHomeDir,
+      '$commitHash.${artifactKind.name}.zip',
+    );
   }
 
-  /// 更新指定分支的最新缓存Commit Hash
+  /// 读取用：优先规范路径，release 槽回退旧 `{commit}.zip`。
+  String? resolveExistingZipCachePath(
+    String commitHash, {
+    CacheArtifactKind artifactKind = CacheArtifactKind.release,
+  }) {
+    final preferred = getZipCachePath(commitHash, artifactKind: artifactKind);
+    if (File(preferred).existsSync()) {
+      return preferred;
+    }
+    if (artifactKind == CacheArtifactKind.release) {
+      final legacy = join(cacheHomeDir, '$commitHash.zip');
+      if (File(legacy).existsSync()) {
+        return legacy;
+      }
+    }
+    return null;
+  }
+
+  /// 更新指定分支的最新缓存 Commit Hash（按 [CacheModel.artifactKind] 分槽）。
   Future<void> updateCacheData(File zipFile, CacheModel model) async {
     if (!Directory(cacheHomeDir).existsSync()) {
       await Directory(cacheHomeDir).create(recursive: true);
     }
-    final cacheId = model.commitHash;
-    final cacheZipPath = getZipCachePath(cacheId);
+    final cacheZipPath = getZipCachePath(
+      model.commitHash,
+      artifactKind: model.artifactKind,
+    );
     await copyFile(zipFile, File(cacheZipPath));
     final infos = [...await cacheManager.read()];
     final index = infos.indexWhere((e) => e == model);

@@ -35,7 +35,14 @@ mixin UseLocalCacheMixin {
       buildConfiguration: buildConfiguration,
       branch: cacheModel.branch,
     );
-    final zipPath = metaxCache.getZipCachePath(cacheModel.commitHash);
+    final zipPath = metaxCache.resolveExistingZipCachePath(
+          cacheModel.commitHash,
+          artifactKind: cacheModel.artifactKind,
+        ) ??
+        metaxCache.getZipCachePath(
+          cacheModel.commitHash,
+          artifactKind: cacheModel.artifactKind,
+        );
     await copyZipToDir(zipPath, targetDir);
 
     /// 修复 Flutter 产物已知问题（KSCrash podspec 版本 / Measure swiftinterface）

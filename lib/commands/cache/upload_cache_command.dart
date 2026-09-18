@@ -130,9 +130,14 @@ class UploadCacheCommand extends Command {
       return;
     }
     List<CacheModel> needUploadCommitModels = [];
-    if (commitHash.isNotEmpty && await metaxCache.isCacheExists(commitHash)) {
+    if (commitHash.isNotEmpty &&
+        await metaxCache.isCacheExists(
+          commitHash,
+          artifactKind: CacheArtifactKind.release,
+        )) {
       needUploadCommitModels = cacheModels
           .where((e) => e.commitHash == commitHash)
+          .where((e) => e.artifactKind == CacheArtifactKind.release)
           .toList();
       if (needUploadCommitModels.isEmpty) {
         needUploadCommitModels = [
@@ -145,11 +150,14 @@ class UploadCacheCommand extends Command {
             commitHash: commitHash,
             buildId: buildId.toString(),
             commitTime: DateTime.parse(commitTime),
+            artifactKind: CacheArtifactKind.release,
           ),
         ];
       }
     } else {
-      needUploadCommitModels = cacheModels;
+      needUploadCommitModels = cacheModels
+          .where((e) => e.artifactKind == CacheArtifactKind.release)
+          .toList();
     }
 
     /// 存储上传失败的commitHash
@@ -195,6 +203,13 @@ class UploadCacheCommand extends Command {
   }
 
   Future<bool> uploadCache(MetaxCache metaxCache, CacheModel model) async {
+    if (model.artifactKind != CacheArtifactKind.release) {
+      loggerInfo(
+        '跳过上传非 release 槽缓存: ${model.commitHash} (${model.artifactKind.name})',
+      );
+      return true;
+    }
+
     final probeServer = _createAppwriteServer();
     final isAlreadyUploaded = await probeServer.isCacheExists(
       databaseId: appwriteCacheEnvironment.databaseId,
@@ -212,7 +227,14 @@ class UploadCacheCommand extends Command {
       return true;
     }
 
-    final zipFilePath = metaxCache.getZipCachePath(model.commitHash);
+    final zipFilePath = metaxCache.resolveExistingZipCachePath(
+          model.commitHash,
+          artifactKind: CacheArtifactKind.release,
+        ) ??
+        metaxCache.getZipCachePath(
+          model.commitHash,
+          artifactKind: CacheArtifactKind.release,
+        );
     if (!File(zipFilePath).existsSync()) {
       loggerError('缓存文件不存在: $zipFilePath');
       return false;
@@ -240,7 +262,7 @@ class UploadCacheCommand extends Command {
           releaseVersion: model.releaseVersion,
           zipFile: InputFile.fromPath(
             path: zipFilePath,
-            filename: '${model.commitHash}.zip',
+            filename: '${model.commitHash}.release.zip',
           ),
         );
       });

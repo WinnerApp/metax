@@ -307,6 +307,9 @@ class UseCacheCommand extends Command {
       platform: platform,
       releaseVersion: current,
       cachedReleaseVersion: cached.releaseVersion,
+      artifactKind: cached.artifactKind,
+      contentHash: cached.contentHash,
+      sourcePatchNumber: cached.sourcePatchNumber,
     );
     if (!cloned) return;
 
@@ -314,7 +317,11 @@ class UseCacheCommand extends Command {
     final infos = [...await metaxCache.cacheManager.read()];
     final index = infos.indexWhere((e) => e == cached);
     if (index != -1) {
-      infos[index] = infos[index].copyWith(releaseVersion: current);
+      infos[index] = infos[index].copyWith(
+        releaseVersion: current,
+        artifactKind: CacheArtifactKind.release,
+        clearSourcePatchNumber: true,
+      );
       await metaxCache.cacheManager.write(infos);
     }
   }
@@ -329,7 +336,12 @@ class UseCacheCommand extends Command {
     if (cacheModel == null) return null;
     loggerDebug('查询到本地缓存: ${cacheModel.commitHash}');
     final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
-    if (!await metaxCache.isCacheExists(cacheModel.commitHash)) return null;
+    if (!await metaxCache.isCacheExists(
+      cacheModel.commitHash,
+      artifactKind: cacheModel.artifactKind,
+    )) {
+      return null;
+    }
     return cacheModel;
   }
 
@@ -431,7 +443,14 @@ class UseCacheCommand extends Command {
       ),
     );
     final metaxCache = createMetaxCache(int.parse(cacheModel.buildId));
-    final zipPath = metaxCache.getZipCachePath(cacheModel.commitHash);
+    final zipPath = metaxCache.resolveExistingZipCachePath(
+          cacheModel.commitHash,
+          artifactKind: cacheModel.artifactKind,
+        ) ??
+        metaxCache.getZipCachePath(
+          cacheModel.commitHash,
+          artifactKind: cacheModel.artifactKind,
+        );
     await copyZipToDir(zipPath, targetDir);
 
     /// 修复 Flutter 产物已知问题（KSCrash podspec 版本 / Measure swiftinterface）
@@ -528,6 +547,11 @@ class UseCacheCommand extends Command {
         return flutterpatch.enabled ? isSb : !isSb;
       }).toList();
     }
+
+    // 打包复用只消费 release 基线槽，忽略补丁全量包
+    cacheModels = cacheModels
+        .where((e) => e.artifactKind == CacheArtifactKind.release)
+        .toList();
 
     if (cacheModels.isEmpty) return null;
 

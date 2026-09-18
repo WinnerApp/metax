@@ -10,6 +10,24 @@ bool parseCacheIsShorebird(dynamic value) {
   return false;
 }
 
+/// 本地 zip 缓存槽位：release 基线与补丁全量包必须分槽，不能互相覆盖。
+enum CacheArtifactKind {
+  /// `flutterpatch release` 上传到服务器的不可变基线
+  release,
+
+  /// `flutterpatch patch` 后重新生成的完整 aar/framework（派生物）
+  patched,
+}
+
+CacheArtifactKind parseCacheArtifactKind(dynamic value) {
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  if (text == CacheArtifactKind.patched.name) {
+    return CacheArtifactKind.patched;
+  }
+  // 缺失 / 非法值一律按 release，兼容旧缓存
+  return CacheArtifactKind.release;
+}
+
 class CacheModel {
   final String buildPlatform;
   final String buildLibrary;
@@ -32,6 +50,18 @@ class CacheModel {
   /// 命中后用该字段做 `flutterpatch release --from-release`。
   final String releaseVersion;
 
+  /// release 基线 vs 补丁全量包。参与命中比对，使两槽可并存。
+  final CacheArtifactKind artifactKind;
+
+  /// 缓存 zip（或主产物）的 SHA-256；用于 `--from-release` 前校验。
+  /// **不参与**命中比对。
+  final String contentHash;
+
+  /// 写入 patched 槽时对应的 FlutterPatch patch 号；release 槽为 null。
+  ///
+  /// **不参与**命中比对。promote 时配合 [contentHash] 做 by-hash / by-patch 溯源。
+  final int? sourcePatchNumber;
+
   CacheModel({
     required this.buildPlatform,
     required this.buildLibrary,
@@ -44,6 +74,9 @@ class CacheModel {
     this.flutterSdk = '',
     this.isShorebird = false,
     this.releaseVersion = '',
+    this.artifactKind = CacheArtifactKind.release,
+    this.contentHash = '',
+    this.sourcePatchNumber,
   });
 
   CacheModel copyWith({
@@ -58,6 +91,10 @@ class CacheModel {
     String? flutterSdk,
     bool? isShorebird,
     String? releaseVersion,
+    CacheArtifactKind? artifactKind,
+    String? contentHash,
+    int? sourcePatchNumber,
+    bool clearSourcePatchNumber = false,
   }) {
     return CacheModel(
       buildPlatform: buildPlatform ?? this.buildPlatform,
@@ -71,6 +108,11 @@ class CacheModel {
       flutterSdk: flutterSdk ?? this.flutterSdk,
       isShorebird: isShorebird ?? this.isShorebird,
       releaseVersion: releaseVersion ?? this.releaseVersion,
+      artifactKind: artifactKind ?? this.artifactKind,
+      contentHash: contentHash ?? this.contentHash,
+      sourcePatchNumber: clearSourcePatchNumber
+          ? null
+          : (sourcePatchNumber ?? this.sourcePatchNumber),
     );
   }
 
@@ -90,6 +132,18 @@ class CacheModel {
         map.containsKey('isShorebird') ? map['isShorebird'] : null,
       ),
       releaseVersion: json['releaseVersion'].stringValue,
+      artifactKind: parseCacheArtifactKind(
+        map.containsKey('artifactKind') ? map['artifactKind'] : null,
+      ),
+      contentHash: json['contentHash'].stringValue,
+      sourcePatchNumber: () {
+        final raw = map.containsKey('sourcePatchNumber')
+            ? map['sourcePatchNumber']
+            : map['source_patch_number'];
+        if (raw == null) return null;
+        if (raw is int) return raw;
+        return int.tryParse(raw.toString().trim());
+      }(),
     );
   }
 
@@ -106,6 +160,9 @@ class CacheModel {
       'flutterSdk': flutterSdk,
       'isShorebird': isShorebird,
       'releaseVersion': releaseVersion,
+      'artifactKind': artifactKind.name,
+      'contentHash': contentHash,
+      if (sourcePatchNumber != null) 'sourcePatchNumber': sourcePatchNumber,
     };
   }
 
@@ -120,7 +177,8 @@ class CacheModel {
         buildLibrary == other.buildLibrary &&
         buildType == other.buildType &&
         flutterSdk == other.flutterSdk &&
-        isShorebird == other.isShorebird;
+        isShorebird == other.isShorebird &&
+        artifactKind == other.artifactKind;
   }
 
   @override
@@ -134,6 +192,7 @@ class CacheModel {
         buildType,
         flutterSdk,
         isShorebird,
+        artifactKind,
       );
 }
 
@@ -153,6 +212,9 @@ class ServerCacheModel extends CacheModel {
     super.flutterSdk,
     super.isShorebird,
     super.releaseVersion,
+    super.artifactKind,
+    super.contentHash,
+    super.sourcePatchNumber,
   });
 
   factory ServerCacheModel.fromJson(Map<String, dynamic> map) {
@@ -172,6 +234,24 @@ class ServerCacheModel extends CacheModel {
         map.containsKey('isShorebird') ? map['isShorebird'] : null,
       ),
       releaseVersion: _readReleaseVersion(map),
+      artifactKind: parseCacheArtifactKind(
+        map.containsKey('artifactKind')
+            ? map['artifactKind']
+            : map['artifact_kind'],
+      ),
+      contentHash: () {
+        final camel = map['contentHash']?.toString().trim() ?? '';
+        if (camel.isNotEmpty) return camel;
+        return map['content_hash']?.toString().trim() ?? '';
+      }(),
+      sourcePatchNumber: () {
+        final raw = map.containsKey('sourcePatchNumber')
+            ? map['sourcePatchNumber']
+            : map['source_patch_number'];
+        if (raw == null) return null;
+        if (raw is int) return raw;
+        return int.tryParse(raw.toString().trim());
+      }(),
     );
   }
 }

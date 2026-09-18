@@ -384,6 +384,31 @@ metax_enabled: true
       );
       expect(cloned, isFalse);
     });
+
+    test('patched without hash/patch number throws', () async {
+      expect(
+        () => maybeCloneFlutterPatchReleaseFromCache(
+          flutterDir: home.flutterDir,
+          platform: 'aar',
+          releaseVersion: '1.0.0+2',
+          cachedReleaseVersion: '1.0.0+1',
+          artifactKind: CacheArtifactKind.patched,
+        ),
+        throwsA(isA<Exception>()),
+      );
+    });
+  });
+
+  group('parseFlutterPatchPublishedPatchNumber', () {
+    test('parses published patch line', () {
+      expect(
+        parseFlutterPatchPublishedPatchNumber(
+          'info\n✅ Published Patch 12!\n',
+        ),
+        12,
+      );
+      expect(parseFlutterPatchPublishedPatchNumber('nope'), isNull);
+    });
   });
 
   group('CacheModel releaseVersion', () {
@@ -404,6 +429,41 @@ metax_enabled: true
       expect(a == b, isTrue);
       expect(a.toJson()['releaseVersion'], '1.0.0+1');
       expect(CacheModel.fromJson(a.toJson()).releaseVersion, '1.0.0+1');
+    });
+
+    test('artifactKind participates in equality; contentHash does not', () {
+      final release = CacheModel(
+        buildPlatform: 'ios',
+        buildLibrary: 'flutter',
+        buildType: 'framework',
+        branch: 'main',
+        configuration: 'release',
+        commitHash: 'abc',
+        buildId: '0',
+        commitTime: DateTime.utc(2026, 1, 1),
+        isShorebird: true,
+        artifactKind: CacheArtifactKind.release,
+        contentHash: 'hash1',
+        sourcePatchNumber: 3,
+      );
+      final patched = release.copyWith(
+        artifactKind: CacheArtifactKind.patched,
+        contentHash: 'hash2',
+      );
+      final releaseOtherHash = release.copyWith(contentHash: 'hash2');
+      expect(release == patched, isFalse);
+      expect(release == releaseOtherHash, isTrue);
+      expect(release.toJson()['artifactKind'], 'release');
+      expect(release.toJson()['sourcePatchNumber'], 3);
+      expect(
+        CacheModel.fromJson(patched.toJson()).artifactKind,
+        CacheArtifactKind.patched,
+      );
+      expect(
+        CacheModel.fromJson(release.toJson()).sourcePatchNumber,
+        3,
+      );
+      expect(parseCacheArtifactKind(null), CacheArtifactKind.release);
     });
   });
 
