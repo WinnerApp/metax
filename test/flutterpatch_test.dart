@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:meta_tool/app_home_dir.dart';
 import 'package:meta_tool/cache/cache_model.dart';
+import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 import 'package:test/test.dart';
@@ -384,19 +385,6 @@ metax_enabled: true
       );
       expect(cloned, isFalse);
     });
-
-    test('patched without hash/patch number throws', () async {
-      expect(
-        () => maybeCloneFlutterPatchReleaseFromCache(
-          flutterDir: home.flutterDir,
-          platform: 'aar',
-          releaseVersion: '1.0.0+2',
-          cachedReleaseVersion: '1.0.0+1',
-          artifactKind: CacheArtifactKind.patched,
-        ),
-        throwsA(isA<Exception>()),
-      );
-    });
   });
 
   group('parseFlutterPatchPublishedPatchNumber', () {
@@ -692,6 +680,89 @@ metax_enabled: true
         Directory(join(target.path, 'android_generated')).existsSync(),
         isFalse,
       );
+    });
+  });
+
+  group('FlutterPatch artifact meta hash', () {
+    test('flutterPatchArtifactMetaStem covers release and patch', () {
+      expect(
+        flutterPatchArtifactMetaStem(buildType: BuildType.framework),
+        'ios_xcframework',
+      );
+      expect(
+        flutterPatchArtifactMetaStem(
+          buildType: BuildType.framework,
+          sourcePatchNumber: 1,
+        ),
+        'ios_xcframework_1',
+      );
+      expect(
+        flutterPatchArtifactMetaStem(
+          buildType: BuildType.aar,
+          sourcePatchNumber: 2,
+        ),
+        'android_aar_2',
+      );
+    });
+
+    test('readFlutterPatchArtifactHashFromMeta reads hash from meta.json',
+        () async {
+      writePubspec(flutterPatchEnabled: true);
+      File(join(home.flutterDir.path, 'shorebird.yaml')).writeAsStringSync('''
+app_id: "app-test-id"
+base_url: http://ota.local
+''');
+      const expected =
+          '5899b57ba2c8410002adaa3c0b2ef235d96a336b4e8bc3be7406244b1bedda85';
+
+      final cliBin = Directory(join(tempDir.path, 'fpbin'))..createSync();
+      File(join(cliBin.path, 'flutterpatch')).writeAsStringSync('x');
+      final realCache = Directory(
+        join(
+          cliBin.path,
+          'cache',
+          'flutterpatch',
+          'patches',
+          'app-test-id',
+          '1.0.0+1',
+        ),
+      )..createSync(recursive: true);
+      File(join(realCache.path, 'ios_xcframework_1.meta.json')).writeAsStringSync(
+        jsonEncode({'hash': expected, 'size': 1}),
+      );
+
+      final hash = await readFlutterPatchArtifactHashFromMeta(
+        flutterDir: home.flutterDir,
+        buildType: BuildType.framework,
+        releaseVersion: '1.0.0+1',
+        sourcePatchNumber: 1,
+        environment: {
+          'FLUTTERPATCH_BIN': join(cliBin.path, 'flutterpatch'),
+        },
+      );
+      expect(hash, expected);
+    });
+
+    test('sidecar round-trip via zip', () {
+      final buildDir = Directory(join(tempDir.path, 'build_out'))
+        ..createSync();
+      writeMetaxArtifactSidecar(
+        buildCacheDir: buildDir,
+        contentHash: 'abc123',
+        releaseVersion: '1.0.0+9',
+        sourcePatchNumber: 1,
+      );
+      final zipPath = join(tempDir.path, 'out.zip');
+      final result = Process.runSync(
+        'zip',
+        ['-r', zipPath, './'],
+        workingDirectory: buildDir.path,
+      );
+      expect(result.exitCode, 0);
+      final sidecar = readMetaxArtifactSidecarFromZip(File(zipPath));
+      expect(sidecar?['contentHash'], 'abc123');
+      expect(sidecar?['releaseVersion'], '1.0.0+9');
+      expect(sidecar?['sourcePatchNumber'], 1);
     });
   });
 }

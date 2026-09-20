@@ -12,10 +12,13 @@ import 'package:meta_tool/flutter_sdk.dart';
 import 'package:meta_tool/flutterpatch.dart';
 import 'package:path/path.dart';
 
-/// 将 `flutterpatch patch` 生成的完整 aar / framework 写入本地 **patched** 槽。
+/// 将 `flutterpatch patch` 生成的完整 aar / framework 按 **与
+/// `metax build aar|framework`（flutterpatch release）相同** 的打包缓存逻辑处理：
 ///
-/// 不会覆盖同 commit 的 release 基线缓存；也不上传到与 release 共享的云端缓存键，
-/// 避免后续 `--from-release` / 下载复用拿到补丁全量包。
+/// 1. 同步到 build 目录 → 写入 `~/.metax` release 槽
+/// 2. 再 `uploadCacheResource` 上传到 **Appwrite 打包 zip 缓存**（供下次宿主打包命中）
+///
+/// 只动 metax 打包缓存，**不**改写 FlutterPatch 热更控制面的 release 产物。
 ///
 /// 不调用 [ensureFlutterSdkReady]：闸门在 SDK 变化时会 `flutter clean`，
 /// 会删掉刚打出来的补丁产物。此处只解析指纹，与打包缓存命中键一致。
@@ -43,7 +46,7 @@ Future<void> cacheAndUploadFlutterPatchArtifacts({
 
   loggerInfo(
     '同步补丁完整产物到打包目录: ${target.buildCacheDir} '
-    '(${target.buildType.value}, commit=$commitHash, slot=patched'
+    '(${target.buildType.value}, commit=$commitHash, slot=release'
     '${sourcePatchNumber != null ? ', patch=#$sourcePatchNumber' : ''})',
   );
 
@@ -64,8 +67,12 @@ Future<void> cacheAndUploadFlutterPatchArtifacts({
   final packageHash = await hashFlutterPatchPackageArtifact(
     buildCacheDir: Directory(target.buildCacheDir),
     buildType: target.buildType,
+    flutterDir: flutterDir,
+    releaseVersion: releaseVersion,
+    sourcePatchNumber: sourcePatchNumber,
   );
 
+  // 与 flutter_aar_command / flutter_framework_command 一致：写 release 槽。
   await BuildCacheManager(target.buildCacheDir).write([
     CacheModel(
       buildPlatform: target.buildPlatform.value,
@@ -79,13 +86,16 @@ Future<void> cacheAndUploadFlutterPatchArtifacts({
       flutterSdk: sdkFingerprint,
       isShorebird: true,
       releaseVersion: releaseVersion,
-      artifactKind: CacheArtifactKind.patched,
+      artifactKind: CacheArtifactKind.release,
       contentHash: packageHash ?? '',
       sourcePatchNumber: sourcePatchNumber,
     ),
   ]);
 
-  loggerInfo('写入本地 Flutter ${target.buildType.value} patched 缓存（不覆盖 release 槽）...');
+  loggerInfo(
+    '写入本地 Flutter ${target.buildType.value} release 缓存'
+    '（与 flutterpatch release / metax build 相同槽位）...',
+  );
   await writeBuildDirToCacheSystem(
     buildCacheDir: target.buildCacheDir,
     cache: target.cache,
@@ -94,23 +104,38 @@ Future<void> cacheAndUploadFlutterPatchArtifacts({
     flutterSdk: sdkFingerprint,
     isShorebird: true,
     releaseVersion: releaseVersion,
-    artifactKind: CacheArtifactKind.patched,
+    artifactKind: CacheArtifactKind.release,
     contentHashOverride: packageHash,
     sourcePatchNumber: sourcePatchNumber,
+    flutterDir: flutterDir,
   );
 
-  if (isUpload) {
-    loggerInfo(
-      '已跳过上传补丁全量包到共享 release 云缓存'
-      '（仅本地 patched 槽；带热更发新宿主请 promote 为新 release 基线）',
-    );
-  } else {
+  if (!isUpload) {
     loggerInfo('已跳过上传缓存（--no-isUpload）');
+    return;
   }
+
+  // 与 flutter_aar_command / flutter_framework_command 相同：上传 Appwrite 打包缓存。
+  // force 只覆盖同键的 Appwrite zip（同 commit 打完补丁后内容变了）；
+  // 与热更控制面 release 无关。
+  loggerInfo(
+    '上传 Flutter ${target.buildType.value} 打包缓存到 Appwrite'
+    '（~/.metax → Appwrite，供下次打包）...',
+  );
+  await uploadCacheResource(
+    buildPlatform: target.buildPlatform,
+    buildLibrary: BuildLibrary.flutter,
+    buildConfiguration: BuildConfiguration.release,
+    buildType: target.buildType,
+    branch: branch,
+    commitHash: commitHash,
+    commitTime: commitTime,
+    buildId: 0,
+    force: true,
+  );
 }
 
-/// 补丁产物与 `metax build aar/framework flutter` 使用同一套目录；
-/// 本地 zip 槽位为 [CacheArtifactKind.patched]，与 release 并存。
+/// 补丁产物与 `metax build aar/framework flutter` 使用同一套目录与 release 槽。
 ({
   String buildCacheDir,
   BuildPlatform buildPlatform,

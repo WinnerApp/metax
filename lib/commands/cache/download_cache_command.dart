@@ -149,8 +149,10 @@ class DownloadCacheCommand extends Command {
       );
     }
 
+    cacheDocuments =
+        cacheDocuments.where((e) => e['build_id'].toString() == buildId).toList();
+
     final commitHashs = cacheDocuments
-        .where((e) => e['build_id'].toString() == buildId)
         .map((e) => e['commit_hash'].toString())
         .toList();
     if (commitHashs.isEmpty) {
@@ -180,8 +182,6 @@ class DownloadCacheCommand extends Command {
       branch: branch,
       buildId: int.parse(buildId),
     );
-    // final cacheModel =
-    //     await metaxCache.cacheManager.getCacheByCommitHash(commitHash);
     final cacheFile = metaxCache.getZipCachePath(
       commitHash,
       artifactKind: CacheArtifactKind.release,
@@ -212,6 +212,14 @@ class DownloadCacheCommand extends Command {
           final camel = cacheDocument['contentHash']?.toString().trim() ?? '';
           if (camel.isNotEmpty) return camel;
           return cacheDocument['content_hash']?.toString().trim() ?? '';
+        }(),
+        sourcePatchNumber: () {
+          final raw = cacheDocument.containsKey('sourcePatchNumber')
+              ? cacheDocument['sourcePatchNumber']
+              : cacheDocument['source_patch_number'];
+          if (raw == null) return null;
+          if (raw is int) return raw;
+          return int.tryParse(raw.toString().trim());
         }(),
       ),
     );
@@ -252,6 +260,52 @@ class DownloadCacheCommand extends Command {
         throw e;
       });
     }
+
+    // If Appwrite document lacked contentHash, recover from zip sidecar.
+    await _restoreArtifactProvenanceFromZipIfNeeded(
+      metaxCache: metaxCache,
+      commitHash: commitHash,
+      cacheFile: File(cacheFile),
+    );
     loggerSuccess('下载缓存成功!');
+  }
+
+  /// When cloud doc has no contentHash, read `.metax_artifact.json` inside zip.
+  Future<void> _restoreArtifactProvenanceFromZipIfNeeded({
+    required MetaxCache metaxCache,
+    required String commitHash,
+    required File cacheFile,
+  }) async {
+    final infos = [...await metaxCache.cacheManager.read()];
+    final index = infos.indexWhere(
+      (e) =>
+          e.commitHash == commitHash &&
+          e.artifactKind == CacheArtifactKind.release,
+    );
+    if (index == -1) return;
+    final current = infos[index];
+    if (current.contentHash.trim().isNotEmpty) return;
+    if (!cacheFile.existsSync()) return;
+
+    final sidecar = readMetaxArtifactSidecarFromZip(cacheFile);
+    if (sidecar == null) return;
+    final hash = '${sidecar['contentHash'] ?? ''}'.trim();
+    if (hash.isEmpty) return;
+    final release = '${sidecar['releaseVersion'] ?? ''}'.trim();
+    final patchRaw = sidecar['sourcePatchNumber'];
+    final patch = patchRaw is int
+        ? patchRaw
+        : int.tryParse('${patchRaw ?? ''}'.trim());
+
+    infos[index] = current.copyWith(
+      contentHash: hash,
+      releaseVersion: release.isNotEmpty ? release : current.releaseVersion,
+      sourcePatchNumber: patch ?? current.sourcePatchNumber,
+    );
+    await metaxCache.cacheManager.write(infos);
+    loggerInfo(
+      '已从 zip 内 $kMetaxArtifactSidecarFileName 恢复 contentHash='
+      '${hash.substring(0, hash.length < 12 ? hash.length : 12)}…',
+    );
   }
 }

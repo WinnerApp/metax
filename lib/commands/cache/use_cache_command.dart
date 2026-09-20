@@ -257,6 +257,12 @@ class UseCacheCommand extends Command {
               flutterSdk: networkCacheModel.flutterSdk,
             ),
           );
+          // download 子进程可能从 Appwrite / zip sidecar 写回 contentHash
+          final localAfterDownload = await queryLocalCache();
+          if (localAfterDownload != null &&
+              localAfterDownload.commitHash == networkCacheModel.commitHash) {
+            useCacheModel = localAfterDownload;
+          }
         }
       }
     } else {
@@ -546,12 +552,17 @@ class UseCacheCommand extends Command {
         );
         return flutterpatch.enabled ? isSb : !isSb;
       }).toList();
-    }
 
-    // 打包复用只消费 release 基线槽，忽略补丁全量包
-    cacheModels = cacheModels
-        .where((e) => e.artifactKind == CacheArtifactKind.release)
-        .toList();
+      // FlutterPatch：同一 commit 只保留一份最新全量包（patch 覆盖写 release 槽）。
+      // 产物身份用 contentHash 到控制面 Artifacts 查找，不按 artifactKind 分槽。
+      cacheModels = cacheModels
+          .where((e) => e.artifactKind == CacheArtifactKind.release)
+          .toList();
+    } else {
+      cacheModels = cacheModels
+          .where((e) => e.artifactKind == CacheArtifactKind.release)
+          .toList();
+    }
 
     if (cacheModels.isEmpty) return null;
 

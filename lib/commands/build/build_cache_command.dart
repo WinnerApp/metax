@@ -53,6 +53,7 @@ abstract class BuildCacheCommand extends Command {
       cacheId,
       flutterSdk: flutterSdk,
       isShorebird: isShorebird,
+      artifactKind: CacheArtifactKind.release,
     );
     final startTime = DateTime.now();
     final buildModel = CacheModel(
@@ -101,13 +102,15 @@ abstract class BuildCacheCommand extends Command {
 
     if (!disableAllCache &&
         cacheModel != null &&
-        cacheModel.artifactKind == CacheArtifactKind.release &&
         await cache.isCacheExists(
           cacheModel.commitHash,
-          artifactKind: CacheArtifactKind.release,
+          artifactKind: cacheModel.artifactKind,
         ) &&
         !forceUpdate) {
-      loggerWarning('🔍 本地缓存目录存在指定缓存，跳过编译......');
+      loggerWarning(
+        '🔍 本地缓存目录存在指定缓存'
+        '（${cacheModel.artifactKind.name}），跳过编译......',
+      );
       commitHash = cacheModel.commitHash;
       await _cloneFlutterPatchReleaseIfNeeded(
         cache: cache,
@@ -128,6 +131,7 @@ abstract class BuildCacheCommand extends Command {
         isShorebird: isShorebird,
         releaseVersion: releaseVersion,
         artifactKind: CacheArtifactKind.release,
+        flutterDir: isShorebird ? appHomeDir.flutterDir : null,
       );
     } else {
       await buildCache();
@@ -159,6 +163,7 @@ abstract class BuildCacheCommand extends Command {
         isShorebird: isShorebird,
         releaseVersion: releaseVersion,
         artifactKind: CacheArtifactKind.release,
+        flutterDir: isShorebird ? appHomeDir.flutterDir : null,
       );
       if (cache.buildPlatform == BuildPlatform.android) {
         // android/unityLibrary/symbols
@@ -255,6 +260,8 @@ abstract class BuildCacheCommand extends Command {
     bool isShorebird = false,
     String releaseVersion = '',
     CacheArtifactKind artifactKind = CacheArtifactKind.release,
+    Directory? flutterDir,
+    int? sourcePatchNumber,
   }) {
     return writeBuildDirToCacheSystem(
       buildCacheDir: buildCacheDir,
@@ -265,6 +272,8 @@ abstract class BuildCacheCommand extends Command {
       isShorebird: isShorebird,
       releaseVersion: releaseVersion,
       artifactKind: artifactKind,
+      flutterDir: flutterDir,
+      sourcePatchNumber: sourcePatchNumber,
     );
   }
 
@@ -292,10 +301,35 @@ Future<void> writeBuildDirToCacheSystem({
   CacheArtifactKind artifactKind = CacheArtifactKind.release,
   String? contentHashOverride,
   int? sourcePatchNumber,
+  Directory? flutterDir,
 }) async {
   final buildCacheParentDir = Directory(buildCacheDir).parent;
   final stagingZipName = '$commitHash.${artifactKind.name}.staging.zip';
   final stagingZipPath = join(buildCacheParentDir.path, stagingZipName);
+
+  var contentHash = (contentHashOverride ?? '').trim();
+  if (contentHash.isEmpty && isShorebird) {
+    contentHash = (await hashFlutterPatchPackageArtifact(
+          buildCacheDir: Directory(buildCacheDir),
+          buildType: cache.buildType,
+          flutterDir: flutterDir,
+          releaseVersion: releaseVersion,
+          sourcePatchNumber: sourcePatchNumber,
+        ))
+            ?.trim() ??
+        '';
+  }
+
+  // Embed provenance in the zip so Appwrite download can restore cache.json
+  // fields even when the cloud document schema lacks them.
+  if (isShorebird && contentHash.isNotEmpty) {
+    writeMetaxArtifactSidecar(
+      buildCacheDir: Directory(buildCacheDir),
+      contentHash: contentHash,
+      releaseVersion: releaseVersion,
+      sourcePatchNumber: sourcePatchNumber,
+    );
+  }
 
   await ProcessRunner().runProcess(
     [
@@ -310,15 +344,6 @@ Future<void> writeBuildDirToCacheSystem({
 
   final zipFile = File(stagingZipPath);
   final zipHash = (await sha256.bind(zipFile.openRead()).first).toString();
-  var contentHash = (contentHashOverride ?? '').trim();
-  if (contentHash.isEmpty && isShorebird) {
-    contentHash = (await hashFlutterPatchPackageArtifact(
-          buildCacheDir: Directory(buildCacheDir),
-          buildType: cache.buildType,
-        ))
-            ?.trim() ??
-        '';
-  }
   if (contentHash.isEmpty) {
     contentHash = zipHash;
   }

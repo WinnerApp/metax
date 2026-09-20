@@ -60,6 +60,12 @@ class UploadCacheCommand extends Command {
       'commitTime',
       help: 'commit时间',
     );
+    argParser.addFlag(
+      'force',
+      help: '覆盖已存在的同键云缓存（同 commit 内容变更时使用，如 patch 后全量包）',
+      defaultsTo: false,
+      negatable: false,
+    );
   }
 
   late AppwriteCacheEnvironment appwriteCacheEnvironment;
@@ -112,6 +118,7 @@ class UploadCacheCommand extends Command {
       'commitTime',
       '请选择commit时间',
     );
+    final force = argResults?['force'] == true;
 
     final metaxCache = MetaxCache(
       buildPlatform:
@@ -130,6 +137,7 @@ class UploadCacheCommand extends Command {
       return;
     }
     List<CacheModel> needUploadCommitModels = [];
+    // Appwrite 按 commit 键存一份最新 zip；本地优先 release 槽（patch 也写此槽）。
     if (commitHash.isNotEmpty &&
         await metaxCache.isCacheExists(
           commitHash,
@@ -154,6 +162,9 @@ class UploadCacheCommand extends Command {
           ),
         ];
       }
+    } else if (commitHash.isNotEmpty) {
+      loggerError('本地不存在可上传缓存: $commitHash');
+      throw Exception('本地不存在可上传缓存: $commitHash');
     } else {
       needUploadCommitModels = cacheModels
           .where((e) => e.artifactKind == CacheArtifactKind.release)
@@ -163,7 +174,11 @@ class UploadCacheCommand extends Command {
     /// 存储上传失败的commitHash
     final failedCommitHashs = <String>[];
     for (final model in needUploadCommitModels) {
-      final isUploadSuccess = await uploadCache(metaxCache, model);
+      final isUploadSuccess = await uploadCache(
+        metaxCache,
+        model,
+        force: force,
+      );
       if (!isUploadSuccess) {
         failedCommitHashs.add(model.commitHash);
       }
@@ -202,16 +217,13 @@ class UploadCacheCommand extends Command {
     return completer.future;
   }
 
-  Future<bool> uploadCache(MetaxCache metaxCache, CacheModel model) async {
-    if (model.artifactKind != CacheArtifactKind.release) {
-      loggerInfo(
-        '跳过上传非 release 槽缓存: ${model.commitHash} (${model.artifactKind.name})',
-      );
-      return true;
-    }
-
+  Future<bool> uploadCache(
+    MetaxCache metaxCache,
+    CacheModel model, {
+    bool force = false,
+  }) async {
     final probeServer = _createAppwriteServer();
-    final isAlreadyUploaded = await probeServer.isCacheExists(
+    final existingDocs = await probeServer.listCacheDocuments(
       databaseId: appwriteCacheEnvironment.databaseId,
       collectionId: appwriteCacheEnvironment.collectionId,
       platform: metaxCache.buildPlatform.name,
@@ -222,9 +234,27 @@ class UploadCacheCommand extends Command {
       buildId: metaxCache.buildId,
       commitHash: model.commitHash,
     );
-    if (isAlreadyUploaded) {
-      loggerInfo('缓存已存在: ${model.commitHash}');
-      return true;
+    if (existingDocs.isNotEmpty) {
+      if (!force) {
+        loggerInfo('缓存已存在: ${model.commitHash}');
+        return true;
+      }
+      loggerInfo(
+        '覆盖上传云缓存: ${model.commitHash}'
+        '${model.contentHash.isNotEmpty ? ' contentHash=${model.contentHash}' : ''}',
+      );
+      await probeServer.deleteCacheEntries(
+        databaseId: appwriteCacheEnvironment.databaseId,
+        collectionId: appwriteCacheEnvironment.collectionId,
+        bucketId: appwriteCacheEnvironment.bucketId,
+        platform: metaxCache.buildPlatform.name,
+        branch: metaxCache.branch,
+        buildConfiguration: metaxCache.buildConfiguration.name,
+        buildLibrary: metaxCache.buildLibrary.name,
+        buildType: metaxCache.buildType.name,
+        buildId: metaxCache.buildId,
+        commitHash: model.commitHash,
+      );
     }
 
     final zipFilePath = metaxCache.resolveExistingZipCachePath(
@@ -260,9 +290,11 @@ class UploadCacheCommand extends Command {
           flutterSdk: model.flutterSdk,
           isShorebird: model.isShorebird,
           releaseVersion: model.releaseVersion,
+          contentHash: model.contentHash,
+          sourcePatchNumber: model.sourcePatchNumber,
           zipFile: InputFile.fromPath(
             path: zipFilePath,
-            filename: '${model.commitHash}.release.zip',
+            filename: '${model.commitHash}.zip',
           ),
         );
       });
@@ -270,7 +302,8 @@ class UploadCacheCommand extends Command {
       if (attempt < maxAttempts) {
         final delay = Duration(seconds: attempt * 2);
         loggerWarning(
-          '上传失败(${model.commitHash})，${delay.inSeconds}s 后重试 ($attempt/$maxAttempts)',
+          '上传失败(${model.commitHash})，'
+          '${delay.inSeconds}s 后重试 ($attempt/$maxAttempts)',
         );
         await Future.delayed(delay);
       }

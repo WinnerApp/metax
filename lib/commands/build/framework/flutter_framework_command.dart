@@ -274,6 +274,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       flutterSdk: flutterSdkFingerprint,
       isShorebird: flutterPatchEnabled,
       releaseVersion: releaseVer,
+      flutterDir: flutterPatchEnabled ? appHomeDir.flutterDir : null,
     );
 
     loggerInfo(

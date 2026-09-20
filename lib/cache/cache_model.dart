@@ -10,12 +10,14 @@ bool parseCacheIsShorebird(dynamic value) {
   return false;
 }
 
-/// 本地 zip 缓存槽位：release 基线与补丁全量包必须分槽，不能互相覆盖。
+/// Appwrite 同步 [contentHash] / [sourcePatchNumber]（及 zip 内
+/// `.metax_artifact.json` sidecar），换机下载后写回本地 `cache.json`，
+/// 供 by-artifact-hash promote。
 enum CacheArtifactKind {
-  /// `flutterpatch release` 上传到服务器的不可变基线
+  /// 当前使用的本地槽（release / patch 全量包都写这里）
   release,
 
-  /// `flutterpatch patch` 后重新生成的完整 aar/framework（派生物）
+  /// 历史兼容：旧 patched 槽；新流程不再写入
   patched,
 }
 
@@ -50,16 +52,17 @@ class CacheModel {
   /// 命中后用该字段做 `flutterpatch release --from-release`。
   final String releaseVersion;
 
-  /// release 基线 vs 补丁全量包。参与命中比对，使两槽可并存。
+  /// 本地文件名后缀；Appwrite 不分槽。参与本地命中比对（兼容旧 patched zip）。
   final CacheArtifactKind artifactKind;
 
-  /// 缓存 zip（或主产物）的 SHA-256；用于 `--from-release` 前校验。
-  /// **不参与**命中比对。
+  /// aar/xcframework 二进制 SHA-256；用于控制面 by-hash / `--from-release`。
+  /// **不参与**命中比对；也不写入 Appwrite。
   final String contentHash;
 
-  /// 写入 patched 槽时对应的 FlutterPatch patch 号；release 槽为 null。
+  /// 补丁全量包对应的 FlutterPatch patch 号（可选元数据）；正式 release 为 null。
   ///
-  /// **不参与**命中比对。promote 时配合 [contentHash] 做 by-hash / by-patch 溯源。
+  /// **不参与**命中比对，也**不**决定 promote 路径；promote 以 [contentHash]
+  /// 控制面 by-hash 的 `origin` 为准，本字段仅作一致性校验。
   final int? sourcePatchNumber;
 
   CacheModel({

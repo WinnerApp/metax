@@ -241,7 +241,10 @@ class AppwriteServer {
     });
   }
 
-  /// 查询缓存是否存在
+  /// 查询缓存是否存在（按 commit 键；不问 artifactKind）。
+  ///
+  /// 产物身份用 aar/framework 二进制 hash 在 FlutterPatch 控制面 Artifacts 查找，
+  /// Appwrite 只存打包 zip，不需要 release/patched 槽位字段。
   Future<bool> isCacheExists({
     required String databaseId,
     required String collectionId,
@@ -253,28 +256,114 @@ class AppwriteServer {
     required String commitHash,
     required int buildId,
   }) async {
-    return databases.listDocuments(
+    final docs = await listCacheDocuments(
       databaseId: databaseId,
       collectionId: collectionId,
-      queries: [
-        Query.equal('platform', platform),
-        Query.equal('is_store', true),
-        Query.equal('configuration', buildConfiguration),
-        Query.equal('library', buildLibrary),
-        Query.equal('type', buildType),
-        Query.equal('branch', branch),
-        Query.equal('build_id', buildId),
-        Query.equal('commit_hash', commitHash),
-      ],
-    ).then((e) {
-      return e.documents.isNotEmpty;
-    }).catchError((e, stackTrace) {
-      loggerError("e.toString() ${stackTrace.toString()}");
-      return false;
-    });
+      platform: platform,
+      branch: branch,
+      buildConfiguration: buildConfiguration,
+      buildLibrary: buildLibrary,
+      buildType: buildType,
+      commitHash: commitHash,
+      buildId: buildId,
+    );
+    return docs.isNotEmpty;
   }
 
-  /// 上传缓存
+  /// 列出匹配的 zip 缓存文档（is_store=false）。
+  Future<List<Map<String, dynamic>>> listCacheDocuments({
+    required String databaseId,
+    required String collectionId,
+    required String platform,
+    required String branch,
+    required String buildConfiguration,
+    required String buildLibrary,
+    required String buildType,
+    required String commitHash,
+    required int buildId,
+  }) async {
+    try {
+      final result = await databases.listDocuments(
+        databaseId: databaseId,
+        collectionId: collectionId,
+        queries: [
+          Query.equal('platform', platform),
+          Query.equal('is_store', false),
+          Query.equal('configuration', buildConfiguration),
+          Query.equal('library', buildLibrary),
+          Query.equal('type', buildType),
+          Query.equal('branch', branch),
+          Query.equal('build_id', buildId),
+          Query.equal('commit_hash', commitHash),
+        ],
+      );
+      return result.documents.map((e) {
+        return <String, dynamic>{
+          ...e.data,
+          r'$id': e.$id,
+        };
+      }).toList();
+    } catch (e, stackTrace) {
+      loggerError("e.toString() ${stackTrace.toString()}");
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  /// 删除匹配的 zip 缓存文档及其 storage 文件（用于内容变更后覆盖上传）。
+  Future<void> deleteCacheEntries({
+    required String databaseId,
+    required String collectionId,
+    required String bucketId,
+    required String platform,
+    required String branch,
+    required String buildConfiguration,
+    required String buildLibrary,
+    required String buildType,
+    required String commitHash,
+    required int buildId,
+  }) async {
+    final docs = await listCacheDocuments(
+      databaseId: databaseId,
+      collectionId: collectionId,
+      platform: platform,
+      branch: branch,
+      buildConfiguration: buildConfiguration,
+      buildLibrary: buildLibrary,
+      buildType: buildType,
+      commitHash: commitHash,
+      buildId: buildId,
+    );
+    if (docs.isEmpty) return;
+
+    final storage = Storage(client);
+    for (final doc in docs) {
+      final documentId = doc[r'$id']?.toString() ?? '';
+      final fileId = doc['file_id']?.toString() ?? '';
+      if (fileId.isNotEmpty) {
+        try {
+          await storage.deleteFile(bucketId: bucketId, fileId: fileId);
+        } catch (e, stackTrace) {
+          loggerWarning('删除旧缓存文件失败 ($fileId): $e');
+          loggerDebug(stackTrace.toString());
+        }
+      }
+      if (documentId.isNotEmpty) {
+        try {
+          await databases.deleteDocument(
+            databaseId: databaseId,
+            collectionId: collectionId,
+            documentId: documentId,
+          );
+        } catch (e, stackTrace) {
+          loggerWarning('删除旧缓存文档失败 ($documentId): $e');
+          loggerDebug(stackTrace.toString());
+        }
+      }
+    }
+    loggerInfo('已删除旧云缓存 ${docs.length} 条: $commitHash');
+  }
+
+  /// 上传缓存（含 releaseVersion / contentHash / sourcePatchNumber，供跨机 promote）。
   Future<bool> uploadCache({
     required String databaseId,
     required String collectionId,
@@ -291,6 +380,8 @@ class AppwriteServer {
     String flutterSdk = '',
     bool isShorebird = false,
     String releaseVersion = '',
+    String contentHash = '',
+    int? sourcePatchNumber,
   }) async {
     final Storage storage = Storage(client);
     final fileId = ID.unique();
@@ -308,28 +399,51 @@ class AppwriteServer {
       return false;
     }
 
-    try {
+    Future<bool> createDoc(Map<String, dynamic> data) async {
       await databases.createDocument(
         databaseId: databaseId,
         collectionId: collectionId,
         documentId: ID.unique(),
-        data: {
-          'platform': platform,
-          'is_store': false,
-          'configuration': buildConfiguration,
-          'library': buildLibrary,
-          'type': buildType,
-          'branch': branch,
-          'build_id': buildId,
-          'commit_hash': commitHash,
-          'file_id': fileId,
-          'commit_time': commitTime.toUtc().toIso8601String(),
-          'flutter_sdk': flutterSdk,
-          'isShorebird': isShorebird,
-          if (releaseVersion.isNotEmpty) 'releaseVersion': releaseVersion,
-        },
+        data: data,
       );
       return true;
+    }
+
+    final baseData = <String, dynamic>{
+      'platform': platform,
+      'is_store': false,
+      'configuration': buildConfiguration,
+      'library': buildLibrary,
+      'type': buildType,
+      'branch': branch,
+      'build_id': buildId,
+      'commit_hash': commitHash,
+      'file_id': fileId,
+      'commit_time': commitTime.toUtc().toIso8601String(),
+      'flutter_sdk': flutterSdk,
+      'isShorebird': isShorebird,
+      if (releaseVersion.isNotEmpty) 'releaseVersion': releaseVersion,
+    };
+
+    try {
+      // Prefer full provenance; fall back if Appwrite schema lacks new attrs.
+      final withHash = <String, dynamic>{
+        ...baseData,
+        if (contentHash.trim().isNotEmpty) 'contentHash': contentHash.trim(),
+        if (sourcePatchNumber != null)
+          'sourcePatchNumber': sourcePatchNumber,
+      };
+      try {
+        return await createDoc(withHash);
+      } catch (e) {
+        if (contentHash.trim().isEmpty && sourcePatchNumber == null) {
+          rethrow;
+        }
+        loggerWarning(
+          'Appwrite 文档写入 contentHash/sourcePatchNumber 失败，回退仅写基础字段: $e',
+        );
+        return await createDoc(baseData);
+      }
     } catch (e, stackTrace) {
       loggerError("${e.toString()} ${stackTrace.toString()}");
       try {
