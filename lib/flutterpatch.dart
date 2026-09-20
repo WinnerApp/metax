@@ -555,6 +555,31 @@ Map<String, String> flutterPatchCliEnvironment([Map<String, String>? base]) {
   return env;
 }
 
+/// 解析 release tags：显式参数 > `FLUTTERPATCH_TAGS`（逗号分隔）。
+///
+/// metax upload 按 `--isStore` 写入环境：市场包 `prod`，测试包 `test`。
+List<String> resolveFlutterPatchTags([List<String>? explicit]) {
+  if (explicit != null) {
+    return _normalizeFlutterPatchTags(explicit);
+  }
+  final raw = (Platform.environment['FLUTTERPATCH_TAGS'] ?? '').trim();
+  if (raw.isEmpty) return const [];
+  return _normalizeFlutterPatchTags(raw.split(','));
+}
+
+List<String> _normalizeFlutterPatchTags(Iterable<String> raw) {
+  final out = <String>[];
+  final seen = <String>{};
+  for (final entry in raw) {
+    final tag = entry.trim();
+    if (tag.isEmpty) continue;
+    final key = tag.toLowerCase();
+    if (!seen.add(key)) continue;
+    out.add(tag);
+  }
+  return out;
+}
+
 /// FlutterPatch 自身选项之后，用 `--` 把参数代理给 flutter。
 ///
 /// 不要传 `--packages=` / `--no-pub`：FlutterPatch 使用自带 Flutter，会重写
@@ -597,6 +622,8 @@ Future<void> runFlutterPatchRelease({
   String? artifactHash,
   /// 与 `--from-release` 联用：从指定 patch 全量基线 clone。
   int? sourcePatchNumber,
+  /// 控制面 release 标签（如 `prod` / `test`）。默认读 `FLUTTERPATCH_TAGS`。
+  List<String>? tags,
 }) async {
   await ensureFlutterPatchInstalled();
   final yaml = FlutterPatchYamlConfig.tryLoad(flutterDir);
@@ -609,6 +636,7 @@ Future<void> runFlutterPatchRelease({
   final cli = resolveFlutterPatchCli();
   final cliEnv = flutterPatchCliEnvironment();
   final from = fromRelease?.trim() ?? '';
+  final resolvedTags = resolveFlutterPatchTags(tags);
   final List<String> args;
   if (from.isNotEmpty) {
     if (from == releaseVersion.trim()) {
@@ -632,6 +660,10 @@ Future<void> runFlutterPatchRelease({
         '--source-patch-number',
         '$sourcePatchNumber',
       ],
+      if (resolvedTags.isNotEmpty) ...[
+        '--tags',
+        resolvedTags.join(','),
+      ],
     ];
   } else {
     // iOS / Android 共用 flutter/release；不清空会把上一平台残留打进下一平台缓存。
@@ -644,13 +676,18 @@ Future<void> runFlutterPatchRelease({
       '--flutter-version',
       flutterVersion,
       ...extraFlutterPatchArgs,
+      if (resolvedTags.isNotEmpty) ...[
+        '--tags',
+        resolvedTags.join(','),
+      ],
       ..._flutterPatchFlutterPassthroughArgs(extraFlutterArgs),
     ];
   }
 
   loggerInfo(
     '执行: $cli ${args.join(' ')} '
-    '(FLUTTER_STORAGE_BASE_URL=${cliEnv['FLUTTER_STORAGE_BASE_URL']})',
+    '(FLUTTER_STORAGE_BASE_URL=${cliEnv['FLUTTER_STORAGE_BASE_URL']}'
+    '${resolvedTags.isEmpty ? '' : ', tags=${resolvedTags.join(',')}'})',
   );
 
   final sw = Stopwatch()..start();
@@ -847,6 +884,86 @@ Future<_BaselineProvenance> _resolveFlutterPatchBaselineByHash({
   return (origin: origin, patchNumber: patch);
 }
 
+/// FlutterPatch CLI 本地配置目录（含 `credentials.json`）。
+///
+/// macOS: `~/Library/Application Support/flutterpatch`
+/// Linux: `$XDG_CONFIG_HOME/flutterpatch` 或 `~/.config/flutterpatch`
+/// Windows: `%APPDATA%/flutterpatch`
+Directory resolveFlutterPatchConfigDir([Map<String, String>? environment]) {
+  final env = environment ?? Platform.environment;
+  if (Platform.isMacOS) {
+    final home = (env['HOME'] ?? '').trim();
+    return Directory(
+      join(home, 'Library', 'Application Support', 'flutterpatch'),
+    );
+  }
+  if (Platform.isWindows) {
+    final appData = (env['APPDATA'] ?? '').trim();
+    return Directory(join(appData, 'flutterpatch'));
+  }
+  final xdg = (env['XDG_CONFIG_HOME'] ?? '').trim();
+  if (xdg.isNotEmpty) {
+    return Directory(join(xdg, 'flutterpatch'));
+  }
+  final home = (env['HOME'] ?? '').trim();
+  return Directory(join(home, '.config', 'flutterpatch'));
+}
+
+String _normalizeFlutterPatchBaseUrl(String url) {
+  var text = url.trim();
+  while (text.endsWith('/')) {
+    text = text.substring(0, text.length - 1);
+  }
+  return text;
+}
+
+/// 解析控制面 Bearer token。
+///
+/// 优先级：`FLUTTERPATCH_TOKEN` 环境变量 >
+/// FlutterPatch CLI `credentials.json`（按 `base_url` 匹配）。
+String? resolveFlutterPatchToken({
+  String? baseUrl,
+  Map<String, String>? environment,
+  File? credentialsFile,
+}) {
+  final env = environment ?? Platform.environment;
+  final fromEnv = (env['FLUTTERPATCH_TOKEN'] ?? '').trim();
+  if (fromEnv.isNotEmpty) return fromEnv;
+
+  final file = credentialsFile ??
+      File(join(resolveFlutterPatchConfigDir(env).path, 'credentials.json'));
+  if (!file.existsSync()) return null;
+
+  try {
+    final decoded = jsonDecode(file.readAsStringSync());
+    if (decoded is! Map) return null;
+    final map = decoded.map(
+      (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+    );
+
+    final wanted = _normalizeFlutterPatchBaseUrl(baseUrl ?? '');
+    if (wanted.isNotEmpty) {
+      for (final entry in map.entries) {
+        if (_normalizeFlutterPatchBaseUrl(entry.key) == wanted) {
+          final token = entry.value.trim();
+          if (token.isNotEmpty) return token;
+        }
+      }
+    }
+
+    // base_url 未匹配时：仅当文件里恰好一条非空凭据才回退使用
+    final singles = map.entries
+        .where((e) => e.value.trim().isNotEmpty)
+        .toList(growable: false);
+    if (singles.length == 1) {
+      return singles.first.value.trim();
+    }
+  } catch (e) {
+    loggerWarning('读取 FlutterPatch credentials.json 失败: $e');
+  }
+  return null;
+}
+
 /// Looks up baselines by full binary hash on the control plane.
 ///
 /// Returns null on 404. Throws on auth / other errors.
@@ -867,9 +984,12 @@ Future<Map<String, dynamic>?> lookupFlutterPatchBaselinesByArtifactHash({
     );
   }
   final resolvedAppId = (appId ?? yaml?.appId ?? '').trim();
-  final token = (Platform.environment['FLUTTERPATCH_TOKEN'] ?? '').trim();
+  final token = (resolveFlutterPatchToken(baseUrl: baseUrl) ?? '').trim();
   if (token.isEmpty) {
-    throw Exception('未设置 FLUTTERPATCH_TOKEN，无法 by-hash 查询 OTA 基线');
+    throw Exception(
+      '未设置 FLUTTERPATCH_TOKEN，且 credentials.json 无匹配 $baseUrl 的 token，'
+      '无法 by-hash 查询 OTA 基线',
+    );
   }
 
   final uri = Uri.parse(baseUrl).replace(

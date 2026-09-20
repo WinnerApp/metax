@@ -503,6 +503,8 @@ $changeLog
       'BUILD_VERSION_NAME': environment.buildName,
       'BUILD_VERSION_NUMBER': environment.buildNumber,
       'FLUTTERPATCH_ENABLED': flutterPatchEnabled ? 'true' : 'false',
+      // 市场包 → prod；测试包 → test（控制台按 tag 筛选）
+      'FLUTTERPATCH_TAGS': environment.isStore ? 'prod' : 'test',
     };
     buildAppRunner.environment.addAll(flutterPatchProcessEnv);
 

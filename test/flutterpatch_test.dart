@@ -160,6 +160,55 @@ metax_enabled: true
     });
   });
 
+  group('resolveFlutterPatchToken', () {
+    test('prefers FLUTTERPATCH_TOKEN over credentials.json', () {
+      final creds = File(join(tempDir.path, 'credentials.json'))
+        ..writeAsStringSync(
+          jsonEncode({'http://ota.local': 'from_file'}),
+        );
+      expect(
+        resolveFlutterPatchToken(
+          baseUrl: 'http://ota.local/',
+          environment: const {'FLUTTERPATCH_TOKEN': 'from_env'},
+          credentialsFile: creds,
+        ),
+        'from_env',
+      );
+    });
+
+    test('falls back to credentials.json matching base_url', () {
+      final creds = File(join(tempDir.path, 'credentials.json'))
+        ..writeAsStringSync(
+          jsonEncode({
+            'http://119.23.47.1:9527': 'mota_file_token',
+            'http://other.local': 'other',
+          }),
+        );
+      expect(
+        resolveFlutterPatchToken(
+          baseUrl: 'http://119.23.47.1:9527/',
+          environment: const {},
+          credentialsFile: creds,
+        ),
+        'mota_file_token',
+      );
+    });
+
+    test('uses sole credentials entry when base_url omitted', () {
+      final creds = File(join(tempDir.path, 'credentials.json'))
+        ..writeAsStringSync(
+          jsonEncode({'http://ota.local': 'only_token'}),
+        );
+      expect(
+        resolveFlutterPatchToken(
+          environment: const {},
+          credentialsFile: creds,
+        ),
+        'only_token',
+      );
+    });
+  });
+
   group('resolveFlutterPatchCli', () {
     test('defaults to flutterpatch', () {
       expect(resolveFlutterPatchCli({}), kFlutterPatchCliName);

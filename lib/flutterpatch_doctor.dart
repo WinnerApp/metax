@@ -100,8 +100,8 @@ class FlutterPatchDoctor {
   }
 
   Future<DoctorCheckItem> _checkAuth({required bool cliOk}) async {
-    final flutterPatchToken = (environment['FLUTTERPATCH_TOKEN'] ?? '').trim();
-    if (flutterPatchToken.isNotEmpty) {
+    final fromEnv = (environment['FLUTTERPATCH_TOKEN'] ?? '').trim();
+    if (fromEnv.isNotEmpty) {
       return DoctorCheckItem(
         id: 'flutterpatch_auth',
         title: 'FlutterPatch 鉴权',
@@ -110,6 +110,23 @@ class FlutterPatchDoctor {
         detail: cliOk
             ? 'FLUTTERPATCH_TOKEN 已设置'
             : 'FLUTTERPATCH_TOKEN 已设置（CLI 缺失）',
+      );
+    }
+
+    final yaml = FlutterPatchYamlConfig.tryLoad(appHomeDir.flutterDir);
+    final fromCredentials = resolveFlutterPatchToken(
+      baseUrl: yaml?.baseUrl,
+      environment: environment,
+    );
+    if ((fromCredentials ?? '').trim().isNotEmpty) {
+      return DoctorCheckItem(
+        id: 'flutterpatch_auth',
+        title: 'FlutterPatch 鉴权',
+        ok: true,
+        severity: DoctorCheckSeverity.info,
+        detail: cliOk
+            ? 'credentials.json 已匹配控制面 token'
+            : 'credentials.json 已匹配控制面 token（CLI 缺失）',
       );
     }
 
@@ -130,9 +147,9 @@ class FlutterPatchDoctor {
       title: 'FlutterPatch 鉴权',
       ok: false,
       severity: DoctorCheckSeverity.error,
-      detail: '未设置 FLUTTERPATCH_TOKEN'
+      detail: '未设置 FLUTTERPATCH_TOKEN，且 credentials.json 无可用 token'
           '${cliOk ? '' : '，且 CLI 不可用'}',
-      fix: '打包机/CI 配置 FLUTTERPATCH_TOKEN',
+      fix: '本地: flutterpatch login；CI: 配置 FLUTTERPATCH_TOKEN',
     );
   }
 
