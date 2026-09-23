@@ -298,6 +298,8 @@ metax_enabled: true
       writeHotUpdatableResourcesJson(
         checkJson: {
           'ota_supported': true,
+          'release_version': '1.0.0+1',
+          'patch_number': 2,
           'resources': [
             {
               'package': 'demo',
@@ -334,6 +336,10 @@ metax_enabled: true
       );
       final decoded = jsonDecode(out.readAsStringSync()) as Map;
       expect(decoded['ota_supported'], isTrue);
+      expect(decoded['release_version'], '1.0.0+1');
+      expect(decoded['patch_number'], 2);
+      expect(decoded['config_fingerprint'], isA<String>());
+      expect((decoded['config_fingerprint'] as String).length, 64);
       expect(decoded['resource_count'], 2);
       expect((decoded['resources'] as List).length, 2);
       expect(decoded['asset_change_count'], 1);

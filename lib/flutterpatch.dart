@@ -355,8 +355,25 @@ void writeHotUpdatableResourcesJson({
   final unsupportedRaw = payloadIn?['unsupported_asset_changes'];
   final unsupportedList = unsupportedRaw is List ? unsupportedRaw : const [];
 
+  final releaseVersion = '${payloadIn?['release_version'] ?? ''}'.trim();
+  final patchNumberRaw = payloadIn?['patch_number'];
+  final patchNumber = patchNumberRaw is num
+      ? patchNumberRaw.toInt()
+      : int.tryParse('${patchNumberRaw ?? ''}'.trim());
+  var configFingerprint =
+      '${payloadIn?['config_fingerprint'] ?? ''}'.trim();
+  if (configFingerprint.isEmpty && releaseVersion.isNotEmpty) {
+    configFingerprint = _configFingerprintForResourcesJson(
+      releaseVersion: releaseVersion,
+      resources: resources,
+    );
+  }
+
   final payload = <String, dynamic>{
     'ota_supported': otaSupported ?? payloadIn?['ota_supported'] == true,
+    if (releaseVersion.isNotEmpty) 'release_version': releaseVersion,
+    if (patchNumber != null && patchNumber > 0) 'patch_number': patchNumber,
+    if (configFingerprint.isNotEmpty) 'config_fingerprint': configFingerprint,
     'resource_count': resources.length,
     // 当前工程全量 Flutter asset 清单（非 diff）
     'resources': resources,
@@ -372,6 +389,35 @@ void writeHotUpdatableResourcesJson({
   file.writeAsStringSync(
     '${const JsonEncoder.withIndent('  ').convert(payload)}\n',
   );
+}
+
+/// SHA-256 of canonical full inventory — mirrors CLI `configFingerprintForResources`.
+String _configFingerprintForResourcesJson({
+  required String releaseVersion,
+  required List<dynamic> resources,
+}) {
+  final items = <Map<String, Object?>>[];
+  for (final raw in resources) {
+    if (raw is! Map) continue;
+    final m = Map<String, dynamic>.from(raw);
+    items.add({
+      'package': '${m['package'] ?? ''}',
+      'path': '${m['path'] ?? ''}',
+      'hash': '${m['hash'] ?? ''}',
+      'size': (m['size'] as num?)?.toInt() ?? 0,
+      if (m['package_hash'] != null) 'package_hash': m['package_hash'],
+    });
+  }
+  items.sort((a, b) {
+    final byPackage = '${a['package']}'.compareTo('${b['package']}');
+    if (byPackage != 0) return byPackage;
+    return '${a['path']}'.compareTo('${b['path']}');
+  });
+  final payload = <String, Object?>{
+    'release_version': releaseVersion,
+    'resources': items,
+  };
+  return sha256.convert(utf8.encode(jsonEncode(payload))).toString();
 }
 
 /// 组装 `flutterpatch patch` 参数（不含可执行文件名）。
