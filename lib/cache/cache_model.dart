@@ -48,8 +48,11 @@ class CacheModel {
 
   /// 写入缓存时登记到 FlutterPatch 的 `--release-version`（如 `1.2.3+456`）。
   ///
-  /// **不参与缓存命中比对**：同一 Flutter commit 可被多个宿主版本复用；
-  /// 命中后用该字段做 `flutterpatch release --from-release`。
+  /// **不参与** `updateCache` / `CacheModel.==` 的本地 zip 主键比对：同一 Flutter
+  /// commit 可被多个宿主版本复用；命中后用该字段做 `flutterpatch release --from-release`。
+  ///
+  /// **`cache use` 例外**：当前 commit 未命中时，可按该字段与宿主
+  /// `FLUTTERPATCH_RELEASE_VERSION` 完全一致回退到已有产物（同版本改渠道等场景）。
   final String releaseVersion;
 
   /// 本地文件名后缀；Appwrite 不分槽。参与本地命中比对（兼容旧 patched zip）。

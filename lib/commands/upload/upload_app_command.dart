@@ -899,7 +899,8 @@ $changeLog
     if (cacheDir.existsSync()) {
       cacheDir.deleteSync(recursive: true);
     }
-    // 始终按 commitHash 查本地/网络缓存：命中则跳过编译，未命中再编译。
+    // 优先按 commitHash 查本地/网络缓存；Flutter 在 commit 未命中且
+    // FLUTTERPATCH_RELEASE_VERSION 与已有产物一致时，回退复用同版本缓存。
     // 不要用 isFlutterBuild 关掉 Flutter 缓存，否则即使产物 commit 已一致也会强制重编。
     final env = <String, String>{
       ...Platform.environment,

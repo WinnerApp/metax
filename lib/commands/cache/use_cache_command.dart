@@ -533,10 +533,6 @@ class UseCacheCommand extends Command {
         .toList();
 
     loggerDebug('commitHash: $commitHash buildId: $buildId');
-    if (commitHash != null) {
-      cacheModels =
-          cacheModels.where((e) => e.commitHash == commitHash).toList();
-    }
 
     if (buildId != null) {
       cacheModels = cacheModels.where((e) => e.buildId == buildId).toList();
@@ -564,6 +560,16 @@ class UseCacheCommand extends Command {
           .toList();
     }
 
+    final releaseVersion = buildLibrary == BuildLibrary.flutter.name
+        ? resolveReleaseVersionFromEnv()
+        : null;
+    final selected = selectCacheByCommitOrReleaseVersion(
+      candidates: cacheModels,
+      commitHash: commitHash,
+      buildLibrary: buildLibrary,
+      releaseVersion: releaseVersion,
+    );
+    cacheModels = selected.models;
     if (cacheModels.isEmpty) return null;
 
     /// 如果是Unity则按照BuildId排序
@@ -578,6 +584,14 @@ class UseCacheCommand extends Command {
       });
     } else {
       throw UnimplementedError();
+    }
+
+    if (selected.usedReleaseVersionFallback) {
+      final hit = cacheModels.first;
+      loggerWarning(
+        'commit $commitHash 无缓存，复用同 releaseVersion='
+        '${hit.releaseVersion} 的缓存 ${hit.commitHash}',
+      );
     }
 
     /// 获取当前分支可用缓存（Unity 按 buildId 降序后取最新一条）
@@ -747,4 +761,41 @@ class UseCacheCommand extends Command {
       printOutput: true,
     );
   }
+}
+
+/// Flutter `cache use`：优先 commitHash；未命中且提供 releaseVersion 时按宿主版本回退。
+///
+/// Unity 与其它库仅按 commitHash 过滤（无版本回退）。
+({List<CacheModel> models, bool usedReleaseVersionFallback})
+    selectCacheByCommitOrReleaseVersion({
+  required List<CacheModel> candidates,
+  required String? commitHash,
+  required String buildLibrary,
+  String? releaseVersion,
+}) {
+  if (commitHash == null || commitHash.isEmpty) {
+    return (models: List<CacheModel>.from(candidates), usedReleaseVersionFallback: false);
+  }
+
+  final byCommit =
+      candidates.where((e) => e.commitHash == commitHash).toList();
+  if (byCommit.isNotEmpty) {
+    return (models: byCommit, usedReleaseVersionFallback: false);
+  }
+
+  if (buildLibrary != BuildLibrary.flutter.name) {
+    return (models: byCommit, usedReleaseVersionFallback: false);
+  }
+
+  final version = (releaseVersion ?? '').trim();
+  if (version.isEmpty) {
+    return (models: byCommit, usedReleaseVersionFallback: false);
+  }
+
+  final byVersion =
+      candidates.where((e) => e.releaseVersion == version).toList();
+  if (byVersion.isEmpty) {
+    return (models: byCommit, usedReleaseVersionFallback: false);
+  }
+  return (models: byVersion, usedReleaseVersionFallback: true);
 }
