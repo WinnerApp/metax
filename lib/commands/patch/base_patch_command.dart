@@ -52,16 +52,16 @@ abstract class BasePatchCommand extends Command {
     argParser.addFlag(
       'whitelist',
       help:
-          '透传 flutterpatch --whitelist：本补丁开启设备白名单。'
-          '未给 --unique-ids 时，需在控制台补 ID 后设备才能更新。'
-          '全量放量用 --no-whitelist',
+          '透传 flutterpatch --whitelist：写入补丁元数据，由**客户端**按 unique_ids 灰度。'
+          '服务端不拦截下载。未给 --unique-ids 时客户端会全员跳过，需补 ID。'
+          '全量客户端放行用 --no-whitelist',
       defaultsTo: false,
     );
     argParser.addMultiOption(
       'unique-ids',
       help:
-          '透传 flutterpatch --unique-ids：白名单开启时允许更新的 client_id'
-          '（逗号分隔或重复传参）',
+          '透传 flutterpatch --unique-ids：白名单开启时客户端允许更新的业务 id'
+          '（如用户 uid；逗号分隔或重复传参）。服务端不据此挡下载',
       splitCommas: true,
     );
     argParser.addOption(
