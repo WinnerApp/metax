@@ -339,6 +339,8 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
         )),
         printOutput: true,
       );
+      // 仅真机切片：需 Flutter 工具带 --[no-]simulator（见 tool/apply_ios_framework_device_only_patch.sh）
+      final deviceOnlyArgs = await _iosFrameworkDeviceOnlyArgs();
       if (configuration == 'debug') {
         /// flutter build ios-framework --no-profile --no-release --xcframework --cocoapods --verbose
         await ProcessRunner().runProcess(
@@ -348,6 +350,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
             'ios-framework',
             '--no-profile',
             '--no-release',
+            ...deviceOnlyArgs,
             '--xcframework',
             '--cocoapods',
             '--verbose'
@@ -372,9 +375,10 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
           platform: 'ios-framework',
           releaseVersion: flutterPatchReleaseVersion!,
           flutterVersion: flutterVersion,
-          extraFlutterArgs: const [
+          extraFlutterArgs: [
             '--no-debug',
             '--no-profile',
+            ...deviceOnlyArgs,
             '--xcframework',
             '--no-tree-shake-icons',
           ],
@@ -389,6 +393,7 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
             'ios-framework',
             '--no-debug',
             '--no-profile',
+            ...deviceOnlyArgs,
             '--xcframework',
             '--cocoapods',
             '--no-pub',
@@ -400,6 +405,33 @@ class FlutterFrameworkCommand extends BuildCacheCommand {
       }
     }
     await _runSetupIosFrameworkPodspec();
+  }
+
+  /// 若当前 Flutter 支持 `--[no-]simulator`，则传 `--no-simulator` 跳过模拟器切片。
+  /// 未打补丁的官方 SDK 无此 flag，不传以免直接失败。
+  Future<List<String>> _iosFrameworkDeviceOnlyArgs() async {
+    try {
+      final result = await ProcessRunner().runProcess(
+        [...flutterCommand, 'build', 'ios-framework', '-h'],
+        workingDirectory: appHomeDir.flutterDir,
+        printOutput: false,
+      );
+      final help = '${result.stdout}\n${result.stderr}';
+      if (help.contains('--[no-]simulator') || help.contains('--simulator')) {
+        loggerInfo(
+          '检测到 ios-framework --no-simulator，仅编 iphoneos（跳过模拟器）',
+        );
+        return const ['--no-simulator'];
+      }
+    } catch (e) {
+      loggerWarning('探测 ios-framework --simulator 失败: $e');
+    }
+    loggerWarning(
+      '当前 Flutter 无 --no-simulator，仍会编模拟器。'
+      '请执行: bash tool/apply_ios_framework_device_only_patch.sh'
+      '（metax 仓库）后重试',
+    );
+    return const [];
   }
 
   Future<void> _ensureLocalFrameworkBuildDir() async {
