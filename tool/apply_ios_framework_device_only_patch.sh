@@ -27,8 +27,19 @@ already_patched() {
 }
 
 has_absolute_symroot() {
-  # xcodebuild cwd=Pods；相对 SYMROOT 会写到 ios/Pods/build/... 导致 listSync 崩溃
-  grep -q "path.absolute" "$1" 2>/dev/null && grep -q "framework_xcode_cache" "$1" 2>/dev/null
+  # 必须检查 _pluginXcodeCache 函数体：文件其它处也有 path.absolute，不能全文件 grep
+  python3 - "$1" <<'PY'
+import re
+import sys
+
+text = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(
+    r"Directory _pluginXcodeCache\(XcodeSdk sdk\) \{.*?  \}",
+    text,
+    re.S,
+)
+sys.exit(0 if m and "path.absolute" in m.group(0) else 1)
+PY
 }
 
 # 修复已打补丁但 SYMROOT 仍为相对路径的旧版本
