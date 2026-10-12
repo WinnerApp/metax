@@ -72,12 +72,18 @@ index b594d1527..6f45b6b6c 100644
  
 +  /// Persistent Xcode SYMROOT so plugin compiles can increment like Android Gradle.
 +  /// The mode output directory is wiped every run; putting objects there forces a full rebuild.
++  /// Must be absolute: xcodebuild runs with cwd=Pods, so a relative SYMROOT would land under ios/Pods/.
 +  Directory _pluginXcodeCache(XcodeSdk sdk) {
-+    return globals.fs
-+        .directory(getBuildDirectory())
-+        .childDirectory('ios')
-+        .childDirectory('framework_xcode_cache')
-+        .childDirectory(sdk.platformName);
++    return globals.fs.directory(
++      globals.fs.path.absolute(
++        globals.fs.path.join(
++          getBuildDirectory(),
++          'ios',
++          'framework_xcode_cache',
++          sdk.platformName,
++        ),
++      ),
++    );
 +  }
 +
 +  List<String> _pluginXcodebuildCommand({
