@@ -18,3 +18,8 @@ echo "已安装: $HOME/.local/bin/metax"
 if [[ "${APPLY_IOS_FRAMEWORK_DEVICE_ONLY_PATCH:-1}" == "1" ]]; then
   bash "$(dirname "$0")/tool/apply_ios_framework_device_only_patch.sh" || true
 fi
+
+# 可选：关闭 Flutter build aar 生成 Javadoc（部分插件 Dokka 会失败）
+if [[ "${APPLY_AAR_DISABLE_JAVADOC_PATCH:-1}" == "1" ]]; then
+  bash "$(dirname "$0")/tool/apply_aar_disable_javadoc_patch.sh" || true
+fi
