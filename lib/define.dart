@@ -118,7 +118,8 @@ enum MockType {
         )),
       MockType.ohosUnityLibrary => Directory(join(
           appHomeDir.ohosDir.path,
-          'unityLibrary',
+          'unityWebgl',
+          'assets',
         )),
       MockType.flutterAar => Directory(join(
           appHomeDir.flutterDir.path,

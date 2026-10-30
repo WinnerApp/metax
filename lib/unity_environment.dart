@@ -78,11 +78,10 @@ class UnityEnvironment {
     };
   }
 
-  /// iOS/Android 使用 Unity 引擎；鸿蒙使用团结引擎。
+  /// iOS/Android/鸿蒙 WebGL 均使用 Unity 引擎（鸿蒙不再用团结导出 Player）。
   String getEnginePath(String platform) {
     return switch (platform) {
-      'ios' || 'android' => unityEnginePath,
-      'ohos' => requiredTuanjieEnginePath,
+      'ios' || 'android' || 'ohos' => unityEnginePath,
       _ => throw Exception('不支持的平台: $platform'),
     };
   }

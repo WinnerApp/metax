@@ -163,11 +163,7 @@ flutter.sdk=$flutterDir
       'flutterSourceCompile',
       'false',
     );
-    await writeEnvironmentValueInFile(
-      targetLocalProperties.path,
-      'useUnityAarBuild',
-      'true',
-    );
+    // 鸿蒙 Unity 产物为 ohos/unityWebgl，不再写入 useUnityAarBuild / tuanjieLib HAR
     loggerSuccess('已从 Flutter .ohos 复制 local.properties 并写入鸿蒙打包配置');
   }
 

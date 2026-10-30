@@ -6,6 +6,7 @@ import 'package:meta_tool/cache/unity_cache.dart';
 import 'package:meta_tool/commands/build/build_cache_command.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
+import 'package:meta_tool/ohos_webgl_sync.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
 
@@ -130,35 +131,48 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
         }
       }
     }
+
+    // 鸿蒙 WebGL：缓存落在 assets 后，再 sync 到 rawfile（注入 bridge）
+    if (platform == BuildPlatform.ohos) {
+      await syncOhosUnityWebglToRawfile(appHomeDir);
+    }
   }
 
   @override
   Future<void> buildCache() async {
     final unityEnvironment = UnityEnvironment.fromEnvironment(appHomeDir);
-    final appRunner = await createAppRunner(appHomeDir);
-    await appRunner.runProcess(
-      [
-        'build_winner_app',
-        'export',
-        '-p',
-        platform.name,
-        '-u',
-        unityEnvironment.getEnginePath(platform.name),
-      ],
-      printOutput: true,
-    );
+    final skipExport =
+        Platform.environment['METAX_SKIP_UNITY_EXPORT']?.toLowerCase() ==
+            'true';
+    if (skipExport && platform == BuildPlatform.ohos) {
+      loggerWarning('METAX_SKIP_UNITY_EXPORT=true，跳过 Unity 批处理');
+    } else {
+      final appRunner = await createAppRunner(appHomeDir);
+      // ohos → build_winner_app 调用 ExportAppData.exportOpenHarmony（Unity 引擎）
+      await appRunner.runProcess(
+        [
+          'build_winner_app',
+          'export',
+          '-p',
+          platform.name,
+          '-u',
+          unityEnvironment.getEnginePath(platform.name),
+        ],
+        printOutput: true,
+      );
+    }
     // Unity 导出后，把产物从 Unity 实际导出位置复制到 metax 期望的缓存目录
     await _copyExportedUnityToCacheDir(unityEnvironment);
   }
 
-  /// 计算 metax 期望的 Unity 缓存目录
+  /// 计算 metax 期望的 Unity 缓存目录（宿主工程内）
   String _getUnityCacheDir(UnityEnvironment unityEnvironment) {
-    final appWorkspace = join(unityEnvironment.unityWorkspace, platform.name);
     return switch (platform) {
-      BuildPlatform.ios => join(appWorkspace, 'UnityLibrary'),
-      // Android Unity Library 导出到 android/unityLibrary（AAR 由 unityAndroid 壳引用）
-      BuildPlatform.android => join(appWorkspace, 'unityLibrary'),
-      BuildPlatform.ohos => join(appWorkspace, 'unityLibrary'),
+      BuildPlatform.ios => join(appHomeDir.iosDir.path, 'UnityLibrary'),
+      BuildPlatform.android => join(appHomeDir.androidDir.path, 'unityLibrary'),
+      // 鸿蒙 WebGL 产物：ohos/unityWebgl/assets（再 sync 到 rawfile）
+      BuildPlatform.ohos =>
+        join(appHomeDir.ohosDir.path, 'unityWebgl', 'assets'),
     };
   }
 
@@ -168,6 +182,8 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
   /// （iOS 为 UnityLibrary）。Unity 工程外移（项目内软链共享）后，该相对路径
   /// 会解析到项目外（如 ~/Documents/{platform}/unityLibrary），与 metax 期望的
   /// 缓存目录不一致，需在此对齐。
+  ///
+  /// 鸿蒙 WebGL：`../../web/UnityLibrary` → `ohos/unityWebgl/assets` 再上传。
   Future<void> _copyExportedUnityToCacheDir(
       UnityEnvironment unityEnvironment) async {
     final workspaceDirectory =
@@ -175,11 +191,8 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
     // Unity 的 Application.dataPath 返回真实路径（软链已解析），这里同样解析
     final realWorkspace =
         Directory(workspaceDirectory).resolveSymbolicLinksSync();
-    final exportRelativePath = platform == BuildPlatform.ios
-        ? '../../ios/UnityLibrary'
-        : '../../${platform.name}/unityLibrary';
-    final unityExportDir = normalize(join(realWorkspace, exportRelativePath));
     final unityCacheDir = _getUnityCacheDir(unityEnvironment);
+    final unityExportDir = _resolveUnityExportDir(realWorkspace);
 
     if (normalize(unityExportDir) == normalize(unityCacheDir)) {
       return;
@@ -189,5 +202,28 @@ abstract class BaseUnityCacheCommand extends BuildCacheCommand {
     }
     loggerInfo('📦 复制 Unity 导出产物: $unityExportDir -> $unityCacheDir');
     await copyDirToDir(Directory(unityExportDir), Directory(unityCacheDir));
+  }
+
+  String _resolveUnityExportDir(String realWorkspace) {
+    if (platform == BuildPlatform.ios) {
+      return normalize(join(realWorkspace, '../../ios/UnityLibrary'));
+    }
+    if (platform == BuildPlatform.ohos) {
+      final candidates = [
+        normalize(join(realWorkspace, '../../web/UnityLibrary')),
+        normalize(join(realWorkspace, '../../web/unityLibrary')),
+      ];
+      for (final path in candidates) {
+        if (Directory(path).existsSync()) {
+          return path;
+        }
+      }
+      throw Exception(
+        '鸿蒙 WebGL 导出目录不存在，已检查: ${candidates.join(', ')}',
+      );
+    }
+    return normalize(
+      join(realWorkspace, '../../${platform.name}/unityLibrary'),
+    );
   }
 }

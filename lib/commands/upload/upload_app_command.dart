@@ -470,9 +470,13 @@ $changeLog
             .toLowerCase()
             .trim() ==
         'true';
-    final useUnityAarBuild =
-        (localProperties['useUnityAarBuild'] ?? 'true').toLowerCase().trim() !=
-        'false';
+    // 鸿蒙 WebGL 产物走 library 缓存（ohos/unityWebgl/assets）；iOS/Android 仍读 useUnityAarBuild
+    final useUnityAarBuild = platform == 'ohos'
+        ? false
+        : (localProperties['useUnityAarBuild'] ?? 'true')
+                .toLowerCase()
+                .trim() !=
+            'false';
 
     final flutterPatchResolved = resolveUseFlutterPatch(
       appHomeDir: appHomeDir,
@@ -526,7 +530,8 @@ $changeLog
 
     loggerDebug(
       'local.properties: flutterSourceCompile=$flutterSourceCompile, '
-      'useUnityAarBuild=$useUnityAarBuild, useFlutterPatch=$flutterPatchEnabled',
+      'useUnityAarBuild=${platform == 'ohos' ? 'n/a(ohos→unityWebgl)' : useUnityAarBuild}, '
+      'useFlutterPatch=$flutterPatchEnabled',
     );
 
     loggerDebug('开始复制Unity静态库到指定位置');
@@ -754,7 +759,8 @@ $changeLog
     return readEnvironmentFromFile(file.path);
   }
 
-  /// Unity 产物类型：预编译 aar/har/framework，或源码 library
+  /// Unity 产物类型：预编译 aar/har/framework，或源码 library。
+  /// 鸿蒙固定 library → `ohos/unityWebgl/assets`（WebGL 产物）。
   String _resolveUnityBuildType({
     required String platform,
     required bool useUnityAarBuild,
@@ -762,7 +768,7 @@ $changeLog
     return switch (platform) {
       'ios' => useUnityAarBuild ? BuildType.framework.value : BuildType.library.value,
       'android' => useUnityAarBuild ? BuildType.aar.value : BuildType.library.value,
-      'ohos' => useUnityAarBuild ? BuildType.har.value : BuildType.library.value,
+      'ohos' => BuildType.library.value,
       _ => throw Exception('不支持的平台:$platform'),
     };
   }
@@ -804,7 +810,7 @@ $changeLog
       useUnityAarBuild: useUnityAarBuild,
     );
     loggerDebug(
-      'Unity 构建方式: ${useUnityAarBuild ? '预编译($unityBuildType)' : '源码(library)'}'
+      'Unity 构建方式: ${environment.platform == 'ohos' ? 'library(ohos/unityWebgl/assets)' : (useUnityAarBuild ? '预编译($unityBuildType)' : '源码(library)')}'
       '${cacheOnly ? ' [仅缓存]' : ''}',
     );
 
@@ -818,9 +824,8 @@ $changeLog
       'android' => useUnityAarBuild
           ? io.Directory(join(appHomeDir.androidDir.path, 'aar', 'unity'))
           : io.Directory(join(appHomeDir.androidDir.path, 'unityLibrary')),
-      'ohos' => useUnityAarBuild
-          ? io.Directory(join(appHomeDir.ohosDir.path, 'aar', 'unity'))
-          : io.Directory(join(appHomeDir.ohosDir.path, 'unityLibrary')),
+      'ohos' =>
+        io.Directory(join(appHomeDir.ohosDir.path, 'unityWebgl', 'assets')),
       _ => throw Exception('不支持的平台:${environment.platform}')
     };
     if (cacheDir.existsSync()) {

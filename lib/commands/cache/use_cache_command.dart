@@ -13,6 +13,7 @@ import 'package:meta_tool/commands/cache/cache_patch_engine.dart';
 import 'package:meta_tool/common.dart';
 import 'package:meta_tool/define.dart';
 import 'package:meta_tool/flutterpatch.dart';
+import 'package:meta_tool/ohos_webgl_sync.dart';
 import 'package:meta_tool/unity_environment.dart';
 import 'package:path/path.dart';
 import 'package:process_runner/process_runner.dart';
@@ -119,14 +120,17 @@ class UseCacheCommand extends Command {
       if (buildLibrary == BuildLibrary.flutter.name) {
         buildType = BuildType.har.value;
       } else {
-        buildType = ArgumentGet(argResults).getString(
-          'buildType',
-          '请选择构建类型',
-          allowed: [
-            BuildType.har.value,
-            BuildType.library.value,
-          ],
-        );
+        // 鸿蒙 Unity 仅允许 library → ohos/unityWebgl/assets（WebGL 产物）
+        final requested = argResults?['buildType'] as String?;
+        if (requested != null &&
+            requested.isNotEmpty &&
+            requested != BuildType.library.value) {
+          throw Exception(
+            '鸿蒙 Unity 仅支持 library（落点: ohos/unityWebgl/assets），'
+            '不支持 buildType=$requested',
+          );
+        }
+        buildType = BuildType.library.value;
       }
     } else {
       if (buildLibrary == BuildLibrary.flutter.name) {
@@ -416,22 +420,26 @@ class UseCacheCommand extends Command {
         throw Exception('不支持的构建类型: $buildType');
       }
     } else if (buildPlatform == BuildPlatform.ohos.name) {
-      if (buildType == BuildType.library.name) {
-        return join(appHomeDir.ohosDir.path, 'unityLibrary');
-      } else if (buildType == BuildType.har.name) {
+      if (buildLibrary == BuildLibrary.unity.name) {
+        if (buildType != BuildType.library.name) {
+          throw Exception(
+            '鸿蒙 Unity 仅支持 library（落点: ohos/unityWebgl/assets），'
+            '不支持 buildType=$buildType',
+          );
+        }
+        return join(appHomeDir.ohosDir.path, 'unityWebgl', 'assets');
+      }
+      if (buildType == BuildType.har.name) {
         if (buildLibrary == BuildLibrary.flutter.name) {
           final mode =
               buildConfiguration == BuildConfiguration.debug.name
                   ? 'debug'
                   : 'release';
           return join(appHomeDir.ohosDir.path, 'aar', 'flutter', mode);
-        } else if (buildLibrary == BuildLibrary.unity.name) {
-          return join(appHomeDir.ohosDir.path, 'aar', 'unity');
         }
         throw Exception('不支持的构建库: $buildLibrary');
-      } else {
-        throw Exception('ohos仅支持 library/har 构建类型: $buildType');
       }
+      throw Exception('ohos Flutter 仅支持 har；Unity 仅支持 library');
     } else {
       throw Exception('不支持的平台: $buildPlatform');
     }
@@ -458,6 +466,12 @@ class UseCacheCommand extends Command {
           artifactKind: cacheModel.artifactKind,
         );
     await copyZipToDir(zipPath, targetDir);
+
+    // 鸿蒙 Unity WebGL：assets 解压后 sync 到 rawfile
+    if (buildPlatform == BuildPlatform.ohos.name &&
+        buildLibrary == BuildLibrary.unity.name) {
+      await syncOhosUnityWebglToRawfile(appHomeDir);
+    }
 
     /// 修复 Flutter 产物已知问题（KSCrash podspec 版本 / Measure swiftinterface）
     if (buildPlatform == BuildPlatform.ios.name &&

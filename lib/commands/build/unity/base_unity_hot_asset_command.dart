@@ -10,7 +10,8 @@ import 'package:process_runner/process_runner.dart';
 
 class UnityHotAssetCommand extends Command {
   UnityHotAssetCommand() {
-    argParser.addOption('platform', help: '平台', allowed: ['ios', 'android', 'ohos']);
+    argParser.addOption('platform',
+        help: '平台', allowed: ['ios', 'android', 'ohos']);
     argParser
         .addOption('build_type', help: '打包类型', allowed: ['Debug', 'Release']);
     argParser.addOption('jenkins_workspace', help: 'Jenkins 工作空间');
@@ -61,18 +62,21 @@ class UnityHotAssetCommand extends Command {
     } else {
       await switchBranch(unityProjectPath, branch);
     }
-    final unityEnginePath = switch (platform) {
-      'ohos' => env['TUANJIE_ENGINE_PATH'],
-      _ => env['UNITY_ENGINE_PATH'],
-    };
-    if (unityEnginePath == null) {
-      throw platform == 'ohos' ? '找不到团结引擎路径' : '找不到 Unity 引擎路径';
+
+    // 鸿蒙 WebGL 热更与 iOS/Android 一样走 Unity 引擎（不再用团结）。
+    final unityEnginePath = env['UNITY_ENGINE_PATH'];
+    if (unityEnginePath == null || unityEnginePath.trim().isEmpty) {
+      throw '找不到 Unity 引擎路径（UNITY_ENGINE_PATH）';
     }
-    final methodName = switch (buildType) {
-      'Debug' => 'ExportAppData.exportDebugHotAsset',
-      'Release' => 'ExportAppData.exportReleaseHotAsset',
-      _ => throw '平台不支持',
-    };
+
+    final methodName = _resolveHotAssetMethod(
+      platform: platform,
+      buildType: buildType,
+    );
+    loggerInfo(
+      'Unity 热更: platform=$platform buildType=$buildType method=$methodName',
+    );
+
     final result = await ProcessRunner().runProcess(
       [
         unityEnginePath,
@@ -97,11 +101,12 @@ class UnityHotAssetCommand extends Command {
     final hotAssetPath = switch (platform) {
       'ios' => join(unityProjectPath, 'HotUpdate', buildType, 'IOS'),
       'android' => join(unityProjectPath, 'HotUpdate', buildType, 'Android'),
+      // WebGL 热更产物目录仍为 Harmony（工具/上传链路写死）
       'ohos' => join(unityProjectPath, 'HotUpdate', buildType, 'Harmony'),
       _ => throw '平台不支持',
     };
     if (!Directory(hotAssetPath).existsSync()) {
-      throw '找不到平台对应的 Hot Asset 路径';
+      throw '找不到平台对应的 Hot Asset 路径: $hotAssetPath';
     }
     final jenkinsAssetDir = Directory(join(
       jenkinsWorkspace,
@@ -119,11 +124,30 @@ class UnityHotAssetCommand extends Command {
       ['cp', '-r', hotAssetPath, jenkinsAssetDir.path],
       printOutput: true,
     );
-    loggerSuccess('复制资源到 Jenkins 工作空间成功');
+    loggerSuccess('复制资源到 Jenkins 工作空间成功: ${jenkinsAssetDir.path}');
+  }
+
+  /// iOS/Android：旧 HotAsset 入口；鸿蒙：WebGL 热更入口。
+  String _resolveHotAssetMethod({
+    required String platform,
+    required String buildType,
+  }) {
+    if (platform == 'ohos') {
+      return switch (buildType) {
+        'Debug' => 'ExportAppData.BuildWebGLHotUpdate',
+        'Release' => 'ExportAppData.BuildWebGLHotUpdateRelease',
+        _ => throw '打包类型不支持: $buildType',
+      };
+    }
+    return switch (buildType) {
+      'Debug' => 'ExportAppData.exportDebugHotAsset',
+      'Release' => 'ExportAppData.exportReleaseHotAsset',
+      _ => throw '打包类型不支持: $buildType',
+    };
   }
 
   @override
-  String get description => 'Unity 热更资源打包';
+  String get description => 'Unity 热更资源打包（鸿蒙走 WebGL HotUpdate）';
 
   @override
   String get name => 'unity-hot-asset';

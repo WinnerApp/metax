@@ -303,9 +303,11 @@ Future<void> writeBuildDirToCacheSystem({
   int? sourcePatchNumber,
   Directory? flutterDir,
 }) async {
-  final buildCacheParentDir = Directory(buildCacheDir).parent;
+  final buildCacheParentDir = Directory(buildCacheDir).absolute.parent;
   final stagingZipName = '$commitHash.${artifactKind.name}.staging.zip';
-  final stagingZipPath = join(buildCacheParentDir.path, stagingZipName);
+  // zip 的 workingDirectory 是 buildCacheDir；相对路径会相对该 cwd 解析，必须用绝对路径。
+  final stagingZipPath =
+      File(join(buildCacheParentDir.path, stagingZipName)).absolute.path;
 
   var contentHash = (contentHashOverride ?? '').trim();
   if (contentHash.isEmpty && isShorebird) {
